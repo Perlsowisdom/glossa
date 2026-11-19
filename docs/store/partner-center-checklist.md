@@ -24,7 +24,7 @@ Do them once, in this order. The first submission can take several days to certi
 5. Paste the text from `docs/store/listing.md` (short description, description, search terms) and the
    features from `docs/store/features.md`.
 6. Upload the screenshots from `docs/store/screenshots/` (1366x768, at least one; up to ten) and the
-   logos `docs/store/logo-300.png` (the 300x300 Store logo) `logo-1080.png` (the 1080x1080 box art) and `logo-2160.png` (2160x2160, for high-resolution box art).
+   logos `docs/store/logo-300.png` (the 300x300 Store logo), `logo-1080.png` (the 1080x1080 box art) and `logo-2160.png` (2160x2160, for high-resolution box art).
 7. Privacy policy link: `https://github.com/Perlsowisdom/glossa/blob/main/docs/store/privacy-policy.md`
    (the repository must be public by then).
 
