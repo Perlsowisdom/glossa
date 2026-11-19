@@ -4,10 +4,12 @@
 //   npm run e2e                     build, then run everything
 //   npm run e2e -- --no-build       use the last build
 //   npm run e2e -- markdown         only files or checks whose name contains "markdown"
+//   npm run e2e -- --no-keep-awake  let the PC sleep during the run (the default keeps it awake)
 //
 // Each file's default export is a list of checks { row, shot, run(t) }. A check passes when run
 // returns; it saves its screenshot to e2e/shots/<shot>. Results go to e2e/shots/results.md.
 
+import { spawn } from "node:child_process";
 import { readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,6 +20,25 @@ const args = process.argv.slice(2);
 const filters = args.filter((a) => !a.startsWith("--")).map((a) => a.toLowerCase());
 const here = import.meta.dirname;
 const files = readdirSync(here).filter((f) => f.endsWith(".e2e.mjs")).sort();
+
+// A run takes a while and types into a real window, so the PC must not sleep or turn the screen off
+// part-way. On Windows a small PowerShell asks for ES_CONTINUOUS | ES_SYSTEM_REQUIRED |
+// ES_DISPLAY_REQUIRED (0x80000003) for as long as this run lives; it ends when this process does (it
+// watches our PID), and stopping it gives the setting back. --no-keep-awake skips it.
+function keepAwake() {
+  if (process.platform !== "win32" || args.includes("--no-keep-awake")) return () => {};
+  const script = [
+    "Add-Type -Namespace W -Name P -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint f);'",
+    "[void][W.P]::SetThreadExecutionState(0x80000003)",
+    `while (Get-Process -Id ${process.pid} -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 5 }`,
+    "[void][W.P]::SetThreadExecutionState(0x80000000)",
+  ].join("; ");
+  const ps = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script], { stdio: "ignore", windowsHide: true });
+  ps.on("error", () => {});
+  return () => { try { ps.kill(); } catch { /* already gone */ } };
+}
+const releaseAwake = keepAwake();
+process.on("exit", releaseAwake);
 
 const app = await startApp({ build: !args.includes("--no-build") });
 let stopping;
@@ -47,6 +68,7 @@ try {
   }
 } finally {
   await stop();
+  releaseAwake();
 }
 
 const failed = results.filter((r) => !r.ok).length;
