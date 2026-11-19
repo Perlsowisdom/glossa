@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -297,5 +298,24 @@ func TestInstallRefusesBadSignatureAndOldVersions(t *testing.T) {
 				t.Fatal("an installer was launched")
 			}
 		})
+	}
+}
+
+// A release made while the public key is still the placeholder has no latest.json (the release
+// workflow skips signing), and an unsigned manifest is refused: either way no update is offered.
+func TestMissingOrUnsignedManifestOffersNothing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/unsigned.json" {
+			io.WriteString(w, `{"version":"9.9.9","url":"https://github.com/x/y/setup.exe","sha256":"`+strings.Repeat("ab", 32)+`"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	for _, path := range []string{"/latest.json", "/unsigned.json"} {
+		cfg := Config{Endpoint: srv.URL + path, Current: "1.0.0", HTTP: srv.Client(), AllowHTTP: true, TempDir: t.TempDir()}
+		if m, err := cfg.Check(context.Background()); err == nil {
+			t.Errorf("%s: offered %+v", path, m)
+		}
 	}
 }

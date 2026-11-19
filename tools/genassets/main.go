@@ -41,8 +41,15 @@ func sample(u, v float64, full bool) color.NRGBA {
 		}
 	}
 	c := navy
-	w := 0.075
-	if segDist(u, v, 0.30, 0.27, 0.70, 0.67) < w || segDist(u, v, 0.70, 0.27, 0.30, 0.67) < w {
+	// A "G": a ring open at the upper right, with a bar running in from the right at mid-height.
+	const cx0, cy0, ring, half = 0.5, 0.44, 0.2, 0.07
+	dx, dy := u-cx0, v-cy0
+	ang := math.Atan2(dy, dx) * 180 / math.Pi // degrees; up is negative
+	inGap := ang > -58 && ang < -8
+	if math.Abs(math.Hypot(dx, dy)-ring) < half && !inGap {
+		c = cream
+	}
+	if segDist(u, v, cx0+0.02, cy0, cx0+ring, cy0) < half*0.8 {
 		c = cream
 	}
 	if math.Abs(u-0.5) < 0.22 && math.Abs(v-0.79) < 0.025 {

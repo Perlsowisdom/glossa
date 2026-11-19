@@ -10,11 +10,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 
 	"github.com/tc-hib/winres"
 	"github.com/tc-hib/winres/version"
+
+	"github.com/Perlsowisdom/glossa/tools/relver"
 )
 
 func main() {
@@ -44,19 +44,10 @@ func main() {
 		UseCommonControlsV6: true,
 	})
 	vi := version.Info{}
-	nums := regexp.MustCompile(`\d+`).FindAllString(ver, 3)
-	fv := ""
-	for i := range 3 {
-		n := "0"
-		if i < len(nums) {
-			n = nums[i]
-		}
-		if _, err := strconv.Atoi(n); err != nil {
-			n = "0"
-		}
-		fv += n + "."
+	fv, err := relver.FileVersion(ver)
+	if err != nil {
+		log.Fatal(err)
 	}
-	fv += "0"
 	vi.SetFileVersion(fv)
 	vi.SetProductVersion(fv)
 	const lang = 0x409
