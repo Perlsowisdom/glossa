@@ -5,7 +5,7 @@ characters and the description at most 10,000.
 
 ## Name
 
-Xegesis
+Glossa
 
 ## Short description
 
@@ -13,14 +13,14 @@ A free, open-source Bible study app that works offline. Read, search and compare
 
 ## Description
 
-Xegesis is a free, open-source Bible study app for Windows. It is quick, it works fully offline, and
+Glossa is a free, open-source Bible study app for Windows. It is quick, it works fully offline, and
 everything you write is kept in open formats on your own computer.
 
 Read a passage and study it in the same place. Open several Bibles side by side, follow cross-references,
 look up words, and search your whole library at once. Write notes and sermons next to the text, highlight
 in colours you choose, and find it all again with tags, folders and lists.
 
-You decide what goes online. Xegesis has no accounts, no tracking and no usage statistics. The few
+You decide what goes online. Glossa has no accounts, no tracking and no usage statistics. The few
 features that use the internet, such as downloading free Bibles, are off until you turn them on, and the
 privacy page says exactly what each one sends.
 
@@ -36,7 +36,7 @@ What you can do:
   provider, it only reads, and anything it writes arrives as a draft for you to insert.
 - Back up and export everything in open formats.
 
-Xegesis is free software under the MIT or Apache-2.0 licence. The source code is on GitHub.
+Glossa is free software under the MIT or Apache-2.0 licence. The source code is on GitHub.
 
 ## Search terms (up to 7)
 
@@ -59,6 +59,6 @@ about online interactions.
 
 ## Links
 
-- Privacy policy: https://github.com/Perlsowisdom/xegesis/blob/main/docs/store/privacy-policy.md
-- Website and support: https://github.com/Perlsowisdom/xegesis
+- Privacy policy: https://github.com/Perlsowisdom/glossa/blob/main/docs/store/privacy-policy.md
+- Website and support: https://github.com/Perlsowisdom/glossa
 - Support email: your chosen address (Partner Center requires one)

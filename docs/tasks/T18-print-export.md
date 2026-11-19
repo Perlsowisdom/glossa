@@ -5,7 +5,7 @@ every feature a command, permissive dependencies only.
 
 ## Idea
 
-The user found printing and exporting in their old software poor. In Xegesis it is simple, and it
+The user found printing and exporting in their old software poor. In Glossa it is simple, and it
 follows each item's own licence instead of one rule for everything.
 - Public domain and your own work have no limits.
 - Free-to-share items carry their credit line.
@@ -49,7 +49,7 @@ follows each item's own licence instead of one rule for everything.
   - do not build report data; call `report.*` only if present, and keep the report entry point ready;
   - use migration **0009** if you need one; T13 uses 0008.
 - Do not commit `frontend/dist`.
-- Use a scratch library (`XEGESIS_LIBRARY`).
+- Use a scratch library (`GLOSSA_LIBRARY`).
 
 ## Done when
 

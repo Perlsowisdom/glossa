@@ -101,7 +101,7 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - The licence gate limits each tool result on its own; a model that reads the same limited passage many
   times in one chat can receive more than one quoting limit in total. [5 Nov]
 - The command lines for the real `claude` and `codex` (flags such as `--include-partial-messages`,
-  `--allowedTools`, `--disallowedTools`, and Codex's `-c mcp_servers.xegesis.*` and `--sandbox read-only`)
+  `--allowedTools`, `--disallowedTools`, and Codex's `-c mcp_servers.glossa.*` and `--sandbox read-only`)
   were written from the tools' documented JSON output and never run against the real tools. Try each once
   by hand and adjust `CLIAgent.Args` and `streamParser` in `internal/assistant/cli.go` if a flag or event
   name differs. Check in particular that Codex runs MCP tool calls in `exec` mode without asking. [5 Nov]
@@ -197,7 +197,7 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
   (followups-1).
 - A new book highlight over an older one stacked the two colours: `highlight.create` for books splits the
   overlap (`internal/reader/bookrange.go`) (followups-1).
-- The old local preference `xegesis.assistant.provider` and its helpers are gone (followups-1).
+- The old local preference `glossa.assistant.provider` and its helpers are gone (followups-1).
 - e2e flakes in `structure.e2e.mjs` hover checks: the checks wait for a still page, and a pane no longer
   repaints on its own announcement (followups-1).
 - Read mode book toolbar: "+" hidden outside Study; the section field is sized to its number (followups-2).

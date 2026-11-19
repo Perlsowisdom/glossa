@@ -4,7 +4,7 @@ Brief for one agent (Opus), after T33. Read `AGENTS.md` first.
 
 ## Goal
 
-Show that Xegesis copes with a real-sized library: 10,000 books and 8,000 notes. Use the import path
+Show that Glossa copes with a real-sized library: 10,000 books and 8,000 notes. Use the import path
 people actually use (T33). Fix what the numbers show.
 
 ## What to build

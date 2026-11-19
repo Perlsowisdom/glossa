@@ -2,7 +2,7 @@
 
 ## Decision
 
-- **No telemetry.** Xegesis never sends usage statistics, analytics or identifiers.
+- **No telemetry.** Glossa never sends usage statistics, analytics or identifiers.
 - **One exception: bug and crash reports to the developer,** and only with the user's consent:
   - Crashes and errors are written to a local log first.
   - On the next start, or from Help → Report a problem, the user sees exactly what the report contains,

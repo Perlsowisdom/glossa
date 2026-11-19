@@ -2,7 +2,7 @@
 
 ## Decision
 
-Xegesis's features come from the Phase 1 functional survey, open-source projects and published
+Glossa's features come from the Phase 1 functional survey, open-source projects and published
 specifications. No commercial Bible software is studied, run, decompiled or copied during design or
 development. Rules are in `AGENTS.md`.
 

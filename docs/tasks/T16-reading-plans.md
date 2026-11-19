@@ -7,7 +7,7 @@ Brief for one agent (Sonnet). Read `AGENTS.md` first, especially the design phil
 The `reading_plans`, `plan_days` and `plan_progress` tables exist; nothing uses them yet.
 
 1. **Ready-made plans, generated rather than copied.** Plan lists published by others may be copyrighted,
-   so Xegesis builds its own from simple, factual rules:
+   so Glossa builds its own from simple, factual rules:
    - Whole Bible in a year;
    - New Testament in 90 days;
    - Psalms and Proverbs in a month;
@@ -46,7 +46,7 @@ The `reading_plans`, `plan_days` and `plan_progress` tables exist; nothing uses 
   - use migration number **0007** if you need one; T14 uses 0006;
   - do not touch notes or lists code.
 - Do not commit `frontend/dist`.
-- Use a scratch library (`XEGESIS_LIBRARY`).
+- Use a scratch library (`GLOSSA_LIBRARY`).
 
 ## Done when
 

@@ -49,7 +49,7 @@ complex things possible) and plain words.
   - do not touch reading plan code;
   - use migration number **0006**; T16 uses 0007. Update the schema-version tests to match.
 - Do not commit `frontend/dist`.
-- Use a scratch library (`XEGESIS_LIBRARY`).
+- Use a scratch library (`GLOSSA_LIBRARY`).
 
 ## Done when
 

@@ -20,7 +20,7 @@ Brief for agents (Opus), in two parts: **T36a**, then **T36b**. Read these first
    - **OpenAI-compatible:** one adapter for OpenAI, OpenRouter, Gemini's OpenAI-compatible endpoint,
      and local models (Ollama, LM Studio) by base URL.
    - **Claude Code and Codex on this computer:** they use the command-line tool the user has
-     already signed in to, with Xegesis's MCP server as their tools. No key is needed.
+     already signed in to, with Glossa's MCP server as their tools. No key is needed.
 3. **Licences:** text reaches a model only through the same rules as quoting into a note
    (`document.quote`):
    - open-licence text goes freely;
@@ -106,7 +106,7 @@ Brief for agents (Opus), in two parts: **T36a**, then **T36b**. Read these first
 - **Detect** the `claude` and `codex` command-line tools on PATH, with their versions. The Settings
   chips show **Ready** or **Not found**, with a link to install.
 - Run them non-interactively, for example `claude -p` with JSON output, or `codex exec`. Each gets
-  Xegesis's MCP server in a new **assistant mode**: it offers only the read-only tools, through the
+  Glossa's MCP server in a new **assistant mode**: it offers only the read-only tools, through the
   licence gate, with no write commands.
 - Stream their output into the same chat panel, with the same tool lines, drafts and Stop. Stop
   kills the whole process tree.

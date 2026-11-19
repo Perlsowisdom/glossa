@@ -45,12 +45,12 @@ copied.
 - **Each pane has its own reference box:** a resource picker and a passage box, plus Back.
 - **Linked panes:** panes in a group follow each other to the same passage. A pane can leave the group.
 - **"Related at this verse" panel:** for the current verse, a short excerpt from each commentary or
-  study Bible in the library, with a link to open it in full. In Xegesis this is the Passage study tool
+  study Bible in the library, with a link to open it in full. In Glossa this is the Passage study tool
   in the right sidebar, not a third column inside the pane.
 - **Search inside one resource,** with results grouped by verse.
 - **In-pane navigation:** contents, history, and next or previous article.
 - **Avoid:** the screenshot puts two rows of toolbar in every pane. That is the clutter the user
-  objected to. Xegesis puts one slim row per pane and moves the rest into a ⋯ menu.
+  objected to. Glossa puts one slim row per pane and moves the rest into a ⋯ menu.
 
 ### Round 3 feedback (3 November 2026)
 

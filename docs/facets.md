@@ -1,7 +1,7 @@
 # Book types and traditions
 
 Every book can have a **type** and a **tradition**. Both are item facets (`item_facets`, facets `type` and
-`tradition`) with one value each. Nothing asks the user to decide: Xegesis sets them itself, shows why, and
+`tradition`) with one value each. Nothing asks the user to decide: Glossa sets them itself, shows why, and
 the user changes them when the guess is wrong.
 
 ## Where a value came from

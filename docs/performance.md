@@ -1,6 +1,6 @@
 # Performance: the 10,000-book test (T12)
 
-How Xegesis copes with a real-sized library: 10,000 books and 8,000 notes, added through the import
+How Glossa copes with a real-sized library: 10,000 books and 8,000 notes, added through the import
 path people use (`library.add`), indexed in the background as the app does, and driven only through the
 command registry.
 
@@ -12,16 +12,16 @@ go test -tags scale -run TestScale -timeout 8h -v ./internal/scaletest
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `XEGESIS_SCALE_BOOKS` | 10000 | Books to generate |
-| `XEGESIS_SCALE_NOTES` | 8000 | Notes to create |
-| `XEGESIS_SCALE_DIR` | new folder in the temp folder | Scratch folder for books and data |
-| `XEGESIS_SCALE_OUT` | none | JSON file for the results |
-| `XEGESIS_SCALE_KEEP` | unset | `1` keeps the scratch data |
-| `XEGESIS_SCALE_OPTIMIZE` | unset | `1` also times an FTS5 optimize and VACUUM |
+| `GLOSSA_SCALE_BOOKS` | 10000 | Books to generate |
+| `GLOSSA_SCALE_NOTES` | 8000 | Notes to create |
+| `GLOSSA_SCALE_DIR` | new folder in the temp folder | Scratch folder for books and data |
+| `GLOSSA_SCALE_OUT` | none | JSON file for the results |
+| `GLOSSA_SCALE_KEEP` | unset | `1` keeps the scratch data |
+| `GLOSSA_SCALE_OPTIMIZE` | unset | `1` also times an FTS5 optimize and VACUUM |
 
 The test needs the `scale` build tag, so `go test ./...` and CI skip it. It writes about 0.9 GB of books
 and 2.7 GB of data for 10,000 books. Index files stay open until the process ends, so on Windows the
-scratch folder may be left behind; delete `%TEMP%\xegesis-scale-*` afterwards. The milestone 1
+scratch folder may be left behind; delete `%TEMP%\glossa-scale-*` afterwards. The milestone 1
 integration test (`TestM1`, same package) and a small generator test run in the normal suite (about 7 s).
 
 ## The library

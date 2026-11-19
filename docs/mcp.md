@@ -1,7 +1,7 @@
-# Using Xegesis from an MCP client
+# Using Glossa from an MCP client
 
-`xegesis mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server on standard
-input and output. It exposes every registered Xegesis command as a tool, so anything added to the
+`glossa mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server on standard
+input and output. It exposes every registered Glossa command as a tool, so anything added to the
 command registry appears without changes to the server.
 
 Supported protocol versions: 2025-06-18, 2025-03-26 and 2024-11-05 (the server answers with the
@@ -14,19 +14,19 @@ Most clients take a JSON entry like this (Claude Desktop, Claude Code `.mcp.json
 ```json
 {
   "mcpServers": {
-    "xegesis": {
-      "command": "xegesis",
-      "args": ["-library", "C:\\Users\\you\\Documents\\Xegesis\\library.db", "mcp"]
+    "glossa": {
+      "command": "glossa",
+      "args": ["-library", "C:\\Users\\you\\Documents\\Glossa\\library.db", "mcp"]
     }
   }
 }
 ```
 
 Global flags such as `-library` go before `mcp`. Without `-library`, the server uses the
-`XEGESIS_LIBRARY` environment variable, then the default library in your user config folder.
-If `xegesis` is not on your `PATH`, give the full path to the executable as `command`.
+`GLOSSA_LIBRARY` environment variable, then the default library in your user config folder.
+If `glossa` is not on your `PATH`, give the full path to the executable as `command`.
 
-With Claude Code: `claude mcp add xegesis -- xegesis -library /path/to/library.db mcp`.
+With Claude Code: `claude mcp add glossa -- glossa -library /path/to/library.db mcp`.
 
 ## Tools
 
@@ -45,18 +45,18 @@ With Claude Code: `claude mcp add xegesis -- xegesis -library /path/to/library.d
 
 ## Assistant mode
 
-`xegesis mcp-assistant` (also the desktop app's executable: `Xegesis.exe -library <path> mcp-assistant`)
+`glossa mcp-assistant` (also the desktop app's executable: `Glossa.exe -library <path> mcp-assistant`)
 serves a different, fixed list: only the AI assistant's read-only tools (`search_library`,
 `read_passage`, `list_bibles`, `read_book`, `list_notes`, `read_note`, `list_sermons`, `read_sermon`,
 `list_highlights`, `passage_report`, `word_report`, `look_up_word`). None writes, no other command is
 reachable, and every text it returns passes the licence gate as for an online model: quoting limits
-apply and personal copies of books are withheld. Xegesis starts it for Claude Code and Codex when you
-choose them as the assistant; set `XEGESIS_ASSISTANT_BIBLE` to name the Bible used when a call names none.
+apply and personal copies of books are withheld. Glossa starts it for Claude Code and Codex when you
+choose them as the assistant; set `GLOSSA_ASSISTANT_BIBLE` to name the Bible used when a call names none.
 
 ## Try it by hand
 
 ```
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"verse_parse","arguments":{"ref":"John 3:16"}}}' | xegesis mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"verse_parse","arguments":{"ref":"John 3:16"}}}' | glossa mcp
 ```
 
-`xegesis help` lists the commands; `xegesis describe <id>` shows one command's parameters.
+`glossa help` lists the commands; `glossa describe <id>` shows one command's parameters.

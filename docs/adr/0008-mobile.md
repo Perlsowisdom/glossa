@@ -2,7 +2,7 @@
 
 ## Decision
 
-Xegesis will run on Android and iOS. The Go core is built into each app with `gomobile` (BSD-3), and
+Glossa will run on Android and iOS. The Go core is built into each app with `gomobile` (BSD-3), and
 the existing web interface runs in the platform's web view. A thin native shell per platform (Kotlin
 on Android, Swift on iOS) passes `Run(command, json)` calls between the web view and the core and
 provides platform features: file picking, keychain and sharing.
