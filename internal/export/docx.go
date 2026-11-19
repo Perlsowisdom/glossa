@@ -65,13 +65,13 @@ const rootRels = xmlHead + `<Relationships xmlns="http://schemas.openxmlformats.
 <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
 </Relationships>`
 
-const appXML = xmlHead + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Xegesis</Application></Properties>`
+const appXML = xmlHead + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Glossa</Application></Properties>`
 
 const settingsXML = xmlHead + `<w:settings ` + wNS + `><w:defaultTabStop w:val="720"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`
 
 func coreXML(title string) string {
 	return xmlHead + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-		`<dc:title>` + xesc(title) + `</dc:title><dc:creator>Xegesis</dc:creator>` +
+		`<dc:title>` + xesc(title) + `</dc:title><dc:creator>Glossa</dc:creator>` +
 		`<dcterms:created xsi:type="dcterms:W3CDTF">` + time.Now().UTC().Format(time.RFC3339) + `</dcterms:created></cp:coreProperties>`
 }
 

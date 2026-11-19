@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/library"
 )
 
 // A PDF with two text pages, as the test PDF of the reader package.

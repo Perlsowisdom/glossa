@@ -6,11 +6,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/search"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Licence limits are in pages. Copied text is measured in page equivalents of charsPerPage

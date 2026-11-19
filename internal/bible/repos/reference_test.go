@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
 )
 
 // addReferenceFiles serves a tiny SWORD commentary and Strong's dictionary, STEPBible files and
@@ -88,7 +88,7 @@ func TestInstallReferenceWorks(t *testing.T) {
 	if tags.Licence.SPDX != "CC-BY-4.0" || !strings.Contains(tags.Licence.Attribution, "STEPBible") {
 		t.Errorf("licence: %+v", tags.Licence)
 	}
-	if left, _ := filepath.Glob(filepath.Join(os.Getenv("TMP"), "xegesis-*")); len(left) != 0 {
+	if left, _ := filepath.Glob(filepath.Join(os.Getenv("TMP"), "glossa-*")); len(left) != 0 {
 		t.Errorf("temporary files left: %v", left)
 	}
 }

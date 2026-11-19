@@ -1,4 +1,4 @@
-// Package updatesig signs and verifies Xegesis updates. The installer is not code-signed, so every
+// Package updatesig signs and verifies Glossa updates. The installer is not code-signed, so every
 // update carries an Ed25519 signature that the app checks against the public key built into it.
 //
 // The signature covers the installer's SHA-256 and the version it is released as, so an old
@@ -20,7 +20,7 @@ import (
 // Message is the exact text that is signed: a fixed label, the version and the lower-case hex
 // SHA-256 of the installer.
 func Message(version, sha256hex string) []byte {
-	return []byte("xegesis-update-v1\n" + version + "\n" + strings.ToLower(sha256hex) + "\n")
+	return []byte("glossa-update-v1\n" + version + "\n" + strings.ToLower(sha256hex) + "\n")
 }
 
 // Sum returns the lower-case hex SHA-256 of r's contents.

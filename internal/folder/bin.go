@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Kinds of thing the bin holds, and the table each lives in.

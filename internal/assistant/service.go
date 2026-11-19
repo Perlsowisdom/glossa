@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/secrets"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Preset is a provider choice with its usual address.

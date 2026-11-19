@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Register adds the export, import and backup commands. dataDir holds library.db; exports go to

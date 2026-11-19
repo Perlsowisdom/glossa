@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 func TestEveryRunsAndStopsCleanly(t *testing.T) {

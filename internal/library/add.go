@@ -11,25 +11,25 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // LibraryFolderName is the folder in the user's Documents that added files are copied into.
-const LibraryFolderName = "Xegesis Library"
+const LibraryFolderName = "Glossa Library"
 
 // booksDir is where added files are copied when the caller names no folder. Tests replace it.
 var booksDir = func() string { return filepath.Join(documentsDir(), LibraryFolderName) }
 
 type AddParams struct {
 	Paths []string `json:"paths" required:"true" desc:"Book files and folders. Folders are added, scanned and watched; files are copied into the library folder and scanned"`
-	Into  string   `json:"into,omitempty" desc:"Folder to copy files into; Documents/Xegesis Library when omitted"`
+	Into  string   `json:"into,omitempty" desc:"Folder to copy files into; Documents/Glossa Library when omitted"`
 }
 
 type AddFilesParams struct {
 	Files []string `json:"files" required:"true" desc:"Book files to copy into the library folder"`
-	Into  string   `json:"into,omitempty" desc:"Folder to copy them into; Documents/Xegesis Library when omitted"`
+	Into  string   `json:"into,omitempty" desc:"Folder to copy them into; Documents/Glossa Library when omitted"`
 }
 
 // LicenceCount is how many of the new books have one licence.
@@ -91,7 +91,7 @@ func add(ctx context.Context, env *command.Env, p AddParams) (AddResult, error) 
 		if !st.IsDir() {
 			if formatOf(path) == "" {
 				res.Errors = append(res.Errors, FileError{RelPath: raw,
-					Error: "not a kind of book Xegesis can read (EPUB, PDF, Word, HTML, Markdown or plain text)"})
+					Error: "not a kind of book Glossa can read (EPUB, PDF, Word, HTML, Markdown or plain text)"})
 				continue
 			}
 			files = append(files, path)

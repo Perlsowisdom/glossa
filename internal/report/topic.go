@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
 )
 
 type TopicParams struct {

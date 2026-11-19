@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
 )
 
 var dictEntries = [][2]string{

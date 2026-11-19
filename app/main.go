@@ -1,4 +1,4 @@
-// Command app is the Xegesis desktop app. Its interface calls the same command registry as the CLI;
+// Command app is the Glossa desktop app. Its interface calls the same command registry as the CLI;
 // it has no features of its own.
 package main
 
@@ -19,13 +19,13 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/Perlsowisdom/xegesis/frontend"
-	"github.com/Perlsowisdom/xegesis/internal/assistant"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/all"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/secrets"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/frontend"
+	"github.com/Perlsowisdom/glossa/internal/assistant"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/all"
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // App is bound to the interface. The interface reaches every feature through Commands and Run.
@@ -137,16 +137,16 @@ func (a *App) Run(id, params string) (string, error) {
 	return string(b), err
 }
 
-// libraryPath is library.db in the user's config folder, or XEGESIS_LIBRARY when set, as for the CLI.
+// libraryPath is library.db in the user's config folder, or GLOSSA_LIBRARY when set, as for the CLI.
 func libraryPath() string {
-	if p := os.Getenv("XEGESIS_LIBRARY"); p != "" {
+	if p := os.Getenv("GLOSSA_LIBRARY"); p != "" {
 		return p
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return filepath.Join(dir, "Xegesis", "library.db")
+	return filepath.Join(dir, "Glossa", "library.db")
 }
 
 // memoryLimit is the Go heap's soft limit (ADR 0008) unless GOMEMLIMIT is set. The 10,000-book
@@ -180,7 +180,7 @@ func main() {
 	app := &App{reg: reg, env: &command.Env{Store: s}, shot: screenshotArg(os.Args[1:])}
 
 	err = wails.Run(&options.App{
-		Title:       "Xegesis",
+		Title:       "Glossa",
 		Width:       1200,
 		Height:      800,
 		MinWidth:    420,

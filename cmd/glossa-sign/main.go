@@ -1,13 +1,13 @@
-// Command xegesis-sign makes and uses the key that signs Xegesis updates.
+// Command glossa-sign makes and uses the key that signs Glossa updates.
 //
-//	xegesis-sign keygen [-out key.txt]          write a new key pair; print the public key
-//	xegesis-sign sign -version 1.2.3 <file>     print the base64 signature for an installer
-//	xegesis-sign hash <file>                    print the installer's SHA-256
-//	xegesis-sign verify -version 1.2.3 -pub pubkey.txt <file> <signature>
+//	glossa-sign keygen [-out key.txt]          write a new key pair; print the public key
+//	glossa-sign sign -version 1.2.3 <file>     print the base64 signature for an installer
+//	glossa-sign hash <file>                    print the installer's SHA-256
+//	glossa-sign verify -version 1.2.3 -pub pubkey.txt <file> <signature>
 //	                                            check a signature against a public key (CI does this
 //	                                            with the key committed in the app before publishing)
 //
-// sign reads the private key from the XEGESIS_UPDATE_KEY environment variable (a secret in CI) or
+// sign reads the private key from the GLOSSA_UPDATE_KEY environment variable (a secret in CI) or
 // from the file named by -key. The private key is never written anywhere but the file keygen is
 // told to write, and must never be committed (docs/releasing.md).
 package main
@@ -20,24 +20,24 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/update/updatesig"
+	"github.com/Perlsowisdom/glossa/internal/update/updatesig"
 )
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Getenv); err != nil {
-		fmt.Fprintln(os.Stderr, "xegesis-sign:", err)
+		fmt.Fprintln(os.Stderr, "glossa-sign:", err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string, stdout io.Writer, getenv func(string) string) error {
 	if len(args) == 0 {
-		return errors.New("usage: xegesis-sign keygen | sign -version V <file> | verify -version V -pub <file> <file> <signature> | hash <file>")
+		return errors.New("usage: glossa-sign keygen | sign -version V <file> | verify -version V -pub <file> <file> <signature> | hash <file>")
 	}
 	switch args[0] {
 	case "keygen":
 		fs := flag.NewFlagSet("keygen", flag.ContinueOnError)
-		out := fs.String("out", "xegesis-update-key.txt", "file for the private key (refused if it exists)")
+		out := fs.String("out", "glossa-update-key.txt", "file for the private key (refused if it exists)")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func run(args []string, stdout io.Writer, getenv func(string) string) error {
 		return nil
 	case "hash":
 		if len(args) != 2 {
-			return errors.New("usage: xegesis-sign hash <file>")
+			return errors.New("usage: glossa-sign hash <file>")
 		}
 		h, err := hashFile(args[1])
 		if err != nil {
@@ -76,7 +76,7 @@ func run(args []string, stdout io.Writer, getenv func(string) string) error {
 			return err
 		}
 		if *version == "" || *pubFile == "" || fs.NArg() != 2 {
-			return errors.New("usage: xegesis-sign verify -version V -pub <file> <installer> <signature>")
+			return errors.New("usage: glossa-sign verify -version V -pub <file> <installer> <signature>")
 		}
 		text, err := os.ReadFile(*pubFile)
 		if err != nil {
@@ -98,14 +98,14 @@ func run(args []string, stdout io.Writer, getenv func(string) string) error {
 	case "sign":
 		fs := flag.NewFlagSet("sign", flag.ContinueOnError)
 		version := fs.String("version", "", "the version the installer is released as, e.g. 1.2.3")
-		keyFile := fs.String("key", "", "file holding the private key (default: the XEGESIS_UPDATE_KEY variable)")
+		keyFile := fs.String("key", "", "file holding the private key (default: the GLOSSA_UPDATE_KEY variable)")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
 		if *version == "" || fs.NArg() != 1 {
-			return errors.New("usage: xegesis-sign sign -version V [-key file] <file>")
+			return errors.New("usage: glossa-sign sign -version V [-key file] <file>")
 		}
-		key := getenv("XEGESIS_UPDATE_KEY")
+		key := getenv("GLOSSA_UPDATE_KEY")
 		if *keyFile != "" {
 			b, err := os.ReadFile(*keyFile)
 			if err != nil {
@@ -114,7 +114,7 @@ func run(args []string, stdout io.Writer, getenv func(string) string) error {
 			key = string(b)
 		}
 		if strings.TrimSpace(key) == "" {
-			return errors.New("no private key: set XEGESIS_UPDATE_KEY or pass -key")
+			return errors.New("no private key: set GLOSSA_UPDATE_KEY or pass -key")
 		}
 		h, err := hashFile(fs.Arg(0))
 		if err != nil {

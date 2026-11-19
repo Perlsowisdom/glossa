@@ -14,8 +14,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // scanMu lets one scan run at a time, so the timed rescan and a scan the user asked for never

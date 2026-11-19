@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Fixtures are a few public-domain verses (KJV and World English Bible), typed by hand.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Tiny fixtures in the formats of STEPBible's TAGNT and TBESG (CC BY 4.0) and OpenBible.info's

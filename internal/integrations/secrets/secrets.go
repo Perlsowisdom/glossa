@@ -10,12 +10,12 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-// Service is the keychain service name all Xegesis secrets are filed under. The interface tests
-// set XEGESIS_KEYRING_SERVICE to file theirs under another name, apart from the person's own.
-const Service = "xegesis"
+// Service is the keychain service name all Glossa secrets are filed under. The interface tests
+// set GLOSSA_KEYRING_SERVICE to file theirs under another name, apart from the person's own.
+const Service = "glossa"
 
 // ServiceEnv names the environment variable that overrides Service.
-const ServiceEnv = "XEGESIS_KEYRING_SERVICE"
+const ServiceEnv = "GLOSSA_KEYRING_SERVICE"
 
 // ErrNotFound means no secret is stored under that name.
 var ErrNotFound = errors.New("secrets: not found")

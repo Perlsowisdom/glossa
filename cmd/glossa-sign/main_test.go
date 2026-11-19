@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/update/updatesig"
+	"github.com/Perlsowisdom/glossa/internal/update/updatesig"
 )
 
 func TestKeygenSignVerify(t *testing.T) {

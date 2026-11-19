@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 func useBooksDir(t *testing.T) string {

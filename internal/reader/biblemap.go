@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // A book whose type is Bible is read like a Bible: a reference goes to its place in the book. The

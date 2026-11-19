@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // maxPerFolder caps the hits taken from one folder's index before merging; paging stops there.

@@ -2,7 +2,7 @@
 // A report is built only from installed Bibles, reference works and books, the user's own notes,
 // lists and plans, by running other commands, so it shows exactly what those commands show. Its
 // sections are gathered at the same time and each one names its sources with their attribution and
-// licence. The result's shape is described by the commands' schemas (xegesis describe report.passage).
+// licence. The result's shape is described by the commands' schemas (glossa describe report.passage).
 //
 // Sources of the idea: the Phase 1 functional survey (passage, word and topic study), STEPBible's word
 // pages (lexicon entry, counts by book, renderings) and the SWORD Project's topical indexes.
@@ -17,9 +17,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 // Register adds the report commands to r. They run other commands through r.
@@ -79,7 +79,7 @@ type Section struct {
 type Entry struct {
 	Heading  string     `json:"heading,omitempty"`
 	Text     string     `json:"text,omitempty" desc:"Plain text"`
-	Markup   string     `json:"markup,omitempty" desc:"The same in Xegesis markup, with <r o=\"OSIS\"> references and <w s=\"G25\"> words"`
+	Markup   string     `json:"markup,omitempty" desc:"The same in Glossa markup, with <r o=\"OSIS\"> references and <w s=\"G25\"> words"`
 	Snippet  string     `json:"snippet,omitempty" desc:"Text around a match, with matches wrapped in <mark></mark>"`
 	Ref      string     `json:"ref,omitempty" desc:"The passage the entry is about, as an OSIS reference"`
 	RefLabel string     `json:"ref_label,omitempty" desc:"That passage in words"`

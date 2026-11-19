@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
-// usfm maps Xegesis book numbers to the three-character book codes (USFM) API.Bible uses in IDs.
+// usfm maps Glossa book numbers to the three-character book codes (USFM) API.Bible uses in IDs.
 var usfm = map[int]string{
 	1: "GEN", 2: "EXO", 3: "LEV", 4: "NUM", 5: "DEU", 6: "JOS", 7: "JDG", 8: "RUT", 9: "1SA", 10: "2SA",
 	11: "1KI", 12: "2KI", 13: "1CH", 14: "2CH", 15: "EZR", 16: "NEH", 17: "EST", 18: "JOB", 19: "PSA",
@@ -21,7 +21,7 @@ var usfm = map[int]string{
 	76: "BEL", 77: "1MA", 78: "2MA", 79: "3MA", 80: "4MA", 81: "MAN", 82: "1ES", 83: "2ES", 84: "PS2",
 }
 
-// BookCode returns API.Bible's book code for a Xegesis book number.
+// BookCode returns API.Bible's book code for a Glossa book number.
 func BookCode(book int) (string, error) {
 	c, ok := usfm[book]
 	if !ok {
@@ -43,7 +43,7 @@ type Target struct {
 	ID      string // chapter ID, or passage ID such as "ROM.8.28-ROM.8.30"
 }
 
-// Targets converts a Xegesis range into API.Bible requests. Whole chapters use chapter IDs, since
+// Targets converts a Glossa range into API.Bible requests. Whole chapters use chapter IDs, since
 // passage IDs need a concrete last verse; everything else becomes one passage ID.
 func Targets(r verse.Range) ([]Target, error) {
 	sb, eb := r.Start.Book(), r.End.Book()

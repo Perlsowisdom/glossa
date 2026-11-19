@@ -346,7 +346,7 @@ func fontDirs() []string {
 	default:
 		dirs = append(dirs, "/usr/share/fonts", "/usr/local/share/fonts", filepath.Join(home, ".local", "share", "fonts"), filepath.Join(home, ".fonts"))
 	}
-	if d := os.Getenv("XEGESIS_FONTS"); d != "" {
+	if d := os.Getenv("GLOSSA_FONTS"); d != "" {
 		dirs = append([]string{d}, dirs...)
 	}
 	return dirs
@@ -437,5 +437,5 @@ func systemFonts() (*fontSet, error) {
 		}
 		return fs, nil
 	}
-	return nil, errors.New("no font for PDF was found on this computer (looked for Times New Roman, DejaVu Serif, Liberation Serif and Noto Serif); print and choose Save as PDF instead, or set XEGESIS_FONTS to a folder of TrueType fonts")
+	return nil, errors.New("no font for PDF was found on this computer (looked for Times New Roman, DejaVu Serif, Liberation Serif and Noto Serif); print and choose Save as PDF instead, or set GLOSSA_FONTS to a folder of TrueType fonts")
 }

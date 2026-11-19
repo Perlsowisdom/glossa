@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// Claude Code and Codex are command-line tools the person has already signed in to. Xegesis runs
+// Claude Code and Codex are command-line tools the person has already signed in to. Glossa runs
 // one non-interactively for each question and gives it its own MCP server in assistant mode, which
 // offers only Tools, each result passing the licence gate as for an online model. The tool does its
 // own sign-in and network calls (ADR 0011, docs/privacy.md).
@@ -88,7 +88,7 @@ type Agent interface {
 // CLIAgent runs a detected command-line tool.
 type CLIAgent struct {
 	Info    CLIInfo
-	Exe     string // the program that serves "mcp-assistant" (the Xegesis app or CLI)
+	Exe     string // the program that serves "mcp-assistant" (the Glossa app or CLI)
 	Library string // library.db path
 }
 
@@ -104,8 +104,8 @@ func (a *CLIAgent) Args(mcpConfig, model string) []string {
 	switch a.Info.ID {
 	case "codex":
 		args := []string{"exec", "--json", "--skip-git-repo-check", "--sandbox", "read-only",
-			"-c", "mcp_servers.xegesis.command=" + tomlStr(a.Exe),
-			"-c", "mcp_servers.xegesis.args=" + tomlList([]string{"-library", a.Library, "mcp-assistant"})}
+			"-c", "mcp_servers.glossa.command=" + tomlStr(a.Exe),
+			"-c", "mcp_servers.glossa.args=" + tomlList([]string{"-library", a.Library, "mcp-assistant"})}
 		if model != "" {
 			args = append(args, "-m", model)
 		}
@@ -113,7 +113,7 @@ func (a *CLIAgent) Args(mcpConfig, model string) []string {
 	default:
 		args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
 			"--mcp-config", mcpConfig, "--strict-mcp-config",
-			"--allowedTools", "mcp__xegesis",
+			"--allowedTools", "mcp__glossa",
 			"--disallowedTools", "Bash,Edit,Write,MultiEdit,NotebookEdit,Read,Glob,Grep,WebFetch,WebSearch,Task"}
 		if model != "" {
 			args = append(args, "--model", model)
@@ -140,14 +140,14 @@ func tomlList(l []string) string {
 
 // Run starts the tool, sends the prompt on standard input and streams what it prints.
 func (a *CLIAgent) Run(ctx context.Context, req AgentRequest, h AgentHooks) error {
-	dir, err := os.MkdirTemp("", "xegesis-assistant-")
+	dir, err := os.MkdirTemp("", "glossa-assistant-")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(dir)
 	cfg := filepath.Join(dir, "mcp.json")
 	conf, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{
-		"xegesis": map[string]any{"command": a.Exe, "args": []string{"-library", a.Library, "mcp-assistant"}}}})
+		"glossa": map[string]any{"command": a.Exe, "args": []string{"-library", a.Library, "mcp-assistant"}}}})
 	if err := os.WriteFile(cfg, conf, 0o600); err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (p *streamParser) text(t string) {
 }
 
 func (p *streamParser) start(id, name string, args json.RawMessage) {
-	name = strings.TrimPrefix(name, "mcp__xegesis__")
+	name = strings.TrimPrefix(name, "mcp__glossa__")
 	a := string(args)
 	if a == "" || a == "null" {
 		a = "{}"
@@ -431,7 +431,7 @@ func agentLabel(name, args string) string {
 	return plainName(name)
 }
 
-// agentPrompt is what a tool is sent: Xegesis's instructions, the chat so far, and the question.
+// agentPrompt is what a tool is sent: Glossa's instructions, the chat so far, and the question.
 func agentPrompt(history []Message, question string) string {
 	var b strings.Builder
 	b.WriteString(SystemPrompt + "\n\n")

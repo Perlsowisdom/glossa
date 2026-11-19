@@ -18,19 +18,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/backup"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/reader"
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/backup"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 // The 10,000-book test. Run it with
 //
 //	go test -tags scale -run TestScale -timeout 8h -v ./internal/scaletest
 //
-// XEGESIS_SCALE_BOOKS (default 10000) and XEGESIS_SCALE_NOTES (default 8000) set the size,
-// XEGESIS_SCALE_DIR the scratch folder (default: a new folder in the temp folder),
-// XEGESIS_SCALE_OUT a JSON file for the results, and XEGESIS_SCALE_KEEP=1 keeps the scratch data.
+// GLOSSA_SCALE_BOOKS (default 10000) and GLOSSA_SCALE_NOTES (default 8000) set the size,
+// GLOSSA_SCALE_DIR the scratch folder (default: a new folder in the temp folder),
+// GLOSSA_SCALE_OUT a JSON file for the results, and GLOSSA_SCALE_KEEP=1 keeps the scratch data.
 
 func envInt(name string, def int) int {
 	if n, err := strconv.Atoi(os.Getenv(name)); err == nil && n > 0 {
@@ -135,15 +135,15 @@ func median(ds []time.Duration) (time.Duration, time.Duration) {
 }
 
 func TestScale(t *testing.T) {
-	books, notes := envInt("XEGESIS_SCALE_BOOKS", 10000), envInt("XEGESIS_SCALE_NOTES", 8000)
-	root := os.Getenv("XEGESIS_SCALE_DIR")
+	books, notes := envInt("GLOSSA_SCALE_BOOKS", 10000), envInt("GLOSSA_SCALE_NOTES", 8000)
+	root := os.Getenv("GLOSSA_SCALE_DIR")
 	if root == "" {
 		var err error
-		if root, err = os.MkdirTemp("", "xegesis-scale-"); err != nil {
+		if root, err = os.MkdirTemp("", "glossa-scale-"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if os.Getenv("XEGESIS_SCALE_KEEP") == "" {
+	if os.Getenv("GLOSSA_SCALE_KEEP") == "" {
 		// Index files stay open until the process ends, so removal is best effort.
 		t.Cleanup(func() { os.RemoveAll(root) })
 	}
@@ -322,7 +322,7 @@ func TestScale(t *testing.T) {
 	add("size of the search indexes", 0, fmt.Sprintf("%.0f MB, %.2f x the %.0f MB of text", mb(uint64(ix)),
 		float64(ix)/float64(gen.TextBytes), mb(uint64(gen.TextBytes))))
 	add("index size by table", 0, indexBreakdown(t, filepath.Join(data, "index")))
-	if os.Getenv("XEGESIS_SCALE_OPTIMIZE") != "" {
+	if os.Getenv("GLOSSA_SCALE_OPTIMIZE") != "" {
 		start = time.Now()
 		files, _ := filepath.Glob(filepath.Join(data, "index", "*.db"))
 		for _, f := range files {
@@ -347,7 +347,7 @@ func TestScale(t *testing.T) {
 	rep.Rows = append(rep.Rows, Row{Name: "peak memory, whole run", HeapMB: mb(m.allHeap), ProcMB: mb(max(m.allProc, peak))})
 	t.Logf("peak: heap %.0f MB, process %.0f MB", mb(m.allHeap), mb(max(m.allProc, peak)))
 
-	if out := os.Getenv("XEGESIS_SCALE_OUT"); out != "" {
+	if out := os.Getenv("GLOSSA_SCALE_OUT"); out != "" {
 		b, _ := json.MarshalIndent(rep, "", "  ")
 		if err := os.WriteFile(out, b, 0o644); err != nil {
 			t.Error(err)

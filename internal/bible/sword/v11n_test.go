@@ -3,7 +3,7 @@ package sword
 import (
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Index sizes of CrossWire modules in each numbering (2 + books + chapters + verses per

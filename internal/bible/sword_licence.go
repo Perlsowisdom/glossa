@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 // MappedLicence is a licence read from a catalogue or a module's own .conf. Clear is false when

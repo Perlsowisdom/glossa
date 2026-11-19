@@ -8,7 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/Perlsowisdom/xegesis/internal/update"
+	"github.com/Perlsowisdom/glossa/internal/update"
 )
 
 // startUpdates looks for a newer version now and then, if the user turned that on (update.auto does

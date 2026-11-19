@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/lists"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/lists"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 type WordParams struct {

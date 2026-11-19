@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // MarkerName is the file written in the root of every library folder. It holds the folder's marker
 // ID, which identifies the folder wherever its drive is mounted.
-const MarkerName = ".xegesis-library.json"
+const MarkerName = ".glossa-library.json"
 
 const rootsKey = "library.search_roots"
 
@@ -25,7 +25,7 @@ const rootsKey = "library.search_roots"
 const seenEvery = 24 * 60 * 60 * 1000
 
 type marker struct {
-	Format int    `json:"xegesis_library"`
+	Format int    `json:"glossa_library"`
 	ID     string `json:"id"`
 	Label  string `json:"label,omitempty"`
 }

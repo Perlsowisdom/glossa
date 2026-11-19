@@ -154,7 +154,7 @@ func (o *OpenAI) Stream(ctx context.Context, req Request, onText func(string)) (
 		// The service ignored "stream": one JSON reply.
 		var c chunk
 		if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&c); err != nil {
-			return Turn{}, &Error{Kind: "failed", Message: "The service sent a reply Xegesis could not read."}
+			return Turn{}, &Error{Kind: "failed", Message: "The service sent a reply Glossa could not read."}
 		}
 		if err := chunkError(c); err != nil {
 			return Turn{}, err
@@ -275,7 +275,7 @@ func (o *OpenAI) Models(ctx context.Context) ([]string, error) {
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&list); err != nil {
-		return nil, &Error{Kind: "failed", Message: "The service sent a model list Xegesis could not read."}
+		return nil, &Error{Kind: "failed", Message: "The service sent a model list Glossa could not read."}
 	}
 	out := make([]string, 0, len(list.Data))
 	for _, m := range list.Data {

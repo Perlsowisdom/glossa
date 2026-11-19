@@ -112,7 +112,7 @@ func (c Conf) All(key string) []string { return c.fields[key] }
 // Has reports whether the key is present, even with an empty value.
 func (c Conf) Has(key string) bool { _, ok := c.fields[key]; return ok }
 
-// Locked reports a module whose text is enciphered (a CipherKey entry). Xegesis does not read
+// Locked reports a module whose text is enciphered (a CipherKey entry). Glossa does not read
 // these: they need the publisher's unlock key.
 func (c Conf) Locked() bool { return c.Has("CipherKey") }
 

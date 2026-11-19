@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Reports (T13) come from report.passage, report.word and report.topic. Their result is read by

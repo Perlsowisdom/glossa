@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
 )
 
 func TestRunAndServe(t *testing.T) {

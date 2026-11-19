@@ -3,7 +3,7 @@ package plan
 import (
 	"context"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Template is a ready-made plan. Each is built from a simple rule over the books of the Bible,

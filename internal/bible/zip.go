@@ -20,7 +20,7 @@ func unzipTemp(path string) (string, error) {
 		return "", err
 	}
 	defer zr.Close()
-	dir, err := os.MkdirTemp("", "xegesis-bible-*")
+	dir, err := os.MkdirTemp("", "glossa-bible-*")
 	if err != nil {
 		return "", err
 	}

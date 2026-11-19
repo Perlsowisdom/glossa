@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Conf is a .conf file for a module written by ZText or RawText.

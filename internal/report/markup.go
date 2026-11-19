@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 var (

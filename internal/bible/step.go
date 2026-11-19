@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // STEPBible data (github.com/STEPBible/STEPBible-Data, CC BY 4.0, Tyndale House Cambridge) is
@@ -158,7 +158,7 @@ var (
 	stepBR   = regexp.MustCompile(`(?i)<br\s*/?>`)
 )
 
-// stepMeaning turns a lexicon definition's light HTML into Xegesis markup: <br> becomes a
+// stepMeaning turns a lexicon definition's light HTML into Glossa markup: <br> becomes a
 // paragraph, <ref='Jhn.13.35'> a reference, and other tags are dropped.
 func stepMeaning(s string) (string, string) {
 	s = strings.ReplaceAll(strings.TrimSpace(s), "__", "")

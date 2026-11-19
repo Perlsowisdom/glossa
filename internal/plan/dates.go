@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 const dateLayout = "2006-01-02"

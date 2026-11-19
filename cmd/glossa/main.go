@@ -1,13 +1,13 @@
-// Command xegesis runs Xegesis commands from the terminal, over a JSON channel and as an MCP server.
+// Command glossa runs Glossa commands from the terminal, over a JSON channel and as an MCP server.
 //
-//	xegesis commands             list every command as JSON
-//	xegesis help [id]            list commands, or describe one: text on a terminal, JSON otherwise
-//	xegesis describe <id>        describe one command
-//	xegesis run <id> [params]    run a command; params is JSON, - to read JSON from stdin, or key=value pairs
-//	xegesis version              print the version (set at build time from the git tag)
-//	xegesis serve                read one JSON request per line on stdin, write one response per line
-//	xegesis mcp                  serve the commands to an MCP client over stdio
-//	xegesis mcp-assistant        serve only the AI assistant's read-only tools over stdio
+//	glossa commands             list every command as JSON
+//	glossa help [id]            list commands, or describe one: text on a terminal, JSON otherwise
+//	glossa describe <id>        describe one command
+//	glossa run <id> [params]    run a command; params is JSON, - to read JSON from stdin, or key=value pairs
+//	glossa version              print the version (set at build time from the git tag)
+//	glossa serve                read one JSON request per line on stdin, write one response per line
+//	glossa mcp                  serve the commands to an MCP client over stdio
+//	glossa mcp-assistant        serve only the AI assistant's read-only tools over stdio
 package main
 
 import (
@@ -22,26 +22,26 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/assistant"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/all"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/secrets"
-	"github.com/Perlsowisdom/xegesis/internal/mcp"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/assistant"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/all"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
+	"github.com/Perlsowisdom/glossa/internal/mcp"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
-const usage = "usage: xegesis [-library path] [-format auto|text|json] commands | help [id] | describe <id> | run <id> [params | key=value ...] | serve | mcp | mcp-assistant | version"
+const usage = "usage: glossa [-library path] [-format auto|text|json] commands | help [id] | describe <id> | run <id> [params | key=value ...] | serve | mcp | mcp-assistant | version"
 
 func main() {
 	if err := run(os.Args[1:], os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "xegesis:", err)
+		fmt.Fprintln(os.Stderr, "glossa:", err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string, stdin io.Reader, stdout io.Writer) error {
-	fs := flag.NewFlagSet("xegesis", flag.ContinueOnError)
+	fs := flag.NewFlagSet("glossa", flag.ContinueOnError)
 	lib := fs.String("library", defaultLibrary(), "path to library.db")
 	format := fs.String("format", "auto", "output of help and describe: auto, text or json")
 	if err := fs.Parse(args); err != nil {
@@ -76,12 +76,12 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 		return out.Encode(reg.List())
 	case "describe":
 		if len(args) != 2 {
-			return errors.New("usage: xegesis describe <id>")
+			return errors.New("usage: glossa describe <id>")
 		}
 		return describe(reg, args[1], text, out, stdout)
 	case "run":
 		if len(args) < 2 {
-			return errors.New("usage: xegesis run <id> [params | key=value ...]")
+			return errors.New("usage: glossa run <id> [params | key=value ...]")
 		}
 		params, err := runParams(args[2:], stdin)
 		if err != nil {
@@ -110,7 +110,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) error {
 			return err
 		}
 		defer closeEnv()
-		s := &mcp.Server{Reg: reg, Env: env, Name: "xegesis", Version: core.Version}
+		s := &mcp.Server{Reg: reg, Env: env, Name: "glossa", Version: core.Version}
 		return s.Serve(context.Background(), stdin, stdout)
 	case "mcp-assistant":
 		// Only the assistant's read-only tools, through the licence gate (docs/mcp.md).
@@ -231,12 +231,12 @@ func openEnv(path string) (*command.Env, func(), error) {
 }
 
 func defaultLibrary() string {
-	if p := os.Getenv("XEGESIS_LIBRARY"); p != "" {
+	if p := os.Getenv("GLOSSA_LIBRARY"); p != "" {
 		return p
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = "."
 	}
-	return filepath.Join(dir, "Xegesis", "library.db")
+	return filepath.Join(dir, "Glossa", "library.db")
 }

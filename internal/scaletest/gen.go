@@ -356,7 +356,7 @@ func epub(b book, chs [][]para) ([]byte, error) {
 		[2]string{"OEBPS/content.opf", fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-<dc:identifier id="uid">urn:xegesis:scaletest:%d</dc:identifier>
+<dc:identifier id="uid">urn:glossa:scaletest:%d</dc:identifier>
 <dc:title>%s</dc:title><dc:creator>%s</dc:creator><dc:publisher>%s</dc:publisher>
 <dc:date>%d</dc:date><dc:language>en</dc:language>%s
 </metadata>

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 func openStore(t *testing.T) (*store.Store, string) {
@@ -430,7 +430,7 @@ func TestImportRejectsBadInput(t *testing.T) {
 		t.Fatal("imported a folder without a manifest")
 	}
 	bad := t.TempDir()
-	os.WriteFile(filepath.Join(bad, "manifest.json"), []byte(`{"format":"xegesis-export","format_version":99}`), 0o644)
+	os.WriteFile(filepath.Join(bad, "manifest.json"), []byte(`{"format":"glossa-export","format_version":99}`), 0o644)
 	if _, err := r(s, dir, "import.data", ImportParams{Path: bad}); err == nil {
 		t.Fatal("imported a newer format")
 	}
@@ -452,7 +452,7 @@ func TestImportRejectsBadInput(t *testing.T) {
 	f, _ := os.Create(zp)
 	zw := zip.NewWriter(f)
 	w, _ := zw.Create("manifest.json")
-	w.Write([]byte(`{"format":"xegesis-export","format_version":1}`))
+	w.Write([]byte(`{"format":"glossa-export","format_version":1}`))
 	zw.Close()
 	f.Close()
 	if _, err := r(s, dir, "import.data", ImportParams{Path: zp}); err != nil {

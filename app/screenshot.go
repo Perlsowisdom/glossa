@@ -32,8 +32,8 @@ func screenshotArg(args []string) string {
 // takeScreenshot waits for the window to draw, saves its picture as a PNG and quits the app.
 func takeScreenshot(ctx context.Context, path string) {
 	go func() {
-		// XEGESIS_OPEN names a section to show first, such as "sermons", to check one screen.
-		if section := os.Getenv("XEGESIS_OPEN"); section != "" {
+		// GLOSSA_OPEN names a section to show first, such as "sermons", to check one screen.
+		if section := os.Getenv("GLOSSA_OPEN"); section != "" {
 			time.Sleep(screenshotDelay / 2)
 			runtime.WindowExecJS(ctx, "location.hash = "+strconv.Quote("#"+section)+";")
 		}

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/store"
 	_ "modernc.org/sqlite"
 )
 
@@ -71,7 +71,7 @@ type snapshot struct {
 }
 
 func takeSnapshot(ctx context.Context, s *store.Store) (*snapshot, error) {
-	dir, err := os.MkdirTemp("", "xegesis-export-")
+	dir, err := os.MkdirTemp("", "glossa-export-")
 	if err != nil {
 		return nil, err
 	}

@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // A Bible highlight may cover exact words: a range from a character in one verse to a character in

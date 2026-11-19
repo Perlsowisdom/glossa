@@ -1,5 +1,5 @@
 // Package apibible is a client for API.Bible (https://docs.api.bible), written from its public
-// documentation. Each user supplies their own API key; Xegesis ships none.
+// documentation. Each user supplies their own API key; Glossa ships none.
 package apibible
 
 import (
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 const (
@@ -138,7 +138,7 @@ type passageResponse struct {
 	Meta Meta        `json:"meta"`
 }
 
-// Passage fetches the text of a Xegesis range from one Bible.
+// Passage fetches the text of a Glossa range from one Bible.
 func (c *Client) Passage(ctx context.Context, bibleID string, r verse.Range, o PassageOptions) (*Passage, error) {
 	targets, err := Targets(r)
 	if err != nil {

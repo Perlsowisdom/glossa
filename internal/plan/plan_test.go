@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 type env struct {

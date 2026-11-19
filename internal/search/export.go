@@ -3,7 +3,7 @@ package search
 import (
 	"fmt"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // The book reader (internal/reader) shows books with the same paragraph numbering the index uses,

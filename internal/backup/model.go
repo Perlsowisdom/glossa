@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Kinds and xFormat slugs follow docs.any.org/database/data-types.

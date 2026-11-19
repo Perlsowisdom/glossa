@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/update/updatesig"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/update/updatesig"
 )
 
 func TestNewer(t *testing.T) {
@@ -90,7 +90,7 @@ func newRelease(t *testing.T, version string, priv string, body []byte, tamper f
 	mux := http.NewServeMux()
 	r.srv = httptest.NewServer(mux)
 	t.Cleanup(r.srv.Close)
-	r.manifest = Manifest{Version: version, URL: r.srv.URL + "/Xegesis-" + version + "-setup.exe", SHA256: h, Signature: sig}
+	r.manifest = Manifest{Version: version, URL: r.srv.URL + "/Glossa-" + version + "-setup.exe", SHA256: h, Signature: sig}
 	if tamper != nil {
 		tamper(&r.manifest)
 	}
@@ -98,7 +98,7 @@ func newRelease(t *testing.T, version string, priv string, body []byte, tamper f
 		r.hits.Add(1)
 		json.NewEncoder(w).Encode(r.manifest)
 	})
-	mux.HandleFunc("/Xegesis-"+version+"-setup.exe", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/Glossa-"+version+"-setup.exe", func(w http.ResponseWriter, _ *http.Request) {
 		r.hits.Add(1)
 		w.Write(r.body)
 	})
@@ -136,7 +136,7 @@ func TestDownloadVerifies(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, _ := os.ReadFile(file)
-		if string(got) != string(body) || filepath.Base(file) != "Xegesis-1.1.0-setup.exe" {
+		if string(got) != string(body) || filepath.Base(file) != "Glossa-1.1.0-setup.exe" {
 			t.Fatalf("file %s holds %q", file, got)
 		}
 	})

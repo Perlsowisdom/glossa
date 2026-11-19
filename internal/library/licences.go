@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // suggest is the licence an item gets when the user has not chosen one: the one its own rights

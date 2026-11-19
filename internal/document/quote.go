@@ -10,12 +10,12 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/reader"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // A quotation from a Bible whose licence limits exports may be at most this many characters per

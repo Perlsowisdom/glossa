@@ -16,12 +16,12 @@ import (
 
 	"github.com/ledongthuc/pdf"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/all"
-	"github.com/Perlsowisdom/xegesis/internal/export"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/secrets"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/all"
+	"github.com/Perlsowisdom/glossa/internal/export"
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Fixtures: a few public-domain verses typed by hand, installed once as a public-domain Bible and
@@ -59,7 +59,7 @@ type env struct {
 
 func setup(t *testing.T) *env {
 	t.Helper()
-	data, err := os.MkdirTemp("", "xegesis-export-")
+	data, err := os.MkdirTemp("", "glossa-export-")
 	if err != nil {
 		t.Fatal(err)
 	}

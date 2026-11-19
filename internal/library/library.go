@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // batchSize is how many files or items one write transaction handles.
@@ -19,9 +19,9 @@ const batchSize = 500
 func Register(r *command.Registry) {
 	r.Add(
 		command.Define("library.add", "Add book files and folders in one step. Folders are scanned and watched; "+
-			"files are copied into the library folder (Documents/Xegesis Library) and scanned. "+
+			"files are copied into the library folder (Documents/Glossa Library) and scanned. "+
 			"Each book gets the licence its own details name, or Personal copy.", true, add),
-		command.Define("library.add_files", "Copy book files into the library folder (Documents/Xegesis Library) and scan them.", true, addFiles),
+		command.Define("library.add_files", "Copy book files into the library folder (Documents/Glossa Library) and scan them.", true, addFiles),
 		command.Define("library.rescan", "Scan every connected library folder for new, changed and removed books.", true, rescan),
 		command.Define("library.add_folder", "Add a folder of books to the library. The folder may be on an external drive.", true, addFolder),
 		command.Define("library.folders", "List library folders, where each is and whether it is online.", false, listFolders),

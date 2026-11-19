@@ -10,7 +10,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // PDF writes the document as PDF 1.7 with embedded, subset TrueType fonts from the system. Layout
@@ -711,7 +711,7 @@ func (l *layout) write() []byte {
 	}
 	w.obj(1, "<< /Type /Catalog /Pages 2 0 R >>")
 	w.obj(2, fmt.Sprintf("<< /Type /Pages /Kids [%s] /Count %d >>", strings.Join(kids, " "), len(l.pages)))
-	w.obj(3, fmt.Sprintf("<< /Title %s /Producer (Xegesis) /CreationDate (D:%s) >>", pdfText(l.d.Title), time.Now().UTC().Format("20060102150405Z")))
+	w.obj(3, fmt.Sprintf("<< /Title %s /Producer (Glossa) /CreationDate (D:%s) >>", pdfText(l.d.Title), time.Now().UTC().Format("20060102150405Z")))
 	xref := w.buf.Len()
 	fmt.Fprintf(&w.buf, "xref\n0 %d\n0000000000 65535 f \n", next)
 	for i := 1; i < next; i++ {

@@ -12,16 +12,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // FormatVersion is the version of the export folder layout.
 const FormatVersion = 1
 
 type ExportParams struct {
-	Path    string   `json:"path,omitempty" desc:"Where to write: a folder (an xegesis-export-<date> folder is made inside it) or a file ending in .zip. Default: the exports folder in the data folder"`
+	Path    string   `json:"path,omitempty" desc:"Where to write: a folder (an glossa-export-<date> folder is made inside it) or a file ending in .zip. Default: the exports folder in the data folder"`
 	Types   []string `json:"types,omitempty" desc:"What to export: note, highlight, list, collection, reading_plan, document. Default: all"`
 	History bool     `json:"history,omitempty" desc:"Also write the change history (history.jsonl)"`
 }
@@ -80,7 +80,7 @@ func exportData(ctx context.Context, env *command.Env, dataDir string, p ExportP
 	if err != nil {
 		return ExportResult{}, err
 	}
-	name := "xegesis-export-" + now().UTC().Format("2006-01-02")
+	name := "glossa-export-" + now().UTC().Format("2006-01-02")
 	var out sink
 	var result string
 	if strings.HasSuffix(strings.ToLower(p.Path), ".zip") {
@@ -453,7 +453,7 @@ func writeManifest(ctx context.Context, s *store.Store, out sink, sn *snapshot, 
 	})
 }
 
-// ManifestFormat identifies an Xegesis export.
-const ManifestFormat = "xegesis-export"
+// ManifestFormat identifies an Glossa export.
+const ManifestFormat = "glossa-export"
 
 var now = time.Now

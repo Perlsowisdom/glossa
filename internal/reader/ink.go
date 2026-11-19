@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Ink on a PDF page is one annotation per (book, page): a highlights row with the style "ink" whose

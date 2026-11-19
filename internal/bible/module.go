@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // FormatVersion is the module schema version, stored in PRAGMA user_version.

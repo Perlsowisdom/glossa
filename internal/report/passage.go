@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/lists"
-	"github.com/Perlsowisdom/xegesis/internal/plan"
-	"github.com/Perlsowisdom/xegesis/internal/reader"
-	"github.com/Perlsowisdom/xegesis/internal/search"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/lists"
+	"github.com/Perlsowisdom/glossa/internal/plan"
+	"github.com/Perlsowisdom/glossa/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 type PassageParams struct {

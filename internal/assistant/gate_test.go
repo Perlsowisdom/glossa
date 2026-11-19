@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 func lic(t *testing.T, ty licence.Type) licence.Licence {

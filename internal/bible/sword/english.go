@@ -3,14 +3,14 @@ package sword
 import (
 	"slices"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
-// Pair says that a verse in a SWORD numbering is a verse in Xegesis's english numbering.
+// Pair says that a verse in a SWORD numbering is a verse in Glossa's english numbering.
 type Pair struct{ Module, English verse.ID }
 
 // EnglishMap lists the verses of this numbering whose english number differs from the one
-// Xegesis would guess without a table (the same number, or for the hebrew numbering
+// Glossa would guess without a table (the same number, or for the hebrew numbering
 // verse.Convert). Installed modules store it in their versification_map table.
 //
 // The table is worked out from the verse counts alone, using differences between numbering
@@ -87,7 +87,7 @@ func newMapper(v *Versification) *mapper {
 	return m
 }
 
-// fallback is what Xegesis assumes without a table.
+// fallback is what Glossa assumes without a table.
 func (m *mapper) fallback(id verse.ID) verse.ID {
 	if c, err := verse.Convert(id, m.v.System, verse.English); err == nil {
 		return c

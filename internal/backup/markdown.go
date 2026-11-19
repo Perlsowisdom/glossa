@@ -5,7 +5,7 @@ import "strings"
 // Document bodies use any's canonical Markdown (docs.any.org/database/markdown-import-export):
 // blocks are separated by one blank line, every further blank line is an empty paragraph, at the
 // edges of the text every blank line is an empty paragraph, and one trailing newline is a
-// terminator. A block here is a run of non-blank lines; Xegesis keeps block structure inside the
+// terminator. A block here is a run of non-blank lines; Glossa keeps block structure inside the
 // text, so ParseBlocks and RenderBlocks only carry the blank-line rules.
 
 // EncodeBody turns a stored body into the contents of an exported .md file: the body followed by

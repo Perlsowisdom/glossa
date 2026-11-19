@@ -1,4 +1,4 @@
-// Command genassets draws Xegesis's placeholder logo and writes every icon the Windows build and the
+// Command genassets draws Glossa's placeholder logo and writes every icon the Windows build and the
 // Microsoft Store package need: the app icon (.ico) and the MSIX logos. Replace the drawing in
 // draw() when there is a designed logo; nothing else changes.
 //

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Register adds export.preview, export.make and export.print. Files go to dataDir/exports unless
@@ -233,7 +233,7 @@ func (s *service) target(path, title, format string, replace bool) (string, erro
 		name = strings.TrimSpace(name[:80])
 	}
 	if name == "" {
-		name = "Xegesis export"
+		name = "Glossa export"
 	}
 	if err := os.MkdirAll(s.dir, 0o755); err != nil {
 		return "", err

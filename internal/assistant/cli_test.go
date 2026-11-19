@@ -12,19 +12,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/mcp"
+	"github.com/Perlsowisdom/glossa/internal/mcp"
 )
 
 // fakeCLI is what the test program prints when it stands in for claude or codex. The tests never
 // run the real tools.
 func fakeCLI() {
 	pid := func() {
-		if f := os.Getenv("XEGESIS_FAKE_PIDS"); f != "" {
+		if f := os.Getenv("GLOSSA_FAKE_PIDS"); f != "" {
 			old, _ := os.ReadFile(f)
 			_ = os.WriteFile(f, append(old, []byte(strconv.Itoa(os.Getpid())+"\n")...), 0o600)
 		}
 	}
-	switch os.Getenv("XEGESIS_FAKE_CLI") {
+	switch os.Getenv("GLOSSA_FAKE_CLI") {
 	case "claude":
 		pid()
 		in := new(bytes.Buffer)
@@ -32,7 +32,7 @@ func fakeCLI() {
 		for _, l := range []string{
 			`{"type":"system","subtype":"init","session_id":"s1"}`,
 			`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Let me look. "}}}`,
-			`{"type":"assistant","message":{"content":[{"type":"text","text":"Let me look. "},{"type":"tool_use","id":"t1","name":"mcp__xegesis__read_passage","input":{"ref":"Romans 8","bible":"KJV"}}]}}`,
+			`{"type":"assistant","message":{"content":[{"type":"text","text":"Let me look. "},{"type":"tool_use","id":"t1","name":"mcp__glossa__read_passage","input":{"ref":"Romans 8","bible":"KJV"}}]}}`,
 			`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"For to be carnally minded"}]}]}}`,
 			`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"See Romans 8:6."}}}`,
 			`{"type":"result","subtype":"success","is_error":false,"result":"Let me look. See Romans 8:6."}`,
@@ -44,7 +44,7 @@ func fakeCLI() {
 		// Starts a child that outlives it, as a launcher script does, then waits.
 		pid()
 		child := exec.Command(os.Args[0])
-		child.Env = append(os.Environ(), "XEGESIS_FAKE_CLI=sleep")
+		child.Env = append(os.Environ(), "GLOSSA_FAKE_CLI=sleep")
 		_ = child.Start()
 		fmt.Println(`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Thinking"}}}`)
 		time.Sleep(time.Minute)
@@ -70,11 +70,11 @@ func (g *got) hooks() AgentHooks {
 }
 
 func fakeAgent(id string) *CLIAgent {
-	return &CLIAgent{Info: CLIInfo{ID: id, Label: "Fake", Found: true, Path: os.Args[0]}, Exe: "xegesis", Library: "library.db"}
+	return &CLIAgent{Info: CLIInfo{ID: id, Label: "Fake", Found: true, Path: os.Args[0]}, Exe: "glossa", Library: "library.db"}
 }
 
 func TestClaudeStreamBecomesTextAndToolLines(t *testing.T) {
-	t.Setenv("XEGESIS_FAKE_CLI", "claude")
+	t.Setenv("GLOSSA_FAKE_CLI", "claude")
 	var g got
 	if err := fakeAgent("claude-code").Run(context.Background(), AgentRequest{Prompt: "Romans?"}, g.hooks()); err != nil {
 		t.Fatal(err)
@@ -96,8 +96,8 @@ func TestCodexLinesParse(t *testing.T) {
 	p := &streamParser{agent: "codex", h: g.hooks(), names: map[string]*Line{}}
 	for _, l := range []string{
 		`{"type":"thread.started","thread_id":"x"}`,
-		`{"type":"item.started","item":{"id":"i1","type":"mcp_tool_call","server":"xegesis","tool":"look_up_word","arguments":{"word":"G26"},"status":"in_progress"}}`,
-		`{"type":"item.completed","item":{"id":"i1","type":"mcp_tool_call","server":"xegesis","tool":"look_up_word","arguments":{"word":"G26"},"result":{"content":[{"type":"text","text":"agape"}]},"status":"completed"}}`,
+		`{"type":"item.started","item":{"id":"i1","type":"mcp_tool_call","server":"glossa","tool":"look_up_word","arguments":{"word":"G26"},"status":"in_progress"}}`,
+		`{"type":"item.completed","item":{"id":"i1","type":"mcp_tool_call","server":"glossa","tool":"look_up_word","arguments":{"word":"G26"},"result":{"content":[{"type":"text","text":"agape"}]},"status":"completed"}}`,
 		`{"type":"item.completed","item":{"id":"i2","type":"agent_message","text":"Love."}}`,
 		`{"type":"turn.completed","usage":{}}`,
 	} {
@@ -114,7 +114,7 @@ func TestCodexLinesParse(t *testing.T) {
 }
 
 func TestToolErrorsComeBackInPlainWords(t *testing.T) {
-	t.Setenv("XEGESIS_FAKE_CLI", "fail")
+	t.Setenv("GLOSSA_FAKE_CLI", "fail")
 	err := fakeAgent("claude-code").Run(context.Background(), AgentRequest{Prompt: "x"}, AgentHooks{})
 	if err == nil || !strings.Contains(err.Error(), "Not logged in") {
 		t.Fatal(err)
@@ -123,8 +123,8 @@ func TestToolErrorsComeBackInPlainWords(t *testing.T) {
 
 func TestStopKillsTheWholeProcessTree(t *testing.T) {
 	pids := t.TempDir() + "/pids"
-	t.Setenv("XEGESIS_FAKE_CLI", "hang")
-	t.Setenv("XEGESIS_FAKE_PIDS", pids)
+	t.Setenv("GLOSSA_FAKE_CLI", "hang")
+	t.Setenv("GLOSSA_FAKE_PIDS", pids)
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	var g got
@@ -175,7 +175,7 @@ func TestDetectFindsToolOnPath(t *testing.T) {
 func TestCommandLinesHoldNoPromptOrQuote(t *testing.T) {
 	for _, id := range []string{"claude-code", "codex"} {
 		a := fakeAgent(id)
-		a.Exe = `C:\Program Files\Xegesis\xegesis.exe`
+		a.Exe = `C:\Program Files\Glossa\glossa.exe`
 		args := strings.Join(a.Args("cfg.json", "m1"), " ")
 		if strings.ContainsAny(args, "\"\n") {
 			t.Fatalf("%s: %q", id, args)
@@ -229,7 +229,7 @@ func TestMCPAssistantModeOffersOnlyTheReadOnlyTools(t *testing.T) {
 }
 
 func TestChatThroughACommandLineTool(t *testing.T) {
-	t.Setenv("XEGESIS_FAKE_CLI", "claude")
+	t.Setenv("GLOSSA_FAKE_CLI", "claude")
 	detect := func(_ context.Context, p Preset) CLIInfo {
 		if p.ID == "codex" {
 			return CLIInfo{ID: p.ID, Label: p.Label, InstallURL: "https://example.test/codex"}
