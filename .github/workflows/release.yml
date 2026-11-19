@@ -1,24 +1,51 @@
 name: Release
 
-# Runs when a version tag is pushed: git tag v1.2.3 && git push origin v1.2.3 (docs/releasing.md).
-# It builds the Windows setup (NSIS) and the Microsoft Store package (MSIX), signs the update with
-# XEGESIS_UPDATE_KEY, and makes a DRAFT release: nothing is public until you publish it by hand.
+# Two ways to start it (docs/releasing.md):
+#   - Push a version tag:   git tag v1.2.3 && git push origin v1.2.3     (makes a DRAFT release)
+#   - Press the button:     Actions > Release > Run workflow > version, kind
+# Either way it builds the Windows setup (NSIS) and the Microsoft Store package (MSIX), signs the
+# update with GLOSSA_UPDATE_KEY (skipped, with a warning, while internal/update/pubkey.txt is the
+# placeholder), and makes the GitHub Release. Nothing is public until a release is published.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, without the v: 1.2.3 or 0.4.0-alpha"
+        required: true
+        type: string
+      kind:
+        description: "What to create. auto: a pre-release if the version has a - suffix, otherwise a draft"
+        required: true
+        type: choice
+        default: auto
+        options: [auto, draft, prerelease, release]
+      commit:
+        description: "Commit or branch to release (empty: the commit this run was started on)"
+        required: false
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # The old secret and variable names (Xegesis) still work until they are renamed.
+      GLOSSA_UPDATE_KEY: ${{ secrets.GLOSSA_UPDATE_KEY || secrets.XEGESIS_UPDATE_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit || '' }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -28,14 +55,35 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Version from the tag
+      - name: Version, tag and kind
         id: ver
         shell: pwsh
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_KIND: ${{ inputs.kind }}
         run: |
-          if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "The tag $env:GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH" }
-          $v = ./scripts/version.ps1 -Ref $env:GITHUB_REF_NAME
+          if ($env:EVENT -eq 'workflow_dispatch') {
+            $v = $env:INPUT_VERSION.Trim() -replace '^v', ''
+            $kind = $env:INPUT_KIND
+          } else {
+            if ($env:GITHUB_REF_NAME -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$') { throw "The tag $env:GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH" }
+            $v = ./scripts/version.ps1 -Ref $env:GITHUB_REF_NAME
+            $kind = 'draft'
+          }
+          ./scripts/version-map.ps1 validate $v | Out-Null   # fails unless MAJOR.MINOR.PATCH[-suffix]
+          $pre = $v.Contains('-')
+          if ($kind -eq 'auto') { $kind = if ($pre) { 'prerelease' } else { 'draft' } }
+          if ($kind -eq 'release' -and $pre) { throw "$v has a - suffix, so it can only be a draft or a pre-release. Run it again with kind prerelease (or a version without the suffix)." }
+          if ($env:EVENT -eq 'workflow_dispatch') {
+            git fetch --tags --quiet
+            if (git tag --list "v$v") { throw "The tag v$v already exists. Choose a new version, or delete the tag first." }
+          }
           "version=$v" >> $env:GITHUB_OUTPUT
-          "prerelease=$($v.Contains('-'))" >> $env:GITHUB_OUTPUT
+          "tag=v$v" >> $env:GITHUB_OUTPUT
+          "kind=$kind" >> $env:GITHUB_OUTPUT
+          "prerelease=$pre" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $v as $kind from $(git rev-parse HEAD)"
 
       - name: Frontend
         working-directory: frontend
@@ -49,12 +97,15 @@ jobs:
           go vet ./...
           go test ./...
           go test -tags store ./internal/update/...
+          cd tools
+          go vet ./...
+          go test ./...
 
       - name: Update key check
         shell: pwsh
         run: |
           if (Select-String -Path internal/update/pubkey.txt -Pattern PLACEHOLDER -Quiet) {
-            Write-Host "::warning::internal/update/pubkey.txt is still the placeholder. Updates from this release cannot verify until a real key is committed (docs/releasing.md)."
+            Write-Host "::warning::internal/update/pubkey.txt is still the placeholder. This release will NOT be signed and has no latest.json, so no app offers it as an update, until a real key is committed (docs/releasing.md)."
           }
 
       - name: Install NSIS
@@ -67,39 +118,59 @@ jobs:
       - name: Try the setup
         shell: pwsh
         run: |
-          $setup = "build/bin/Xegesis-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
-          $dir = Join-Path $env:RUNNER_TEMP 'xegesis-try'
+          $setup = "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
+          $dir = Join-Path $env:RUNNER_TEMP 'glossa-try'
           Start-Process (Resolve-Path $setup) -ArgumentList '/S', "/D=$dir" -Wait
-          foreach ($f in 'Xegesis.exe', 'Uninstall.exe', 'LICENSE-MIT', 'LICENSE-APACHE') {
+          foreach ($f in 'Glossa.exe', 'Uninstall.exe', 'LICENSE-MIT', 'LICENSE-APACHE') {
             if (-not (Test-Path "$dir/$f")) { throw "The setup did not install $f" }
           }
           Start-Process "$dir/Uninstall.exe" -ArgumentList '/S', "_?=$dir" -Wait
-          if (Test-Path "$dir/Xegesis.exe") { throw 'The uninstaller left Xegesis.exe behind' }
+          if (Test-Path "$dir/Glossa.exe") { throw 'The uninstaller left Glossa.exe behind' }
 
       - name: Build the Store package (MSIX)
         shell: pwsh
         env:
-          XEGESIS_MSIX_IDENTITY: ${{ vars.XEGESIS_MSIX_IDENTITY }}
-          XEGESIS_MSIX_PUBLISHER: ${{ vars.XEGESIS_MSIX_PUBLISHER }}
-          XEGESIS_MSIX_PUBLISHER_DISPLAY: ${{ vars.XEGESIS_MSIX_PUBLISHER_DISPLAY }}
+          GLOSSA_MSIX_IDENTITY: ${{ vars.GLOSSA_MSIX_IDENTITY || vars.XEGESIS_MSIX_IDENTITY }}
+          GLOSSA_MSIX_PUBLISHER: ${{ vars.GLOSSA_MSIX_PUBLISHER || vars.XEGESIS_MSIX_PUBLISHER }}
+          GLOSSA_MSIX_PUBLISHER_DISPLAY: ${{ vars.GLOSSA_MSIX_PUBLISHER_DISPLAY || vars.XEGESIS_MSIX_PUBLISHER_DISPLAY }}
         run: ./scripts/package-msix.ps1 -Version ${{ steps.ver.outputs.version }}
 
       - name: Checksums, signature and latest.json
         shell: pwsh
-        env:
-          XEGESIS_UPDATE_KEY: ${{ secrets.XEGESIS_UPDATE_KEY }}
         run: >
           ./scripts/release-files.ps1 -Version ${{ steps.ver.outputs.version }}
-          -Setup "build/bin/Xegesis-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
-          -Msix "build/bin/Xegesis-${{ steps.ver.outputs.version }}-windows-x64.msix"
+          -Setup "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
+          -Msix "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64.msix"
 
-      - name: Draft release
+      - name: Tag the commit (button runs only)
+        if: github.event_name == 'workflow_dispatch'
+        id: tag
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "${{ steps.ver.outputs.tag }}" -m "Glossa ${{ steps.ver.outputs.version }}" HEAD
+          git push origin "refs/tags/${{ steps.ver.outputs.tag }}"
+          if ($LASTEXITCODE) { throw 'pushing the tag failed' }
+          "created=true" >> $env:GITHUB_OUTPUT
+
+      - name: Create the GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $flags = @('--draft', '--generate-notes', '--title', "Xegesis ${{ steps.ver.outputs.version }}")
-          if ('${{ steps.ver.outputs.prerelease }}' -eq 'True') { $flags += '--prerelease' }
+          $flags = @('--verify-tag', '--generate-notes', '--title', "Glossa ${{ steps.ver.outputs.version }}")
+          switch ('${{ steps.ver.outputs.kind }}') {
+            'draft' { $flags += '--draft' }
+            'prerelease' { $flags += '--prerelease' }
+          }
+          # A draft of a suffixed version is also marked as a pre-release, for when it is published.
+          if ('${{ steps.ver.outputs.kind }}' -eq 'draft' -and '${{ steps.ver.outputs.prerelease }}' -eq 'True') { $flags += '--prerelease' }
           $files = Get-ChildItem build/release | ForEach-Object { $_.FullName }
-          gh release create $env:GITHUB_REF_NAME @flags @files
+          gh release create '${{ steps.ver.outputs.tag }}' @flags @files
           if ($LASTEXITCODE) { throw 'gh release create failed' }
+
+      - name: Remove the tag again if the release failed
+        if: failure() && steps.tag.outputs.created == 'true'
+        shell: pwsh
+        run: git push origin ":refs/tags/${{ steps.ver.outputs.tag }}"
