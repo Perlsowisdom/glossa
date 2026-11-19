@@ -20,13 +20,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/update/updatesig"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/update/updatesig"
 )
 
 // DefaultEndpoint is the one address the updater asks: the latest published release's manifest.
 // Draft and pre-release releases are never "latest", so they are not offered.
-const DefaultEndpoint = "https://github.com/Perlsowisdom/xegesis/releases/latest/download/latest.json"
+const DefaultEndpoint = "https://github.com/Perlsowisdom/glossa/releases/latest/download/latest.json"
 
 const (
 	maxManifest  = 1 << 20
@@ -110,7 +110,7 @@ func (c Config) get(ctx context.Context, address string, limit int64) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Xegesis")
+	req.Header.Set("User-Agent", "Glossa")
 	resp, err := c.client().Do(req)
 	if err != nil {
 		return nil, err
@@ -157,13 +157,13 @@ func (c Config) Download(ctx context.Context, m Manifest) (string, error) {
 		return "", err
 	}
 	defer body.Close()
-	dir, err := os.MkdirTemp(c.TempDir, "xegesis-update-")
+	dir, err := os.MkdirTemp(c.TempDir, "glossa-update-")
 	if err != nil {
 		return "", err
 	}
 	name := path.Base(m.URL)
 	if name == "." || name == "/" || filepath.Base(name) != name {
-		name = "xegesis-setup.exe"
+		name = "glossa-setup.exe"
 	}
 	file := filepath.Join(dir, name)
 	fail := func(err error) (string, error) {

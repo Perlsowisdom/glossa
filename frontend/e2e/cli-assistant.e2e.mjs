@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fakeCli } from "./app.mjs";
 
-const PIDS = join(tmpdir(), "xegesis-fake-cli.pids");
+const PIDS = join(tmpdir(), "glossa-fake-cli.pids");
 const CODEX = join(fakeCli, "codex.cmd");
 
 const alive = (pid) => {

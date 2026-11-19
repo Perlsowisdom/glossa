@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 }
 
 func run(out string) error {
-	root, err := os.MkdirTemp("", "xegesis-swordgen-*")
+	root, err := os.MkdirTemp("", "glossa-swordgen-*")
 	if err != nil {
 		return err
 	}

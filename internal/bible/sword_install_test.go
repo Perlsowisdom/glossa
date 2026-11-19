@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 var swordVerses = map[swordtest.Key]string{

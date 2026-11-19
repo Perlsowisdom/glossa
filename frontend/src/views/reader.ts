@@ -114,7 +114,7 @@ export function readerView() {
   }
   // In Study mode the Aa button is there while the selected pane shows a book (Pages / Scroll, PDF zoom).
   const showsBook = () => grid.selectedView()?.markScope?.()?.kind === "item";
-  document.addEventListener("xegesis:pane-changed", () => { aaBtn.hidden = prefs.reading.mode !== "read" && !showsBook(); });
+  document.addEventListener("glossa:pane-changed", () => { aaBtn.hidden = prefs.reading.mode !== "read" && !showsBook(); });
   onPrefs(applyPrefs);
   applyPrefs();
 

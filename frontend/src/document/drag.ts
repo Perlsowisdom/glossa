@@ -3,7 +3,7 @@
 
 import type { TabSpec } from "./grid";
 
-export const DRAG_TYPE = "application/x-xegesis-tab";
+export const DRAG_TYPE = "application/x-glossa-tab";
 
 export let dragging: { tabId?: string; spec?: TabSpec } | null = null;
 

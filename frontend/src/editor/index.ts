@@ -38,7 +38,7 @@ export { fromBlocks, toBlocks } from "./convert";
 
 export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichEditor {
   const editor = createLexical({
-    namespace: "xegesis-notes",
+    namespace: "glossa-notes",
     nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, DividerNode, InkNode, VerseQuoteNode, RefChipNode, TableNode, TableRowNode, TableCellNode,
       ...(opts.nodes ?? [])],
     theme: {

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // A SWORD verse index is positional: entry 0 is the module introduction, entry 1 the testament
@@ -24,7 +24,7 @@ var v11nFiles embed.FS
 
 // Book is one book of a numbering with the verse count of each chapter.
 type Book struct {
-	Number int    // book number in internal/verse; 0 for a book Xegesis does not know, which is skipped
+	Number int    // book number in internal/verse; 0 for a book Glossa does not know, which is skipped
 	OSIS   string // the book's ID in the numbering
 	Verses []int
 }
@@ -32,13 +32,13 @@ type Book struct {
 // Versification is a verse numbering: the books of each testament in index order.
 type Versification struct {
 	Name   string
-	System verse.System // the numbering Xegesis records for modules in it
+	System verse.System // the numbering Glossa records for modules in it
 	OT, NT []Book
 }
 
 // numberings lists the supported SWORD numberings: the .conf name, the counts file and the
-// Xegesis numbering recorded for modules in it. MT and Leningrad follow the Hebrew text and use
-// Xegesis's hebrew numbering; the others are recorded under their own lower-case name.
+// Glossa numbering recorded for modules in it. MT and Leningrad follow the Hebrew text and use
+// Glossa's hebrew numbering; the others are recorded under their own lower-case name.
 var numberings = []struct {
 	name, file string
 	system     verse.System
@@ -76,7 +76,7 @@ func init() {
 	}
 }
 
-// Versifications lists the SWORD numberings Xegesis can read.
+// Versifications lists the SWORD numberings Glossa can read.
 func Versifications() []string {
 	out := make([]string, 0, len(numberings))
 	for _, n := range numberings {
@@ -113,7 +113,7 @@ func parseCounts(name string, sys verse.System, data string) (*Versification, er
 		if b, ok := verse.LookupBook(f[0]); ok {
 			book.Number = b.Number
 			if len(f)-1 > b.Chapters {
-				return nil, fmt.Errorf("sword: %s numbering: %s has %d chapters, more than Xegesis allows",
+				return nil, fmt.Errorf("sword: %s numbering: %s has %d chapters, more than Glossa allows",
 					name, f[0], len(f)-1)
 			}
 		}
@@ -155,7 +155,7 @@ func (v *Versification) books(testament int) []Book {
 	return v.NT
 }
 
-// Book finds a book of the numbering by its Xegesis number.
+// Book finds a book of the numbering by its Glossa number.
 func (v *Versification) Book(number int) (Book, bool) {
 	for _, books := range [][]Book{v.OT, v.NT} {
 		for _, b := range books {
@@ -167,7 +167,7 @@ func (v *Versification) Book(number int) (Book, bool) {
 	return Book{}, false
 }
 
-// slot says what one index entry holds. id is 0 for entries of books Xegesis does not know.
+// slot says what one index entry holds. id is 0 for entries of books Glossa does not know.
 type slot struct {
 	id    verse.ID // the verse, or for an introduction the first verse after it
 	intro bool

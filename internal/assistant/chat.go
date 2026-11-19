@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Event is one step of a reply, sent as the "assistant:event" event while assistant.chat runs.
@@ -96,11 +96,11 @@ func (c *Context) line() string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return "[Open in Xegesis now: " + strings.Join(parts, "; ") + "]"
+	return "[Open in Glossa now: " + strings.Join(parts, "; ") + "]"
 }
 
 // SystemPrompt tells the model what it is and how to answer.
-const SystemPrompt = `You are the study assistant in Xegesis, a Bible study app. You help the person study with the Bibles, books, notes, sermons and highlights in their own library, which you read with the tools. You cannot change anything in the library.
+const SystemPrompt = `You are the study assistant in Glossa, a Bible study app. You help the person study with the Bibles, books, notes, sermons and highlights in their own library, which you read with the tools. You cannot change anything in the library.
 
 - Use the tools to look things up rather than relying on memory, and say which work a quotation comes from.
 - Write Bible references in full, such as Romans 8:28 or John 3:16-18, so the app can link them.
@@ -389,7 +389,7 @@ func (s *service) preview(ctx context.Context, env *command.Env, p PreviewParams
 	q := userText(ChatParams{Message: p.Message, Context: p.Context})
 	req := Request{Model: cur.model, Messages: []Message{{Role: "system", Content: SystemPrompt}, {Role: "user", Content: q}}, Tools: ToolDefs()}
 	if a, ok := cur.p.(*CLIAgent); ok {
-		out := Preview{Provider: cur.preset.Label, Endpoint: fmt.Sprintf("Runs %s on this computer. It signs in and connects to its provider itself; Xegesis does not see where.", a.Info.Path),
+		out := Preview{Provider: cur.preset.Label, Endpoint: fmt.Sprintf("Runs %s on this computer. It signs in and connects to its provider itself; Glossa does not see where.", a.Info.Path),
 			Model: cur.model, Question: q, CLI: true,
 			Body: "Command:\n" + a.Command(cur.model) + "\n\nSent to it:\n" + agentPrompt(nil, q)}
 		for _, t := range Tools() {

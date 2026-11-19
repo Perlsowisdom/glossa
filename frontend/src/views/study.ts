@@ -33,7 +33,7 @@ function card(el: HTMLElement, spec: TabSpec): HTMLElement {
 // related lets a Related card be dropped into a note or sermon too, where its words are quoted
 // (if the commentary's licence allows) with its place.
 function related(el: HTMLElement, info: { module: string; name: string; ref: string; osis: string; text: string }): HTMLElement {
-  el.addEventListener("dragstart", (e) => e.dataTransfer?.setData("application/x-xegesis-related", JSON.stringify(info)));
+  el.addEventListener("dragstart", (e) => e.dataTransfer?.setData("application/x-glossa-related", JSON.stringify(info)));
   return el;
 }
 

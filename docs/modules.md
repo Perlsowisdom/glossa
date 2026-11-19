@@ -4,7 +4,7 @@ Each Bible is one read-only SQLite file, `modules/<id>.db` (ADR 0002). The `bibl
 creates it by importing OSIS 2.1.1, USFM 3 or USX 3 source files, and `bible.get` from a SWORD module or an
 eBible.org USFM archive; nothing else writes it. A module can
 always be rebuilt from its sources, so the format may change between versions: `PRAGMA user_version`
-holds the format version (currently 1) and Xegesis refuses files of another version.
+holds the format version (currently 1) and Glossa refuses files of another version.
 
 The module ID is lowercase letters, digits, `-` and `_` (at most 64 characters) and is also the file
 name.
@@ -49,7 +49,7 @@ zeros). Used by `bible.search` with `strong`.
 
 `(system, module_id, system_id)`: an optional full mapping from this module's verse IDs to the verse IDs
 of a named numbering system. When a module has rows for a system, conversions to and from that system use
-them; otherwise Xegesis falls back to `verse.Convert`, and then to the same number. Load a table at import
+them; otherwise Glossa falls back to `verse.Convert`, and then to the same number. Load a table at import
 with `mapping_file`, a UTF-8 text file of tab-separated lines:
 
 ```
@@ -168,7 +168,7 @@ modules agreed wherever both had a marker, and each module's index held exactly 
 verses entries. Spot checks: Synodal Ps 22:1 is "Господь - Пастырь мой" (English Ps 23:1), Vulg Dan 13:1
 begins Susanna, German Mal 3:19 is English Mal 4:1, MT Ps 51:3 is English Ps 51:1.
 
-| Numbering | Modules counted | Xegesis numbering |
+| Numbering | Modules counted | Glossa numbering |
 | --- | --- | --- |
 | NRSV | NHEB, KorRV | `nrsv` |
 | MT | JPS, OSHB (Old Testament only) | `hebrew` |
@@ -181,8 +181,8 @@ begins Susanna, German Mal 3:19 is English Mal 4:1, MT Ps 51:3 is English Ps 51:
 | Luther | GerMenge | `luther` |
 | Calvin | HunKar, FreBA | `calvin` |
 
-Books Xegesis does not know (Luther's `AddDan`, Vulg's `EpLao`) keep their index entries but are not
-imported. Xegesis's chapter limits were raised to fit these numberings: Esther 16, Psalms 151, Daniel 14.
+Books Glossa does not know (Luther's `AddDan`, Vulg's `EpLao`) keep their index entries but are not
+imported. Glossa's chapter limits were raised to fit these numberings: Esther 16, Psalms 151, Daniel 14.
 
 Not supported, with the reason, so their modules are listed as "cannot be installed": **KJVA** (the
 only open module, DutSVV, has none of the Apocrypha but Baruch, so the book order and counts cannot be
@@ -259,5 +259,5 @@ item's `rights` quotes the source's own licence words.
 
 The STEPBible repository is CC BY 4.0 ("Data created by www.STEPBible.org based on work at Tyndale
 House Cambridge"), checked on 2026-10-28; it asks others to refer to it as the source rather than
-redistribute the files, which is why Xegesis downloads them from GitHub. OpenBible.info states its
+redistribute the files, which is why Glossa downloads them from GitHub. OpenBible.info states its
 cross-references are "licensed under a Creative Commons Attribution License".

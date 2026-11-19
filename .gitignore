@@ -1,7 +1,7 @@
-/xegesis
-/xegesis.exe
-/xegesis-desktop
-/xegesis-desktop.exe
+/glossa
+/glossa.exe
+/glossa-desktop
+/glossa-desktop.exe
 /build/bin/
 *.db
 *.db-wal

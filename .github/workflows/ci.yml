@@ -25,15 +25,17 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test ./...
+      - name: Build tools tests
+        run: cd tools && go test ./...
       - name: Build CLI
-        run: go build ./cmd/xegesis
+        run: go build ./cmd/glossa
       - name: Build desktop app
         shell: bash
         run: |
           tags=desktop,production
           if [ "$RUNNER_OS" = Linux ]; then tags=$tags,webkit2_41; fi
           if [ "$RUNNER_OS" = macOS ]; then export CGO_LDFLAGS="-framework UniformTypeIdentifiers"; fi
-          go build -tags "$tags" -o xegesis-desktop ./app
+          go build -tags "$tags" -o glossa-desktop ./app
 
   frontend:
     runs-on: ubuntu-24.04

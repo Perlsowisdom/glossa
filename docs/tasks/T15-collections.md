@@ -54,7 +54,7 @@ Collections group books so you can browse, filter and search a part of your libr
   `internal/search` (the collection filter only), `frontend/src`, and add one migration if needed. Update
   the schema-version tests if you do.
 - Do not commit `frontend/dist`.
-- Use a scratch library (`XEGESIS_LIBRARY`) for manual checks.
+- Use a scratch library (`GLOSSA_LIBRARY`) for manual checks.
 
 ## Done when
 

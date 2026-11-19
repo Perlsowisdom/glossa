@@ -1,4 +1,4 @@
-module github.com/Perlsowisdom/xegesis
+module github.com/Perlsowisdom/glossa
 
 go 1.27.0
 

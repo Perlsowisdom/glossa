@@ -1,6 +1,6 @@
-# What Xegesis sends over the network
+# What Glossa sends over the network
 
-ADR 0009: Xegesis sends no telemetry. Only the features below use the network, each off until you turn
+ADR 0009: Glossa sends no telemetry. Only the features below use the network, each off until you turn
 it on. This page says exactly what each one sends. Other features add their sections when they are built.
 
 ## Bible catalogues (T25)
@@ -9,7 +9,7 @@ Off until you turn them on: the "Turn on Bible catalogues" button in Bibles → 
 `bible.sources {"enable": true}`. `bible.sources {"enable": false}` turns them off again; the cached
 lists stay on disk and can still be browsed offline.
 
-Every request is an HTTPS `GET` (or `HEAD` for a size) with the header `User-Agent: Xegesis` and no
+Every request is an HTTPS `GET` (or `HEAD` for a size) with the header `User-Agent: Glossa` and no
 cookies, account, identifier, search terms or information about your library. The servers see your IP
 address and which files you request, as with any download.
 
@@ -29,17 +29,17 @@ only while the catalogues are on.
 
 ## Updates (T23, direct download only)
 
-Off until you turn it on: the first time Xegesis starts, it asks once whether to check for updates, and
+Off until you turn it on: the first time Glossa starts, it asks once whether to check for updates, and
 "No thanks" leaves it off. Turn it on or off later in Settings → Updates (`update.settings.set`).
 The Microsoft Store build has no updater at all; the Store installs its updates.
 
-Every request is an HTTPS `GET` with the header `User-Agent: Xegesis`, and nothing else: no cookies,
+Every request is an HTTPS `GET` with the header `User-Agent: Glossa`, and nothing else: no cookies,
 account, identifier or information about your library or this computer. GitHub sees your IP address and
 which file you ask for, as with any download.
 
 | When | Requests |
 | --- | --- |
-| Once a day while Xegesis is open and updates are on, or when you press Check for updates (`update.auto`, `update.check`) | `https://github.com/Perlsowisdom/xegesis/releases/latest/download/latest.json`: version, installer address, SHA-256 and signature of the newest published release |
+| Once a day while Glossa is open and updates are on, or when you press Check for updates (`update.auto`, `update.check`) | `https://github.com/Perlsowisdom/glossa/releases/latest/download/latest.json`: version, installer address, SHA-256 and signature of the newest published release |
 | You press Restart to update (`update.install`) | The installer named in `latest.json`, from the same release (GitHub forwards the download to its own file servers) |
 
 Before anything runs, the installer's SHA-256 must match `latest.json` and its Ed25519 signature must
@@ -67,22 +67,22 @@ details.
 | --- | --- |
 | The Model page lists models, after a key is saved (`assistant.models`) | `GET <address>/models` |
 | You press Test connection (`assistant.test`) | `GET <address>/models`; when the server has no model list, one `POST <address>/chat/completions` with the message "Reply with the word OK." and nothing of yours |
-| You send a question (`assistant.chat`) | `POST <address>/chat/completions`, streamed, once per step of the reply. It holds the model name, Xegesis's instructions to the model, the conversation so far (your questions with the passage and the note or sermon open when you asked: their reference, title and ID), the list of read-only tools, and each tool's result |
+| You send a question (`assistant.chat`) | `POST <address>/chat/completions`, streamed, once per step of the reply. It holds the model name, Glossa's instructions to the model, the conversation so far (your questions with the passage and the note or sermon open when you asked: their reference, title and ID), the list of read-only tools, and each tool's result |
 
 ### Claude Code and Codex (T36b)
 
 Choosing **Claude Code** or **Codex** uses the command-line tool already on this computer (`claude`,
-`codex`). **These tools do their own sign-in and their own network calls**: Xegesis holds no key for
+`codex`). **These tools do their own sign-in and their own network calls**: Glossa holds no key for
 them, does not see which service or model they use, and cannot limit where they send what they are
 given. Your question, the chat so far and what the tools read from your library go to their provider
-under its terms, so Xegesis treats them as online: personal copies of books are never given to them, and
+under its terms, so Glossa treats them as online: personal copies of books are never given to them, and
 quoting limits apply.
 
 | When | What happens |
 | --- | --- |
-| The Model page opens, or you ask `assistant.cli.detect` | Looks for `claude` and `codex` on PATH and runs each with `--version`. No network from Xegesis |
+| The Model page opens, or you ask `assistant.cli.detect` | Looks for `claude` and `codex` on PATH and runs each with `--version`. No network from Glossa |
 | You press Test connection | Nothing is run or sent; it reports the version found |
-| You send a question | Runs the tool with no window, in an empty temporary folder, with the question, Xegesis's instructions and the chat so far on its standard input, and a config naming Xegesis's own `mcp-assistant` mode. That mode offers only the read-only tools, each result passing the licence gate; the tool's own file, shell and web tools are switched off. Pressing Stop ends the tool and everything it started |
+| You send a question | Runs the tool with no window, in an empty temporary folder, with the question, Glossa's instructions and the chat so far on its standard input, and a config naming Glossa's own `mcp-assistant` mode. That mode offers only the read-only tools, each result passing the licence gate; the tool's own file, shell and web tools are switched off. Pressing Stop ends the tool and everything it started |
 
 The privacy panel shows the exact command and what is sent to it before your first message to each tool.
 

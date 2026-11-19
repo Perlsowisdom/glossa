@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Perlsowisdom/xegesis/internal/backup"
+	"github.com/Perlsowisdom/glossa/internal/backup"
 )
 
 // Notes are stored as the editor's Markdown (frontend/src/editor/markdown.ts). parseNote reads it

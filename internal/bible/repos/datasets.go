@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
-// KindData is a source of openly licensed datasets that Xegesis knows by name: STEPBible's
+// KindData is a source of openly licensed datasets that Glossa knows by name: STEPBible's
 // tagged texts and lexicons and OpenBible.info's cross-references. Their items are listed
 // without downloading a catalogue.
 const KindData = "data"
@@ -70,7 +70,7 @@ var datasets = []dataset{
 		lang: "en", kind: "dictionary",
 		about: "The Hebrew word, transliteration, part of speech and a short English gloss for every Hebrew Strong's " +
 			"number. The longer definitions in this file come from the Abridged BDB of Online Bible, which asks for " +
-			"permission before use, so Xegesis keeps only the glosses written by Tyndale House.",
+			"permission before use, so Glossa keeps only the glosses written by Tyndale House.",
 		rights: stepRights + "\nTBESH: \"Meaning: These are based on the Abridged BDB by Online Bible, © Larry Pierce of " +
 			"OnlineBible.net. They are for guidance only. Permission should be gained from Online Bible before these are " +
 			"applied in any project.\" (Not installed.)",
@@ -79,7 +79,7 @@ var datasets = []dataset{
 		size:        3288045, install: installSTEPLexicon(false)},
 	{source: "openbible", id: "cross-references", name: "Cross-references (OpenBible.info)", abbr: "OBXR",
 		lang: "en", kind: "commentary",
-		about: "About 340,000 cross-references between Bible verses, ranked by readers' votes. Xegesis keeps the 25 " +
+		about: "About 340,000 cross-references between Bible verses, ranked by readers' votes. Glossa keeps the 25 " +
 			"best for each verse.",
 		rights:      "OpenBible.info cross-references: \"licensed under a Creative Commons Attribution License\" (CC BY 4.0).",
 		attribution: "Cross-references from OpenBible.info, CC BY 4.0",
@@ -137,7 +137,7 @@ func (s *Service) installData(ctx context.Context, key string, it Item, o bible.
 	if !ok {
 		return bible.Meta{}, nil, fmt.Errorf("no dataset %s", it.ID)
 	}
-	dir, err := os.MkdirTemp("", "xegesis-data-*")
+	dir, err := os.MkdirTemp("", "glossa-data-*")
 	if err != nil {
 		return bible.Meta{}, nil, err
 	}

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Entry is one entry of a verse-keyed source such as a SWORD module: a verse's markup, or an

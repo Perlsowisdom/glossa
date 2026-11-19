@@ -4,18 +4,18 @@ package secrets
 
 import (
 	"errors"
-	"os"
 	"sync"
 
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"github.com/zalando/go-keyring"
 )
 
-// Service is the keychain service name all Xegesis secrets are filed under. The interface tests
-// set XEGESIS_KEYRING_SERVICE to file theirs under another name, apart from the person's own.
-const Service = "xegesis"
+// Service is the keychain service name all Glossa secrets are filed under. The interface tests
+// set GLOSSA_KEYRING_SERVICE to file theirs under another name, apart from the person's own.
+const Service = "glossa"
 
 // ServiceEnv names the environment variable that overrides Service.
-const ServiceEnv = "XEGESIS_KEYRING_SERVICE"
+const ServiceEnv = "GLOSSA_KEYRING_SERVICE"
 
 // ErrNotFound means no secret is stored under that name.
 var ErrNotFound = errors.New("secrets: not found")
@@ -31,10 +31,43 @@ type osStore struct{ service string }
 
 // OS returns the operating system keychain.
 func OS() Store {
-	if s := os.Getenv(ServiceEnv); s != "" {
+	if s := appdir.Getenv(ServiceEnv); s != "" {
 		return osStore{s}
 	}
-	return osStore{Service}
+	return Migrating(osStore{Service}, osStore{LegacyService})
+}
+
+// LegacyService is the service name Xegesis filed secrets under, before the rename.
+const LegacyService = "xegesis"
+
+// Migrating returns a Store that reads from current and, when a name is not there, from legacy:
+// the value found is saved to current, so the next read does not need legacy. Writes go to current
+// only; Delete removes the name from both, so a deleted secret does not come back from legacy.
+func Migrating(current, legacy Store) Store { return migrating{current, legacy} }
+
+type migrating struct{ cur, old Store }
+
+func (m migrating) Get(name string) (string, error) {
+	v, err := m.cur.Get(name)
+	if !errors.Is(err, ErrNotFound) {
+		return v, err
+	}
+	v, err = m.old.Get(name)
+	if err != nil {
+		return "", err
+	}
+	// Best effort: if saving fails, the value is still returned and found again next time.
+	_ = m.cur.Set(name, v)
+	return v, nil
+}
+
+func (m migrating) Set(name, value string) error { return m.cur.Set(name, value) }
+
+func (m migrating) Delete(name string) error {
+	if err := m.cur.Delete(name); err != nil {
+		return err
+	}
+	return m.old.Delete(name)
 }
 
 func (o osStore) Get(name string) (string, error) {

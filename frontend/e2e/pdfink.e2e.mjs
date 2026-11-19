@@ -90,7 +90,7 @@ const checks = [
       const books = await addBooks(T(t));
       shared.pdf = books.pdf;
       await closeBooks(T(t));
-      await page.evaluate(() => localStorage.removeItem("xegesis.book.prefs")); // 100% zoom, whatever earlier checks chose
+      await page.evaluate(() => localStorage.removeItem("glossa.book.prefs")); // 100% zoom, whatever earlier checks chose
       await chooseLayout(t, "Pages");
       await openAtPageOne(t, "e2e-test-pages");
       await onPage(t).waitFor({ timeout: 20000 });
@@ -355,7 +355,7 @@ export default checks.map((c) => ({ ...c, async run(t) {
   } finally {
     if (c === checks[checks.length - 1]) {
       await closeBooks(T(t));
-      await t.app.page.evaluate(() => { localStorage.removeItem("xegesis.book.layout"); localStorage.removeItem("xegesis.book.prefs"); });
+      await t.app.page.evaluate(() => { localStorage.removeItem("glossa.book.layout"); localStorage.removeItem("glossa.book.prefs"); });
     }
   }
 } }));

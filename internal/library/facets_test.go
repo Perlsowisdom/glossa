@@ -18,7 +18,7 @@ func TestClassifyType(t *testing.T) {
 		{"book before the word", ClassifyInput{Title: "Philippians: A Commentary"}, TypeCommentaryN, "Philippians"},
 		{"series says testament", ClassifyInput{Title: "The Gospel Accounts", Series: "Commentary on the New Testament"}, TypeCommentaryN, "series"},
 		{"whole bible", ClassifyInput{Title: "One Volume Bible Commentary"}, TypeCommentaryW, "commentary"},
-		{"lcsh commentary", ClassifyInput{Title: "Exegesis", Subjects: []string{"Bible. Romans -- Commentaries"}}, TypeCommentaryN, "Romans"},
+		{"lcsh commentary", ClassifyInput{Title: "Eglossa", Subjects: []string{"Bible. Romans -- Commentaries"}}, TypeCommentaryN, "Romans"},
 		{"lcsh ot", ClassifyInput{Title: "Notes", Subjects: []string{"Bible. O.T. -- Commentaries"}}, TypeCommentaryO, "Old Testament"},
 		{"bible text", ClassifyInput{Title: "The Holy Bible, English Standard Version"}, TypeBible, "Bible"},
 		{"bible study is not a bible", ClassifyInput{Title: "Bible Study Guide for Small Groups"}, "", ""},

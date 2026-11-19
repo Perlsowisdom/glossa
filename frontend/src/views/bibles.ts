@@ -69,7 +69,7 @@ function getBibles(changed: () => void) {
   const search = h("input", { type: "search", placeholder: "Search names", "aria-label": "Search Bibles" });
   const licence = select([["", "Any licence"], ["public_domain", "Public domain"], ["creative_commons", "Free to share"],
     ["open_other", "Other licences"]], "", { "aria-label": "Licence" });
-  const installableChip = chip({ label: "Only ones Xegesis can install", checked: true });
+  const installableChip = chip({ label: "Only ones Glossa can install", checked: true });
   const installable = installableChip.querySelector("input")!;
   const status = h("p", { class: "hint", role: "status" });
   const list = h("div", { class: "table-wrap" });
@@ -95,7 +95,7 @@ function getBibles(changed: () => void) {
   search.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(load, 250); });
 
   async function disable() {
-    if (!confirm("Turn off the Bible catalogues? Installed Bibles stay; Xegesis stops downloading the lists.")) return;
+    if (!confirm("Turn off the Bible catalogues? Installed Bibles stay; Glossa stops downloading the lists.")) return;
     if ((await msg.attempt(() => run("bible.sources", { enable: false }))) !== undefined) {
       msg.ok("Bible catalogues are off.");
       load();
@@ -126,7 +126,7 @@ function getBibles(changed: () => void) {
     off.hidden = r.enabled;
     disableButton.hidden = !r.enabled;
     clear(off, h("h2", {}, "Bible catalogues are off"),
-      h("p", {}, "When you turn them on, Xegesis downloads the lists of what is available from CrossWire (crosswire.org), " +
+      h("p", {}, "When you turn them on, Glossa downloads the lists of what is available from CrossWire (crosswire.org), " +
         "eBible.org, STEPBible (stepbible.org) and OpenBible.info, and the Bibles, commentaries and lexicons you choose " +
         "to install. Only these files are requested; nothing about you or your library is sent. You can turn them off " +
         "again here at any time."),

@@ -21,7 +21,7 @@ differs from this brief.
 
 ## 2. Android Auto
 
-Android Auto lets media apps play audio but does not allow reading text on the car screen, so Xegesis
+Android Auto lets media apps play audio but does not allow reading text on the car screen, so Glossa
 appears there as a listening app.
 - Implement the media library service (Media3 `MediaLibraryService`), with a browsable tree: Continue
   listening, Bibles (book, then chapter), Reading plan for today, Recent books.
@@ -30,10 +30,10 @@ appears there as a listening app.
 
 ## 3. Voice assistants (Google Assistant, Gemini, Bixby)
 
-- **Media voice commands:** "Play John 3 on Xegesis" and "Read today's reading plan on Xegesis" go
+- **Media voice commands:** "Play John 3 on Glossa" and "Read today's reading plan on Glossa" go
   through the media session's play-from-search, which Assistant and Android Auto use. Parse the request
   with `verse.Parse` and the library search.
-- **App actions and shortcuts:** "Open Romans 8 in Xegesis" and "Search Xegesis for grace" use Android
+- **App actions and shortcuts:** "Open Romans 8 in Glossa" and "Search Glossa for grace" use Android
   shortcuts and capabilities (`shortcuts.xml` with built-in intents such as open app feature and get
   thing). Gemini's support for app actions and extensions must be checked for third-party apps at build
   time, and only what is genuinely supported implemented.
@@ -54,8 +54,8 @@ appears there as a listening app.
 
 - A chapter plays aloud with the screen off and lock-screen controls work.
 - The place is kept, and the sleep timer works.
-- Xegesis appears in the Android Auto Desktop Head Unit and plays a Bible chapter chosen from its
+- Glossa appears in the Android Auto Desktop Head Unit and plays a Bible chapter chosen from its
   menus.
-- "Play John 3 on Xegesis" works through Google Assistant on a test device, or the report explains
+- "Play John 3 on Glossa" works through Google Assistant on a test device, or the report explains
   precisely what the platform does not allow.
 - `docs/android.md` documents what each assistant supports, with links checked on the day.

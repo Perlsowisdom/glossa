@@ -1,29 +1,29 @@
-// Package all builds the registry with every Xegesis command, so the CLI, the MCP server and the
+// Package all builds the registry with every Glossa command, so the CLI, the MCP server and the
 // desktop app offer exactly the same features.
 package all
 
 import (
 	"path/filepath"
 
-	"github.com/Perlsowisdom/xegesis/internal/assistant"
-	"github.com/Perlsowisdom/xegesis/internal/backup"
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/bible/repos"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/document"
-	"github.com/Perlsowisdom/xegesis/internal/export"
-	"github.com/Perlsowisdom/xegesis/internal/folder"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/apibible"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/dbl"
-	"github.com/Perlsowisdom/xegesis/internal/integrations/secrets"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/lists"
-	"github.com/Perlsowisdom/xegesis/internal/plan"
-	"github.com/Perlsowisdom/xegesis/internal/reader"
-	"github.com/Perlsowisdom/xegesis/internal/report"
-	"github.com/Perlsowisdom/xegesis/internal/search"
-	"github.com/Perlsowisdom/xegesis/internal/update"
+	"github.com/Perlsowisdom/glossa/internal/assistant"
+	"github.com/Perlsowisdom/glossa/internal/backup"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/bible/repos"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/document"
+	"github.com/Perlsowisdom/glossa/internal/export"
+	"github.com/Perlsowisdom/glossa/internal/folder"
+	"github.com/Perlsowisdom/glossa/internal/integrations/apibible"
+	"github.com/Perlsowisdom/glossa/internal/integrations/dbl"
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/lists"
+	"github.com/Perlsowisdom/glossa/internal/plan"
+	"github.com/Perlsowisdom/glossa/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/report"
+	"github.com/Perlsowisdom/glossa/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/update"
 )
 
 // Registry returns every command. dataDir is the folder holding library.db; Bible modules live in

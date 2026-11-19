@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Verse is one verse, or several combined verses, as stored in a module.

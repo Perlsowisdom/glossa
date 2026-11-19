@@ -16,7 +16,7 @@ import (
 
 	"golang.org/x/text/encoding/charmap"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Index layouts, all little-endian:
@@ -52,7 +52,7 @@ var testaments = [2]string{"ot", "nt"}
 // ErrLocked is returned for enciphered modules.
 var ErrLocked = errors.New("sword: the module is locked; it needs the publisher's unlock key")
 
-// Supported reports whether Xegesis can read a module, and why not.
+// Supported reports whether Glossa can read a module, and why not.
 func Supported(c Conf) error {
 	if c.Locked() {
 		return ErrLocked
@@ -165,7 +165,7 @@ func Open(dir string, c Conf) (*Text, error) {
 	return t, nil
 }
 
-// System is the Xegesis numbering the module's verse IDs are in.
+// System is the Glossa numbering the module's verse IDs are in.
 func (t *Text) System() verse.System { return t.v11n.System }
 
 func (t *Text) indexName(i int) string {

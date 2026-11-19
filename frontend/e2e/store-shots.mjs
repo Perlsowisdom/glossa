@@ -1,7 +1,7 @@
 // Takes the Microsoft Store screenshots (1366x768) from the real app on a copy of the test library:
 //   npm run store-shots
 // They go to docs/store/screenshots/. Nothing of the user's own library is used: startApp copies the
-// scratch library (XEGESIS_E2E_SOURCE) and the app runs on the copy. The notes and sermon shown are
+// scratch library (GLOSSA_E2E_SOURCE) and the app runs on the copy. The notes and sermon shown are
 // made here, from plain sample text, and live only in that copy.
 
 import { mkdirSync, rmSync } from "node:fs";

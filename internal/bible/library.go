@@ -16,8 +16,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // ErrNoModule is returned for a module that is not installed.

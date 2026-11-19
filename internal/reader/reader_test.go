@@ -15,11 +15,11 @@ import (
 
 	xhtml "golang.org/x/net/html"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/search"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // Fixtures ---------------------------------------------------------------------------------------
@@ -176,7 +176,7 @@ func setup(t *testing.T) *env { return setupWith(t, nil) }
 // setupWith adds extra files (name to bytes) to the library; e.titles finds their items by title.
 func setupWith(t *testing.T, extra map[string][]byte) *env {
 	t.Helper()
-	data, err := os.MkdirTemp("", "xegesis-reader-")
+	data, err := os.MkdirTemp("", "glossa-reader-")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // InstallCrossRefs makes a cross-reference set from tab-separated lines "from<TAB>to<TAB>votes"

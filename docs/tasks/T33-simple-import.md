@@ -36,7 +36,7 @@ should take one action and no questions.
    - **Folder:** registers the folder, scans it straight away and keeps watching it. The app rescans online
      folders at start-up and every 10 minutes, which is cheap because unchanged files are skipped. Use file
      notifications instead only if a permissive library makes that simple.
-   - **Files:** copies them into a default library folder, `Documents/Xegesis Library` (created and
+   - **Files:** copies them into a default library folder, `Documents/Glossa Library` (created and
      registered on first use), then scans.
    - **Drag and drop** files or folders onto the window does the same, if Wails v2 supports file drop;
      check its documentation.
@@ -59,7 +59,7 @@ should take one action and no questions.
 - Work only in your worktree. You may change `internal/library`, `internal/bible` (licence detection
   only), `internal/licence` (labels or helpers), `app/` (timer, drag and drop, dialogs),
   `frontend/src`, and add one migration. Do not commit `frontend/dist`.
-- Test with tiny fixtures. Use a scratch library, never `%APPDATA%\Xegesis`.
+- Test with tiny fixtures. Use a scratch library, never `%APPDATA%\Glossa`.
 
 ## Done when
 

@@ -216,7 +216,7 @@ function unzip(buf) {
   return out;
 }
 
-// pdfText reads the text of a PDF Xegesis wrote: each font's ToUnicode map turns the glyph numbers
+// pdfText reads the text of a PDF Glossa wrote: each font's ToUnicode map turns the glyph numbers
 // of its text runs back into letters.
 function pdfText(buf) {
   const src = buf.toString("latin1");

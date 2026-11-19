@@ -8,8 +8,8 @@ import (
 
 	xhtml "golang.org/x/net/html"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 type VerseTextParams struct {

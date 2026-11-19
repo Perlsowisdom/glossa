@@ -62,7 +62,7 @@ both modes.
 
 The user likes how BookFusion and Zotero present their readers. Take ideas and workflows only:
 - Zotero is AGPL, so copy no code;
-- describe the result in Xegesis's own terms;
+- describe the result in Glossa's own terms;
 - do not reuse their screen names, layouts or wording (AGENTS.md).
 
 Calibre's viewer and KOReader are further open references.

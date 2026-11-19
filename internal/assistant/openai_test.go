@@ -12,7 +12,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("XEGESIS_FAKE_CLI") != "" {
+	if os.Getenv("GLOSSA_FAKE_CLI") != "" {
 		fakeCLI() // this test program is also the fake claude or codex command
 		return
 	}

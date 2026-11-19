@@ -228,7 +228,7 @@ export function bibleDoc(host: DocHost): DocView {
     num.draggable = true;
     num.addEventListener("dragstart", (e) => {
       if (!e.dataTransfer) return;
-      e.dataTransfer.setData("application/x-xegesis-verse", JSON.stringify({ ref: v.ref, module }));
+      e.dataTransfer.setData("application/x-glossa-verse", JSON.stringify({ ref: v.ref, module }));
       e.dataTransfer.setData("text/plain", v.ref);
       e.dataTransfer.effectAllowed = "copy";
     });
@@ -371,11 +371,11 @@ export function bibleDoc(host: DocHost): DocView {
   async function changed() {
     await loadHighlights();
     announcing = true;
-    document.dispatchEvent(new Event("xegesis:marks-changed"));
+    document.dispatchEvent(new Event("glossa:marks-changed"));
     announcing = false;
   }
   const onMarks = () => { if (alive && !announcing) void loadHighlights(); };
-  document.addEventListener("xegesis:marks-changed", onMarks);
+  document.addEventListener("glossa:marks-changed", onMarks);
 
   // colour highlights the given verse runs (the selection by default).
   async function colour(style: string, rs = selectionRuns(shown, selected)) {
@@ -618,7 +618,7 @@ export function bibleDoc(host: DocHost): DocView {
       seq++;
       stopBibles();
       marking.close();
-      document.removeEventListener("xegesis:marks-changed", onMarks);
+      document.removeEventListener("glossa:marks-changed", onMarks);
     },
   };
 }

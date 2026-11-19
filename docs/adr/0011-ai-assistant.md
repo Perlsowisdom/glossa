@@ -4,7 +4,7 @@ Status: Accepted (approved by the user, 5 November 2026; T36a). Builds on 0007 (
 
 ## Context
 
-The user decided on 5 November 2026 that Xegesis has an AI assistant that **reads and suggests**: it
+The user decided on 5 November 2026 that Glossa has an AI assistant that **reads and suggests**: it
 searches the library, reads passages, notes, sermons, highlights and reports, and answers with
 references; whatever it writes is a draft the user inserts. It must never change the user's data. It
 works with online services through the user's own key, with local models, and (T36b) with Claude Code
@@ -30,14 +30,14 @@ cancelling the context stops it. It also lists its models. Errors come back in p
 - **Claude Code and Codex (T36b)** are providers of their own (`CLIAgent`) that run the command-line
   tool found on PATH, non-interactively, once per question: `claude -p --output-format stream-json`
   and `codex exec --json`, with the prompt on standard input and the chat so far in it (no tool-side
-  session, so nothing depends on the tool's resume options). Each is given Xegesis's MCP server in an
+  session, so nothing depends on the tool's resume options). Each is given Glossa's MCP server in an
   **assistant mode** (`mcp-assistant`, served by the app's own executable) that offers exactly
   `assistant.Tools`, nothing else, through the licence gate; the tool's built-in file, shell and web
   tools are disallowed. Its JSON lines become the same chat events: text, tool lines and drafts.
   Stop cancels the run, which kills the whole process tree (`taskkill /T`, or the process group).
-  They are **online** for the gate: they send what they read to their provider, which Xegesis can
+  They are **online** for the gate: they send what they read to their provider, which Glossa can
   neither see nor limit, so personal copies of library books are withheld and quoting limits apply,
-  exactly as for an online key. The tools do their own sign-in and network calls; Xegesis keeps no key
+  exactly as for an online key. The tools do their own sign-in and network calls; Glossa keeps no key
   for them, and the Model page and privacy panel say so. Detection (`assistant.cli.detect`) looks on
   PATH and asks for `--version`; the chips show Ready or Not found with an install link.
 
@@ -80,7 +80,7 @@ No telemetry; endpoints are listed in `docs/privacy.md`.
 (MIT), under `assistant.<provider>.key`, never in `library.db`, the change history or a log; the
 interface shows only "Saved". The other settings (provider, addresses, models, confirmations) are the
 `assistant` row of the `settings` table. Tests use an in-memory store; the interface tests file keys
-under a separate service name (`XEGESIS_KEYRING_SERVICE`) and remove them.
+under a separate service name (`GLOSSA_KEYRING_SERVICE`) and remove them.
 
 **Commands**: `assistant.config.get`, `assistant.config.set`, `assistant.models`, `assistant.test`,
 `assistant.preview`, `assistant.chat` (streams `assistant:event` events to the desktop app and returns

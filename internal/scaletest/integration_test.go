@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/backup"
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/reader"
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/backup"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 const usfmRomans = `\id ROM Test Bible
@@ -26,7 +26,7 @@ const usfmRomans = `\id ROM Test Bible
 // add books, install a Bible from a file, read a book beside it, search and open a hit,
 // highlight, export and back up, and search again with one library folder offline.
 func TestM1(t *testing.T) {
-	root, err := os.MkdirTemp("", "xegesis-m1-")
+	root, err := os.MkdirTemp("", "glossa-m1-")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -194,19 +194,19 @@ export async function openAppLink(href: string, title = ""): Promise<void> {
 // dropToMarkdown turns a dropped verse, highlight or Related card into the Markdown to insert.
 export async function dropToMarkdown(data: Record<string, string>, say: (why: string) => void): Promise<string | null> {
   const json = (t: string) => { try { return JSON.parse(data[t] ?? "null"); } catch { return null; } };
-  const verse = json("application/x-xegesis-verse") as { ref: string; module: string } | null;
+  const verse = json("application/x-glossa-verse") as { ref: string; module: string } | null;
   if (verse?.ref) {
     const got = await verseQuoteFor(verse.ref, verse.module || await currentBible());
     if ("reason" in got) { say(`Not quoted: ${got.reason}.`); return null; }
     return got.md;
   }
-  const hl = json("application/x-xegesis-highlight") as HighlightRow | null;
+  const hl = json("application/x-glossa-highlight") as HighlightRow | null;
   if (hl?.id) {
     const got = await highlightQuote(hl);
     if ("reason" in got) { say(`Not inserted: ${got.reason}.`); return null; }
     return got.md;
   }
-  const rel = json("application/x-xegesis-related") as { module: string; name: string; ref: string; osis?: string; text: string } | null;
+  const rel = json("application/x-glossa-related") as { module: string; name: string; ref: string; osis?: string; text: string } | null;
   if (rel?.module) {
     const mods = await run<Module[]>("bible.modules", { kind: "commentary" }).catch(() => [] as Module[]);
     const m = mods.find((x) => x.id === rel.module);

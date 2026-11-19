@@ -17,15 +17,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 const (
 	DefaultMasterList = "https://crosswire.org/ftpmirror/pub/sword/masterRepoList.conf"
 	DefaultCrossWire  = "https://crosswire.org/ftpmirror/pub/sword/raw"
 	DefaultEBible     = "https://ebible.org"
-	userAgent         = "Xegesis"
+	userAgent         = "Glossa"
 	maxCatalogue      = 64 << 20
 	maxDownload       = 1 << 30
 )

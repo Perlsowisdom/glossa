@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Module kinds. Bibles, commentaries and cross-reference sets are keyed by verse and use the
@@ -192,7 +192,7 @@ func baseStrong(s string) string {
 // G26, keeping a letter suffix (H1254A); it returns "" for other values.
 func NormStrong(s string) string { return normStrong(s) }
 
-// DictMarkup converts a dictionary entry in TEI, ThML, OSIS or plain text into Xegesis markup,
+// DictMarkup converts a dictionary entry in TEI, ThML, OSIS or plain text into Glossa markup,
 // and picks out the headword fields TEI gives (orth, pron, def).
 func DictMarkup(src, sourceType string) Headword {
 	var h Headword

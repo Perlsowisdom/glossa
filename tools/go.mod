@@ -1,5 +1,5 @@
 // Build tools, kept out of the app's module so the app gains no dependencies.
-module github.com/Perlsowisdom/xegesis/tools
+module github.com/Perlsowisdom/glossa/tools
 
 go 1.27.0
 

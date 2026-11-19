@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/library"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // TestCollectionsScale times collection counts and rule matching on a catalogue of
-// XEGESIS_SCALE_BOOKS books (default 10000). Only catalogue rows are generated (books, authors,
+// GLOSSA_SCALE_BOOKS books (default 10000). Only catalogue rows are generated (books, authors,
 // types, traditions, years, licences), not book files: counts never read files. Run with
 //
 //	go test -tags scale -run TestCollectionsScale -v ./internal/scaletest
 func TestCollectionsScale(t *testing.T) {
-	n := envInt("XEGESIS_SCALE_BOOKS", 10000)
+	n := envInt("GLOSSA_SCALE_BOOKS", 10000)
 	l := openLib(t, t.TempDir())
 	var vocab library.VocabularyResult
 	l.must("facet.vocabulary", nil, &vocab)

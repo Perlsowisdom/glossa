@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"unicode"
 
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 // A book (EPUB) highlight is exact words too: from an offset in one paragraph of a section to an

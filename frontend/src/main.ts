@@ -4,6 +4,7 @@
 // Settings (with Commands under Advanced). Every action in the views calls a registered command
 // (api.ts); the shell itself only switches views.
 
+import "./migrate-first";
 import { bound, onEvent } from "./api";
 import { biblesChanged } from "./bibles";
 import { button, h } from "./dom";
@@ -44,7 +45,7 @@ const makers: Record<string, () => View> = {
   search: searchView, settings: settingsView,
 };
 
-const LAST_KEY = "xegesis.shell.views";
+const LAST_KEY = "glossa.shell.views";
 const views = new Map<string, View>();
 const main = h("main", { id: "main", tabindex: "-1" });
 const placeNavs = new Map<PlaceId, { el: HTMLElement; links: Map<string, HTMLElement> }>();
@@ -124,7 +125,7 @@ function show(target: string, focus = false) {
     else a.removeAttribute("aria-current");
   }
   theRail.setContext(place.id, prefs.reading.mode);
-  document.title = `${viewLabel(id)} · Xegesis`;
+  document.title = `${viewLabel(id)} · Glossa`;
   main.scrollTop = 0;
   void v.show();
   if (focus) (v.focus ? v.focus() : main.focus());
@@ -145,8 +146,8 @@ function boot(tries = 10) {
   }
   if (!bound()) {
     app.replaceChildren(h("main", { class: "view standalone" },
-      h("h1", {}, "Xegesis"),
-      h("p", {}, "This page is the Xegesis desktop interface. Run it inside the Xegesis app."),
+      h("h1", {}, "Glossa"),
+      h("p", {}, "This page is the Glossa desktop interface. Run it inside the Glossa app."),
       button("Try again", () => boot())));
     return;
   }
@@ -162,7 +163,7 @@ function boot(tries = 10) {
   setNavigator((id) => show(id));
   onPrefs(() => theRail.setContext(placeOf(current).id, prefs.reading.mode));
   // The sidebar's close button hands the keyboard back to the page.
-  document.addEventListener("xegesis:sidebar-closed", () => main.focus());
+  document.addEventListener("glossa:sidebar-closed", () => main.focus());
 
   document.addEventListener("keydown", (e) => {
     const ctrl = e.ctrlKey || e.metaKey;

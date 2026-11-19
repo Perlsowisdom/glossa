@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Register adds the catalogue commands, caching catalogues in dir and installing into lib.
@@ -157,7 +157,7 @@ type AvailableParams struct {
 	Text      string `json:"text,omitempty" desc:"Words to find in the name, abbreviation, ID or description"`
 	Licence   string `json:"licence,omitempty" enum:"public_domain,creative_commons,open_other,personal_purchase,own_work,unknown" desc:"Only items with this licence type"`
 	Source    string `json:"source,omitempty" desc:"Only items from this source"`
-	Supported bool   `json:"supported,omitempty" desc:"Only items Xegesis can install"`
+	Supported bool   `json:"supported,omitempty" desc:"Only items Glossa can install"`
 	Limit     int    `json:"limit,omitempty" desc:"Most items to return (default 200)"`
 	Offset    int    `json:"offset,omitempty"`
 }

@@ -52,7 +52,7 @@ export function formatLabel(id: string): string {
 
 // fileName suggests a file name for a title, without characters file systems refuse.
 export function fileName(title: string, format: string): string {
-  const base = title.replace(/[<>:"/\\|?*\x00-\x1f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Xegesis export";
+  const base = title.replace(/[<>:"/\\|?*\x00-\x1f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Glossa export";
   return `${base}.${format}`;
 }
 
@@ -79,7 +79,7 @@ export interface Waiting {
   saved: string; // YYYY-MM-DD
 }
 
-const KEY = "xegesis.printLater";
+const KEY = "glossa.printLater";
 
 export function loadWaiting(store: Pick<Storage, "getItem"> = localStorage): Waiting[] {
   try {

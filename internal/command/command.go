@@ -1,4 +1,4 @@
-// Package command is the single way to use Xegesis. Every feature is a registered command with typed
+// Package command is the single way to use Glossa. Every feature is a registered command with typed
 // parameters and results; the desktop app, the CLI, the JSON channel and the MCP server all call
 // commands through a Registry, and each command describes itself so people and agents can find it.
 package command
@@ -12,8 +12,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Env is what commands work with.

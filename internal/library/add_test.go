@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 func useBooksDir(t *testing.T) string {
@@ -126,5 +126,20 @@ func TestSummary(t *testing.T) {
 	r := AddResult{Added: 1, Licences: []LicenceCount{{Licence: "Free to share", Origin: licence.FromFile, Count: 1}}}
 	if s := summary(r); s != "1 book added: 1 free to share (from its own details)." {
 		t.Fatal(s)
+	}
+}
+
+func TestChooseBooksDirKeepsAnExistingXegesisLibrary(t *testing.T) {
+	docs := t.TempDir()
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Glossa Library") {
+		t.Fatalf("fresh: %s", got)
+	}
+	os.Mkdir(filepath.Join(docs, "Xegesis Library"), 0o755)
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Xegesis Library") {
+		t.Fatalf("only the old folder exists: %s", got)
+	}
+	os.Mkdir(filepath.Join(docs, "Glossa Library"), 0o755)
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Glossa Library") {
+		t.Fatalf("both exist: %s", got)
 	}
 }

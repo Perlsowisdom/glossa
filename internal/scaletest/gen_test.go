@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 func TestGenerate(t *testing.T) {

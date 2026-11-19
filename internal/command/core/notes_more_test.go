@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 func TestNoteTagsSearchMoveAndRecentlyDeleted(t *testing.T) {

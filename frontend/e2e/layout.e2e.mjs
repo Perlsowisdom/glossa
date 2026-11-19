@@ -61,7 +61,7 @@ export default [
     shot: "t38b-08-props.png",
     async run(t) {
       const { page } = t;
-      await page.evaluate(() => localStorage.removeItem("xegesis.sermon.props.folded"));
+      await page.evaluate(() => localStorage.removeItem("glossa.sermon.props.folded"));
       const d = await t.app.run("document.create", { kind: "sermon" });
       await t.app.run("document.update", { id: d.id, title: "Props sermon", kind: "sermon", passage: "Psalm 84", preached_on: "2026-11-15", theme: "", body: "Body" });
       await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
@@ -81,7 +81,7 @@ export default [
       t.assert.ok(!(await page.locator(`${t.root} .page-props`).isVisible()), "folded choice is remembered");
       await page.locator(`${t.root} .props-fold`).click();
       t.assert.ok(await page.locator(`${t.root} .page-props`).isVisible(), "unfolds again");
-      t.assert.equal(await page.evaluate(() => localStorage.getItem("xegesis.sermon.props.folded")), "0");
+      t.assert.equal(await page.evaluate(() => localStorage.getItem("glossa.sermon.props.folded")), "0");
       await t.app.run("document.delete", { id: d.id }).catch(() => {});
     },
   },

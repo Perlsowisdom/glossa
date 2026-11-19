@@ -3,12 +3,12 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"io"
-	"os"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/mcp"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/mcp"
 )
 
 // MCPTools are Tools as MCP tools, each running through gate. They are the only tools the MCP
@@ -29,12 +29,12 @@ func MCPTools(d *Deps) []mcp.Custom {
 	return out
 }
 
-// ServeMCP serves the read-only assistant tools over MCP on in and out ("xegesis mcp-assistant").
+// ServeMCP serves the read-only assistant tools over MCP on in and out ("glossa mcp-assistant").
 // The tools are for a command-line tool that sends what it reads to an online model, so the gate
 // treats the reader as online: personal copies of books are withheld and quoting limits apply.
-// XEGESIS_ASSISTANT_BIBLE names the Bible open in the Reader, if any.
+// GLOSSA_ASSISTANT_BIBLE names the Bible open in the Reader, if any.
 func ServeMCP(ctx context.Context, reg *command.Registry, env *command.Env, version string, in io.Reader, out io.Writer) error {
-	d := &Deps{Run: RegistryRunner(reg, env), Gate: Gate{Local: false}, Bible: os.Getenv("XEGESIS_ASSISTANT_BIBLE")}
-	s := &mcp.Server{Name: "xegesis-assistant", Version: version, Only: MCPTools(d)}
+	d := &Deps{Run: RegistryRunner(reg, env), Gate: Gate{Local: false}, Bible: appdir.Getenv("GLOSSA_ASSISTANT_BIBLE")}
+	s := &mcp.Server{Name: "glossa-assistant", Version: version, Only: MCPTools(d)}
 	return s.Serve(ctx, in, out)
 }

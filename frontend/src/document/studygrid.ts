@@ -23,7 +23,7 @@ import { DocHost, DocView, followsPassage, tabLabel } from "./view";
 import { paneMenu as paneMenuGroups } from "../docwords";
 import { flash } from "../listpicker";
 
-const GRID_KEY = "xegesis.grid";
+const GRID_KEY = "glossa.grid";
 const STEP = 0.05;
 
 // zoneAt picks where a drop lands from the pointer's place in the pane: near an edge splits it,
@@ -61,7 +61,7 @@ export interface StudyGridOptions {
 
 export function studyGrid(o: StudyGridOptions) {
   let g: Grid = restore(loadPref(GRID_KEY, null));
-  if (!g.passage) g = { ...g, passage: state.ref || loadPref("xegesis.ref", "John 1") };
+  if (!g.passage) g = { ...g, passage: state.ref || loadPref("glossa.ref", "John 1") };
   if (panes(g).length === 0) g = openTab(g, o.defaultTab());
 
   const el = h("div", { class: "study-grid", role: "region", "aria-label": "Study grid" });
@@ -105,7 +105,7 @@ export function studyGrid(o: StudyGridOptions) {
     savePref(GRID_KEY, g);
     for (const [id, ui] of uis) ui.el.classList.toggle("selected", id === paneId);
     syncPassage();
-    document.dispatchEvent(new Event("xegesis:pane-changed"));
+    document.dispatchEvent(new Event("glossa:pane-changed"));
   }
 
   // Hosts ----------------------------------------------------------------------------------------------
@@ -195,7 +195,7 @@ export function studyGrid(o: StudyGridOptions) {
       if (p) m.view.refChanged?.(paneRef(g, p));
     }
     syncPassage();
-    document.dispatchEvent(new Event("xegesis:pane-changed"));
+    document.dispatchEvent(new Event("glossa:pane-changed"));
   }
 
   function drawPane(p: Pane, selected: boolean): HTMLElement {

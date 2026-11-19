@@ -16,11 +16,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 // The test server stands in for CrossWire and eBible.org. Catalogue fixtures in testdata were
@@ -316,7 +316,7 @@ func TestGetSWORD(t *testing.T) {
 	if len(prog) != 0 {
 		t.Errorf("progress left over: %+v", prog)
 	}
-	if left, _ := filepath.Glob(filepath.Join(os.Getenv("TMP"), "xegesis-*")); len(left) != 0 {
+	if left, _ := filepath.Glob(filepath.Join(os.Getenv("TMP"), "glossa-*")); len(left) != 0 {
 		t.Errorf("temporary files left: %v", left)
 	}
 	if err := e.run("bible.get", map[string]any{"source": "crosswire", "item": "Tiny"}, nil); code(err) != "bad_params" {

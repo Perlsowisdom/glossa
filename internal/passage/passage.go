@@ -3,8 +3,8 @@
 package passage
 
 import (
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // Resolve reads verses given as a reference ("John 3:16") or as first and last verse IDs, in the

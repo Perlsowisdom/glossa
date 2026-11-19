@@ -9,8 +9,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 const settingsKey = "update.settings"
@@ -32,7 +32,7 @@ func Register(r *command.Registry) { RegisterWith(r, DefaultConfig()) }
 // RegisterWith adds the update commands with cfg (tests give it a local server).
 func RegisterWith(r *command.Registry, cfg Config) {
 	r.Add(
-		command.Define("update.settings.get", "Show the update settings: whether Xegesis checks for new versions (off until you turn it on), when it last checked, and this version.", false,
+		command.Define("update.settings.get", "Show the update settings: whether Glossa checks for new versions (off until you turn it on), when it last checked, and this version.", false,
 			func(ctx context.Context, env *command.Env, _ struct{}) (SettingsInfo, error) {
 				return settingsInfo(ctx, env, cfg)
 			}),
@@ -198,7 +198,7 @@ func runInstall(ctx context.Context, env *command.Env, cfg Config) (InstallResul
 		return InstallResult{}, command.Errorf("failed", "could not check for updates: %v", err)
 	}
 	if !Newer(m.Version, cfg.Current) {
-		return InstallResult{}, command.Errorf("not_found", "Xegesis %s is the newest version", cfg.Current)
+		return InstallResult{}, command.Errorf("not_found", "Glossa %s is the newest version", cfg.Current)
 	}
 	file, err := cfg.Download(ctx, m)
 	if err != nil {

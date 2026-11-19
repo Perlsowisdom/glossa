@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword/swordtest"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword/swordtest"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 func parse(t *testing.T, s string) sword.Conf {

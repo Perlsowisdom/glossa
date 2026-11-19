@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // build works out the readings of every day, and a name for the plan.

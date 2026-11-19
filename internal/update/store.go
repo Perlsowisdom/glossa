@@ -5,7 +5,7 @@
 // or setting exists in it (the Store installs updates itself).
 package update
 
-import "github.com/Perlsowisdom/xegesis/internal/command"
+import "github.com/Perlsowisdom/glossa/internal/command"
 
 // Available is false in the Store build.
 const Available = false

@@ -6,7 +6,7 @@ const base: ExportPreview = { title: "John 3", format: "print", pieces: [], cuts
 describe("print words", () => {
   it("suggests safe file names", () => {
     expect(fileName('John 3:16 / "love"', "pdf")).toBe("John 3 16 love.pdf");
-    expect(fileName("", "md")).toBe("Xegesis export.md");
+    expect(fileName("", "md")).toBe("Glossa export.md");
   });
 
   it("summarises what is in the result and what was cut", () => {
@@ -23,7 +23,7 @@ describe("print words", () => {
     expect(loadWaiting(store)).toEqual([]);
     saveWaiting([{ title: "a", sources: [{ kind: "note", id: "1" }], options: {}, saved: "2026-10-29" }], store);
     expect(loadWaiting(store)[0].title).toBe("a");
-    mem["xegesis.printLater"] = "{bad";
+    mem["glossa.printLater"] = "{bad";
     expect(loadWaiting(store)).toEqual([]);
   });
 });

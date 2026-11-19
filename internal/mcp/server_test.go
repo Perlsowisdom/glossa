@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 type client struct {
@@ -28,7 +28,7 @@ func start(t *testing.T) *client {
 	t.Cleanup(func() { st.Close() })
 	reg := command.NewRegistry()
 	core.Register(reg)
-	s := &Server{Reg: reg, Env: &command.Env{Store: st}, Name: "xegesis", Version: "test"}
+	s := &Server{Reg: reg, Env: &command.Env{Store: st}, Name: "glossa", Version: "test"}
 	inR, inW := io.Pipe()
 	outR, outW := io.Pipe()
 	go func() {

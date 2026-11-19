@@ -43,7 +43,7 @@ function busy(delta: number) {
 // run calls a command and returns its parsed result. Failures throw RunError.
 export async function run<T = unknown>(id: string, params: object = {}): Promise<T> {
   const app = bound();
-  if (!app) throw new RunError({ code: "unavailable", message: "the Xegesis app is not connected" });
+  if (!app) throw new RunError({ code: "unavailable", message: "the Glossa app is not connected" });
   busy(1);
   try {
     const out = await app.Run(id, JSON.stringify(params));
@@ -58,7 +58,7 @@ export async function run<T = unknown>(id: string, params: object = {}): Promise
 // runRaw passes JSON text through unchanged, for the command console.
 export async function runRaw(id: string, params: string): Promise<string> {
   const app = bound();
-  if (!app) throw new RunError({ code: "unavailable", message: "the Xegesis app is not connected" });
+  if (!app) throw new RunError({ code: "unavailable", message: "the Glossa app is not connected" });
   busy(1);
   try {
     return await app.Run(id, params);

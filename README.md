@@ -1,17 +1,27 @@
-# Xegesis
+# Glossa
 
-A free, open-source Bible study app for Windows, macOS and Linux: fast, offline-first, and drivable by both people and AI agents.
+A free, open-source Bible study app for Windows, macOS and Linux: fast, offline-first, and drivable by both people and AI agents. Glossa was called Xegesis until version 0.4.
 
-Xegesis keeps your library, notes and sermons on your own computer in open formats. It has no accounts and no telemetry; the few features that use the internet are off until you turn them on (see [what Xegesis sends](docs/privacy.md)).
+Glossa keeps your library, notes and sermons on your own computer in open formats. It has no accounts and no telemetry; the few features that use the internet are off until you turn them on (see [what Glossa sends](docs/privacy.md)).
 
 Status: under active development. Windows comes first; macOS and Linux builds follow.
 
 ## Installing (Windows)
 
-- **Microsoft Store**: search for Xegesis once it is listed there. The Store installs updates.
-- **Direct download**: take `Xegesis-<version>-windows-x64-setup.exe` from the [Releases page](https://github.com/Perlsowisdom/xegesis/releases). It installs for your user only (no administrator prompt). The setup is not code-signed, so Windows SmartScreen may ask you to confirm: choose More info, then Run anyway. Compare the file with `SHA256SUMS` on the release page if you like. This build can check for updates once a day, but only if you turn that on; each update is verified with the project's own signature before it runs.
+- **Microsoft Store**: search for Glossa once it is listed there. The Store installs updates.
+- **Direct download**: take `Glossa-<version>-windows-x64-setup.exe` from the [Releases page](https://github.com/Perlsowisdom/glossa/releases). It installs for your user only (no administrator prompt). The setup is not code-signed, so Windows SmartScreen may ask you to confirm: choose More info, then Run anyway. Compare the file with `SHA256SUMS` on the release page if you like. This build can check for updates once a day, but only if you turn that on; each update is verified with the project's own signature before it runs.
 
-Uninstall it from Windows Settings, Apps. Your library (`%APPDATA%\Xegesis`) is kept unless you tick "Also remove my library".
+Uninstall it from Windows Settings, Apps. Your library (`%APPDATA%\Glossa`) is kept unless you tick "Also remove my library".
+
+## Coming from Xegesis
+
+Glossa is the new name of Xegesis. Nothing of yours is lost when you install it:
+
+- **Your library folder** `%APPDATA%\Xegesis` is renamed to `%APPDATA%\Glossa` the first time Glossa starts. It is one rename, never a copy; if it cannot be renamed (Xegesis is still running, say) Glossa keeps using the old folder and writes why to its log. A `Glossa` folder that already exists is never overwritten.
+- **Books you added** stay in `Documents\Xegesis Library`; Glossa keeps using that folder if it is the only one there. Library folders marked by Xegesis, and exports and backups made by it, are still recognised.
+- **Saved keys** (AI assistant, Bible sources) are read from the old keychain entry the first time they are needed and saved under the new one. Window and view settings are carried over too.
+- **Environment variables** `XEGESIS_*` still work as a fallback for the matching `GLOSSA_*` name (for example `GLOSSA_LIBRARY`, `GLOSSA_KEYRING_SERVICE`, `GLOSSA_UPDATE_KEY`). The new name wins when both are set.
+- **The setup** offers to remove an installed Xegesis (silently when it runs as an update). The command-line tool is now `glossa` (it was `xegesis`).
 
 ## Building
 
@@ -20,29 +30,29 @@ desktop app with `CGO_LDFLAGS="-framework UniformTypeIdentifiers"`.
 
 ```sh
 go test ./...
-go build ./cmd/xegesis                                       # CLI
-go build -tags desktop,production -o xegesis-desktop ./app   # desktop app (add ,webkit2_41 on Linux)
+go build ./cmd/glossa                                       # CLI
+go build -tags desktop,production -o glossa-desktop ./app   # desktop app (add ,webkit2_41 on Linux)
 ```
 
-Release builds (setup and Store package) are made by `scripts/package-nsis.ps1` and `scripts/package-msix.ps1`; `docs/releasing.md` has the whole process. `go run ./cmd/xegesis version` prints the version a build was stamped with.
+Release builds (setup and Store package) are made by `scripts/package-nsis.ps1` and `scripts/package-msix.ps1`; `docs/releasing.md` has the whole process. `go run ./cmd/glossa version` prints the version a build was stamped with.
 
 ## Using the CLI
 
-Everything Xegesis does is a command. The CLI, the desktop app and the JSON channel all run the same ones.
+Everything Glossa does is a command. The CLI, the desktop app and the JSON channel all run the same ones.
 
 ```sh
-xegesis commands                                    # list commands with their parameters
-xegesis run verse.parse '{"ref":"Rom 8:28-30"}'
-xegesis run note.create '{"body":"All things work together","ref":"Rom 8:28"}'
-xegesis run history.list '{"object_type":"notes","object_id":"<id>"}'
-xegesis serve                                       # one JSON request per line on stdin
+glossa commands                                    # list commands with their parameters
+glossa run verse.parse '{"ref":"Rom 8:28-30"}'
+glossa run note.create '{"body":"All things work together","ref":"Rom 8:28"}'
+glossa run history.list '{"object_type":"notes","object_id":"<id>"}'
+glossa serve                                       # one JSON request per line on stdin
 ```
 
-The library lives in your user config folder (`Xegesis/library.db`); set `XEGESIS_LIBRARY` or `-library` to use another.
+The library lives in your user config folder (`Glossa/library.db`); set `GLOSSA_LIBRARY` or `-library` to use another.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) first. Xegesis is designed clean-room from public sources: contributions must not use or copy any commercial Bible software.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) first. Glossa is designed clean-room from public sources: contributions must not use or copy any commercial Bible software.
 
 ## Licence
 

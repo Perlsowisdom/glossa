@@ -42,7 +42,7 @@ export interface SermonPage {
   doc(): SermonDoc | null;
 }
 
-const FOLD_KEY = "xegesis.sermon.props.folded";
+const FOLD_KEY = "glossa.sermon.props.folded";
 
 export function sermonPage(o: SermonPageOptions): SermonPage {
   const msg = new Message();

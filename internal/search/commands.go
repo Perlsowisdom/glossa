@@ -3,7 +3,7 @@ package search
 import (
 	"context"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 type IndexParams struct {

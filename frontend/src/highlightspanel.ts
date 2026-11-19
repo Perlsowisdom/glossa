@@ -132,7 +132,7 @@ export function highlightsPanel(o: HighlightsOptions) {
       notes = notes.filter((y) => y.id !== nt.id);
       draw();
       msg.ok("Note deleted. It can be restored from its history.");
-      document.dispatchEvent(new Event("xegesis:marks-changed"));
+      document.dispatchEvent(new Event("glossa:marks-changed"));
     }, { class: "ghost-btn hl-x", "aria-label": `Delete the note ${nt.title || "Untitled"}`, title: "Delete note" });
     x.append(icon("close"));
     return h("li", { class: "hl-row" }, h("span", { class: "hl-bar bar-note", "aria-hidden": "true" }), go, x);
@@ -159,7 +159,7 @@ export function highlightsPanel(o: HighlightsOptions) {
         h("span", { class: `hl-bar bar-${s.colour}`, "aria-hidden": "true" }), go, x);
       li.addEventListener("dragstart", (e) => {
         if (!e.dataTransfer) return;
-        e.dataTransfer.setData("application/x-xegesis-highlight", JSON.stringify(r));
+        e.dataTransfer.setData("application/x-glossa-highlight", JSON.stringify(r));
         e.dataTransfer.setData("text/plain", words);
         e.dataTransfer.effectAllowed = "copy";
       });
@@ -189,11 +189,11 @@ export function highlightsPanel(o: HighlightsOptions) {
       if (await msg.attempt(() => run("ink.page.set", { item_id: r.item_id, page, aspect: had.ink.aspect, strokes: had.ink.strokes })) !== undefined) {
         msg.clear();
         void refresh();
-        document.dispatchEvent(new Event("xegesis:marks-changed"));
+        document.dispatchEvent(new Event("glossa:marks-changed"));
       }
     }, { class: "link" }));
     msg.el.className = "msg ok";
-    document.dispatchEvent(new Event("xegesis:marks-changed"));
+    document.dispatchEvent(new Event("glossa:marks-changed"));
   }
 
   async function jump(r: HighlightRow) {
@@ -221,11 +221,11 @@ export function highlightsPanel(o: HighlightsOptions) {
       if (await msg.attempt(() => run("highlight.create", again)) !== undefined) {
         msg.clear();
         void refresh();
-        document.dispatchEvent(new Event("xegesis:marks-changed"));
+        document.dispatchEvent(new Event("glossa:marks-changed"));
       }
     }, { class: "link" }));
     msg.el.className = "msg ok";
-    document.dispatchEvent(new Event("xegesis:marks-changed"));
+    document.dispatchEvent(new Event("glossa:marks-changed"));
   }
 
   query?.addEventListener("input", () => {
@@ -247,6 +247,6 @@ export function highlightsView() {
       h("h1", { class: "work-h1" }, "Highlights"),
       h("p", { class: "hint work-sub" }, "Every highlight in your Bibles and books, newest first. Choose one to go there."))),
     panel.el);
-  document.addEventListener("xegesis:marks-changed", () => { if (el.offsetParent !== null) void panel.refresh(); });
+  document.addEventListener("glossa:marks-changed", () => { if (el.offsetParent !== null) void panel.refresh(); });
   return { el, show: () => panel.refresh(), focus: panel.focus };
 }

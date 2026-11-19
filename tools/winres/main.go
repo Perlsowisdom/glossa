@@ -10,11 +10,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 
 	"github.com/tc-hib/winres"
 	"github.com/tc-hib/winres/version"
+
+	"github.com/Perlsowisdom/glossa/tools/relver"
 )
 
 func main() {
@@ -35,8 +35,8 @@ func main() {
 		log.Fatal(err)
 	}
 	rs.SetManifest(winres.AppManifest{
-		Identity:            winres.AssemblyIdentity{Name: "Xegesis.App", Version: [4]uint16{1, 0, 0, 0}},
-		Description:         "Xegesis Bible study",
+		Identity:            winres.AssemblyIdentity{Name: "Glossa.App", Version: [4]uint16{1, 0, 0, 0}},
+		Description:         "Glossa Bible study",
 		Compatibility:       winres.Win7AndAbove,
 		ExecutionLevel:      winres.AsInvoker,
 		DPIAwareness:        winres.DPIPerMonitorV2,
@@ -44,26 +44,17 @@ func main() {
 		UseCommonControlsV6: true,
 	})
 	vi := version.Info{}
-	nums := regexp.MustCompile(`\d+`).FindAllString(ver, 3)
-	fv := ""
-	for i := range 3 {
-		n := "0"
-		if i < len(nums) {
-			n = nums[i]
-		}
-		if _, err := strconv.Atoi(n); err != nil {
-			n = "0"
-		}
-		fv += n + "."
+	fv, err := relver.FileVersion(ver)
+	if err != nil {
+		log.Fatal(err)
 	}
-	fv += "0"
 	vi.SetFileVersion(fv)
 	vi.SetProductVersion(fv)
 	const lang = 0x409
-	vi.Set(lang, version.ProductName, "Xegesis")
-	vi.Set(lang, version.FileDescription, "Xegesis Bible study")
+	vi.Set(lang, version.ProductName, "Glossa")
+	vi.Set(lang, version.FileDescription, "Glossa Bible study")
 	vi.Set(lang, version.LegalCopyright, "MIT OR Apache-2.0")
-	vi.Set(lang, version.OriginalFilename, "Xegesis.exe")
+	vi.Set(lang, version.OriginalFilename, "Glossa.exe")
 	vi.Set(lang, version.ProductVersion, ver)
 	rs.SetVersionInfo(vi)
 	out, err := os.Create(filepath.Join(root, "app", "rsrc_windows_amd64.syso"))

@@ -1,8 +1,8 @@
-# Working on Xegesis
+# Working on Glossa
 
 Instructions for every contributor, human or AI agent. Read this before changing anything.
 
-## What Xegesis is
+## What Glossa is
 
 A free, open-source Bible study app for Windows, macOS and Linux. It is fast, works fully offline, keeps
 user data in open formats, and can be driven by people, scripts and AI agents through the same commands.
@@ -17,7 +17,7 @@ user data in open formats, and can be driven by people, scripts and AI agents th
 
 ## Clean-room rules (non-negotiable)
 
-Xegesis is designed from public sources and open data only.
+Glossa is designed from public sources and open data only.
 
 - Do not use, run, study, screenshot or copy the Logos Bible Software app, its files, file formats,
   databases, network traffic or content. Do not decompile any commercial Bible software.
@@ -32,7 +32,7 @@ Xegesis is designed from public sources and open data only.
 
 ## Licence rules
 
-- Xegesis is licensed MIT OR Apache-2.0.
+- Glossa is licensed MIT OR Apache-2.0.
 - Dependencies must use a permissive licence: MIT, Apache-2.0, BSD-2/3-Clause, ISC, zlib or similar.
 - No GPL, LGPL, AGPL, SSPL or "source available" code, including as a linked library. This rules out
   MuPDF, libsword and anytype-heart. Ask the coordinator if unsure.
@@ -41,7 +41,7 @@ Xegesis is designed from public sources and open data only.
 ## Architecture
 
 - **Go core** in `internal/`: every feature is a registered command (`internal/command`).
-- **Interfaces call commands**: the desktop app (`app/`, Wails), the CLI and MCP server (`cmd/xegesis`).
+- **Interfaces call commands**: the desktop app (`app/`, Wails), the CLI and MCP server (`cmd/glossa`).
   No feature may be reachable only from the interface.
 - **Storage**: SQLite through `modernc.org/sqlite`. `library.db` holds user data and the change history;
   `index/<folder>.db` holds one library folder's search index; `modules/<id>.db` holds one Bible or dataset.
@@ -57,7 +57,7 @@ Xegesis is designed from public sources and open data only.
 
 | Path | Contents |
 | --- | --- |
-| `cmd/xegesis` | CLI and MCP server |
+| `cmd/glossa` | CLI and MCP server |
 | `app/` | Wails desktop app (Go side) |
 | `frontend/` | Desktop interface (web) |
 | `internal/command` | Command registry, parameters, results |
@@ -76,7 +76,7 @@ Xegesis is designed from public sources and open data only.
   `internal/store` schema, `internal/verse`) go through the coordinator.
 - Every change has tests. Run `go vet ./...` and `go test ./...` before reporting done.
 - Code that starts goroutines has a leak test (`go.uber.org/goleak`), and every database row set,
-  file and connection is closed. Xegesis also runs on phones (ADR 0008), so watch memory.
+  file and connection is closed. Glossa also runs on phones (ADR 0008), so watch memory.
 - Format with `gofmt`. Keep functions small and comments sparse and useful.
 - Commit on your own branch; never push to `main` or rewrite history.
 - End commit messages with the attribution line you are given.

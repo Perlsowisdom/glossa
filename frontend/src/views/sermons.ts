@@ -36,7 +36,7 @@ export interface SermonDoc {
 const KINDS: [DocKind | "", string][] = [["", "All"], ["sermon", "Sermons"], ["lesson", "Lessons"], ["study", "Bible studies"]];
 const COLUMNS: [SermonKey, string][] = [["title", "Title"], ["passage", "Passage"], ["preached", "Date preached"], ["theme", "Theme"]];
 const NEW: [DocKind | "note", string][] = [["sermon", "Sermon"], ["lesson", "Lesson"], ["study", "Bible study"], ["note", "Note"]];
-const SORT_KEY = "xegesis.sermons.sort";
+const SORT_KEY = "glossa.sermons.sort";
 
 export function sermonsView() {
   const msg = new Message();

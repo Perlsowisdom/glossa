@@ -7,7 +7,7 @@
 //   await app.page.keyboard.type("## Hello");
 //   await app.stop();
 //
-// Nothing here waits without a limit: the app has XEGESIS_E2E_START_MS (60 s) to start, or the run
+// Nothing here waits without a limit: the app has GLOSSA_E2E_START_MS (60 s) to start, or the run
 // stops with the app's output; each request to it is limited too. A run that was killed leaves its
 // app, WebView2 processes and run folder behind; the next run closes and removes them first.
 
@@ -28,17 +28,17 @@ export const shots = join(here, "shots");
 export const fakeCli = join(here, "fake-cli");
 const pathKey = Object.keys(process.env).find((k) => k.toLowerCase() === "path") ?? "PATH";
 
-// The library the tests copy: a scratch library with the test Bibles, never your own. Set XEGESIS_E2E_SOURCE
+// The library the tests copy: a scratch library with the test Bibles, never your own. Set GLOSSA_E2E_SOURCE
 // to its folder; the default is Documents/Xegesis-scratch3 in your user profile.
-const SOURCE = process.env.XEGESIS_E2E_SOURCE ?? join(homedir(), "Documents", "Xegesis-scratch3");
+const SOURCE = process.env.GLOSSA_E2E_SOURCE ?? process.env.XEGESIS_E2E_SOURCE ?? join(homedir(), "Documents", "Xegesis-scratch3");
 // One folder per checkout: two worktrees running the tests at once must not build into, or run,
 // each other's executable (a running app also locks it, so the other's build fails).
-const WORK = join(tmpdir(), "xegesis-e2e", createHash("sha1").update(repo.toLowerCase()).digest("hex").slice(0, 10));
-export const EXE = join(WORK, "xegesis-e2e.exe");
+const WORK = join(tmpdir(), "glossa-e2e", createHash("sha1").update(repo.toLowerCase()).digest("hex").slice(0, 10));
+export const EXE = join(WORK, "glossa-e2e.exe");
 // The keychain service name the app files keys under while tested (secrets.ServiceEnv).
-export const KEYRING_SERVICE = "xegesis-e2e";
+export const KEYRING_SERVICE = "glossa-e2e";
 // How long the app may take to start before the run stops with an error.
-const START_MS = Number(process.env.XEGESIS_E2E_START_MS ?? 60000);
+const START_MS = Number(process.env.GLOSSA_E2E_START_MS ?? process.env.XEGESIS_E2E_START_MS ?? 60000);
 
 function sh(cmd, args, cwd) {
   execFileSync(`${cmd} ${args.map((a) => (/[\s"]/.test(a) ? `"${a}"` : a)).join(" ")}`, { cwd, stdio: "inherit", shell: true });
@@ -216,10 +216,10 @@ export async function startApp({ build: doBuild = true, port } = {}) {
         ...process.env,
         // Fake claude and codex commands go first on PATH, so the real ones are never run.
         [pathKey]: `${fakeCli}${delimiter}${process.env[pathKey] ?? ""}`,
-        XEGESIS_LIBRARY: join(lib, "library.db"),
+        GLOSSA_LIBRARY: join(lib, "library.db"),
         WEBVIEW2_USER_DATA_FOLDER: profile,
         // Keys the tests save go to their own keychain entries, never the person's.
-        XEGESIS_KEYRING_SERVICE: KEYRING_SERVICE,
+        GLOSSA_KEYRING_SERVICE: KEYRING_SERVICE,
         WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-allow-origins=*`,
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -242,9 +242,9 @@ export async function startApp({ build: doBuild = true, port } = {}) {
     s.page.setDefaultTimeout(30000);
     // The checks were written for a 1480 x 950 page. Pin that size, so a smaller screen (a laptop
     // at 125 % scaling gives about 1230 x 650) does not push toolbar buttons into "More" and fail
-    // checks that have nothing to do with screen size. XEGESIS_E2E_SIZE=native keeps the window's
+    // checks that have nothing to do with screen size. GLOSSA_E2E_SIZE=native keeps the window's
     // own size; WxH sets another.
-    const size = process.env.XEGESIS_E2E_SIZE ?? "1480x950";
+    const size = process.env.GLOSSA_E2E_SIZE ?? process.env.XEGESIS_E2E_SIZE ?? "1480x950";
     if (size !== "native") {
       const [width, height] = size.split("x").map(Number);
       const cdp = await s.page.context().newCDPSession(s.page);

@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // Supported protocol versions, newest first. The server echoes the client's version when it is
@@ -252,7 +252,7 @@ func (s *Server) initialize(raw json.RawMessage) (any, *rpcError) {
 		"protocolVersion": version,
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
 		"serverInfo":      map[string]any{"name": s.Name, "version": s.Version},
-		"instructions":    "Xegesis Bible study tools. Each tool is one Xegesis command.",
+		"instructions":    "Glossa Bible study tools. Each tool is one Glossa command.",
 	}, nil
 }
 

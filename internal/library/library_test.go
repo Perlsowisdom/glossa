@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 func setup(t *testing.T) (*command.Registry, *command.Env) {
@@ -629,5 +629,19 @@ func TestScanManyFiles(t *testing.T) {
 	must(t, r, env, "library.set_licence", obj{"item_ids": ids, "type": "public_domain"}, &out)
 	if out.Updated != n {
 		t.Fatalf("bulk licence: %d", out.Updated)
+	}
+}
+
+func TestReadMarkerAcceptsLegacyName(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, legacyMarkerName), []byte(`{"xegesis_library":1,"id":"abc"}`), 0o644)
+	m, err := readMarker(dir)
+	if err != nil || m.ID != "abc" {
+		t.Fatalf("legacy marker: %+v, %v", m, err)
+	}
+	// The new name wins when both exist.
+	os.WriteFile(filepath.Join(dir, MarkerName), []byte(`{"glossa_library":1,"id":"new"}`), 0o644)
+	if m, _ := readMarker(dir); m.ID != "new" {
+		t.Fatalf("got %s", m.ID)
 	}
 }

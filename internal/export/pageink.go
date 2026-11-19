@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Perlsowisdom/xegesis/internal/reader"
+	"github.com/Perlsowisdom/glossa/internal/reader"
 )
 
 // Ink written on the pages of a PDF (reader.PageInk: points as fractions of the page box) is exported

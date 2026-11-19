@@ -31,7 +31,7 @@ ADR 0009 (privacy) and `docs/privacy.md` first.
    - Add a `version` command.
 2. **Direct-download installer (NSIS).**
    - Per-user install by default, so no admin prompt.
-   - Start menu shortcut, and an uninstaller that keeps the user's library (`%APPDATA%\Xegesis`)
+   - Start menu shortcut, and an uninstaller that keeps the user's library (`%APPDATA%\Glossa`)
      unless the user ticks "Also remove my library".
    - Install the WebView2 runtime if it is missing (Wails' bootstrapper).
    - The licence files go in the install folder.
@@ -46,9 +46,9 @@ ADR 0009 (privacy) and `docs/privacy.md` first.
    - Settings gets a section for this, with "Check for updates" and the last check time.
    - The endpoint goes in `docs/privacy.md`. Nothing is sent but the HTTP GET.
 4. **Signing tool.**
-   - A small Go command, `cmd/xegesis-sign` (or `xegesis sign` in the main CLI). `keygen` writes a
+   - A small Go command, `cmd/glossa-sign` (or `glossa sign` in the main CLI). `keygen` writes a
      key pair, and `sign <file>` prints the signature.
-   - The **private key must never be committed.** CI reads it from the `XEGESIS_UPDATE_KEY` secret.
+   - The **private key must never be committed.** CI reads it from the `GLOSSA_UPDATE_KEY` secret.
      The user creates the key and adds the secret themselves; write the exact steps in
      `docs/releasing.md`.
    - Embed the public key in the app at build time, from a committed file
@@ -68,7 +68,7 @@ ADR 0009 (privacy) and `docs/privacy.md` first.
    - builds the frontend and the Go app;
    - runs `go test ./...` and `npm test`;
    - builds the NSIS installer and the MSIX;
-   - computes the SHA-256 and signs it with `XEGESIS_UPDATE_KEY`, skipping signing with a warning
+   - computes the SHA-256 and signs it with `GLOSSA_UPDATE_KEY`, skipping signing with a warning
      when the secret is missing;
    - writes `latest.json`;
    - creates a **draft** GitHub Release with the installer, the MSIX, `latest.json` and
@@ -120,7 +120,7 @@ ADR 0009 (privacy) and `docs/privacy.md` first.
 - Never commit a private key, and never use the user's real library.
 - Run `npm ci`; no junctions.
 - Run long commands with timeouts, and close every process you start. Never touch
-  `%LOCALAPPDATA%\Temp\xegesis-check\Xegesis*.exe`.
+  `%LOCALAPPDATA%\Temp\glossa-check\Glossa*.exe`.
 - Don't commit `frontend/dist`.
 - **Don't push, don't create tags or releases, and don't change repository settings.** The
   coordinator does those with the user.

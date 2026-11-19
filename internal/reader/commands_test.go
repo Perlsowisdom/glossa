@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command/core"
-	"github.com/Perlsowisdom/xegesis/internal/lists"
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/lists"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 func norm(s string) string { return strings.Join(strings.Fields(s), " ") }

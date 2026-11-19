@@ -10,7 +10,7 @@ export function commandsView() {
   const filter = h("input", { type: "search", id: "cmd-filter", placeholder: "Find a command", autocomplete: "off" });
   const list = h("ul", { class: "cmd-list", role: "listbox", "aria-label": "Commands" });
   const title = h("h2", {}, "Choose a command");
-  const summary = h("p", { class: "hint" }, "Everything Xegesis does is a command, here, in the CLI and for AI agents.");
+  const summary = h("p", { class: "hint" }, "Everything Glossa does is a command, here, in the CLI and for AI agents.");
   const params = h("textarea", { id: "cmd-params", rows: 8, spellcheck: "false", class: "mono" }, "{}");
   const runBtn = h("button", { type: "submit", class: "primary", disabled: true }, "Run");
   const out = h("pre", { class: "mono out", "aria-live": "polite", tabindex: "0", "aria-label": "Result" });

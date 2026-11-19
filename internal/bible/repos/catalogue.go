@@ -17,8 +17,8 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 // Source kinds.
@@ -55,7 +55,7 @@ type Item struct {
 	Rights       string          `json:"rights" desc:"What the source says about copyright and distribution, word for word"`
 	About        string          `json:"about,omitempty"`
 	Locked       bool            `json:"locked" desc:"Enciphered; needs the publisher's unlock key and is never installed"`
-	Supported    bool            `json:"supported" desc:"Xegesis can install it"`
+	Supported    bool            `json:"supported" desc:"Glossa can install it"`
 	Reason       string          `json:"reason,omitempty" desc:"Why it cannot be installed"`
 	Origin       string          `json:"origin" desc:"Recorded as the installed module's source"`
 	Installed    bool            `json:"installed"`

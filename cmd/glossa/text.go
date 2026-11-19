@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // wantText reports whether help and describe should print text: with -format text, or with
@@ -30,7 +30,7 @@ func wantText(format string, stdout io.Writer) (bool, error) {
 }
 
 func writeHelp(w io.Writer, list []command.Description) error {
-	fmt.Fprintln(w, "Xegesis commands (xegesis describe <id> for details):")
+	fmt.Fprintln(w, "Glossa commands (glossa describe <id> for details):")
 	width := 0
 	for _, d := range list {
 		width = max(width, len(d.ID))
@@ -38,7 +38,7 @@ func writeHelp(w io.Writer, list []command.Description) error {
 	for _, d := range list {
 		fmt.Fprintf(w, "  %-*s  %s\n", width, d.ID, d.Summary)
 	}
-	_, err := fmt.Fprintln(w, "\nRun one with: xegesis run <id> key=value ...")
+	_, err := fmt.Fprintln(w, "\nRun one with: glossa run <id> key=value ...")
 	return err
 }
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"unicode/utf16"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 type RefsParams struct {

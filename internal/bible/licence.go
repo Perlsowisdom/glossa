@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 // headBytes is how much of each file is read for licence statements; they sit in the header.
@@ -26,7 +26,7 @@ var (
 
 // DetectLicence returns the licence a Bible's own files state, read from an eBible.org copr.htm, a
 // CrossWire .conf, an OSIS <rights> element, or USFM \rem and copyright lines. A file that states
-// none, or states one in words Xegesis cannot read, is a personal copy; any copyright line it has
+// none, or states one in words Glossa cannot read, is a personal copy; any copyright line it has
 // becomes the credit shown with copies.
 func DetectLicence(path string) licence.Licence {
 	statements := rightsStatements(path)

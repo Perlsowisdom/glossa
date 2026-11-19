@@ -53,7 +53,7 @@ built only from what you have installed and from open data.
   - T18 will add printing of reports through your commands;
   - use migration **0008** if you need one; T18 uses 0009.
 - Do not commit `frontend/dist`.
-- Use a scratch library (`XEGESIS_LIBRARY`); install only public-domain or openly licensed data.
+- Use a scratch library (`GLOSSA_LIBRARY`); install only public-domain or openly licensed data.
 
 ## Done when
 

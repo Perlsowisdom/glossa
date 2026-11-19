@@ -5,7 +5,7 @@ package update
 import (
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // The Microsoft Store build (go test -tags store) has no updater and no update commands.

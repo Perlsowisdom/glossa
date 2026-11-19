@@ -12,10 +12,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible"
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
 )
 
 type GetParams struct {
@@ -78,7 +78,7 @@ func (s *Service) getCmd(ctx context.Context, _ *command.Env, p GetParams) (GetR
 	switch {
 	case it.Locked:
 		return GetResult{}, command.Errorf("unavailable", "%s is locked: it needs the publisher's unlock key, "+
-			"which Xegesis does not support", it.Name)
+			"which Glossa does not support", it.Name)
 	case !it.Supported:
 		return GetResult{}, command.Errorf("unavailable", "%s cannot be installed: %s", it.Name, it.Reason)
 	}
@@ -269,7 +269,7 @@ func (s *Service) download(ctx context.Context, key, url, dest string, base int6
 }
 
 func (s *Service) installSWORD(ctx context.Context, key string, it Item, o bible.InstallOptions) (bible.Meta, []string, error) {
-	dir, err := os.MkdirTemp("", "xegesis-sword-*")
+	dir, err := os.MkdirTemp("", "glossa-sword-*")
 	if err != nil {
 		return bible.Meta{}, nil, err
 	}
@@ -293,7 +293,7 @@ func (s *Service) installSWORD(ctx context.Context, key string, it Item, o bible
 }
 
 func (s *Service) installEBible(ctx context.Context, key string, it Item, size int64, o bible.InstallOptions) (bible.Meta, []string, error) {
-	dir, err := os.MkdirTemp("", "xegesis-ebible-*")
+	dir, err := os.MkdirTemp("", "glossa-ebible-*")
 	if err != nil {
 		return bible.Meta{}, nil, err
 	}

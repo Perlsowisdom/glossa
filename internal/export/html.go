@@ -233,7 +233,7 @@ func CSS(o Options, title string) string {
 func HTML(d Doc) string {
 	return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="Xegesis"><title>` + esc(d.Title) + `</title>
+<meta name="generator" content="Glossa"><title>` + esc(d.Title) + `</title>
 <style>
 ` + CSS(d.Opt, d.Title) + `body { margin: 0; background: #fff; }
 @media screen { .xdoc { max-width: 46em; margin: 2em auto; padding: 0 1.2em; } }

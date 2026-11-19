@@ -60,7 +60,7 @@ Rules:
 - Run `npm ci` in `frontend/`; no junctions.
 - Use the harness's temporary library copy only.
 - Run long commands with timeouts. Close every process you start, and never touch
-  `%LOCALAPPDATA%\Temp\xegesis-check\Xegesis*.exe`.
+  `%LOCALAPPDATA%\Temp\glossa-check\Glossa*.exe`.
 - Don't commit `frontend/dist`.
 - Delete your run logs.
 

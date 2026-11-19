@@ -11,7 +11,7 @@ These are for ideas only. Copy no code from any of them:
 - **Zotero:** ink annotations on PDF pages. It is AGPL.
 - **Saber:** handwritten notebooks. It is GPL-3.0.
 
-Describe the feature in Xegesis's own words. Do not reuse their screen names or layouts.
+Describe the feature in Glossa's own words. Do not reuse their screen names or layouts.
 
 ## Stage 1: ink blocks in notes and sermons
 

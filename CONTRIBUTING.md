@@ -1,12 +1,12 @@
-# Contributing to Xegesis
+# Contributing to Glossa
 
-Thank you for helping. Xegesis is a free, open-source Bible study app. These rules keep it open and safe
+Thank you for helping. Glossa is a free, open-source Bible study app. These rules keep it open and safe
 to share. [AGENTS.md](AGENTS.md) has the full working rules, for people and for AI agents alike; this
 page is the short version.
 
 ## The clean-room rule (ADR 0007)
 
-Xegesis is designed from public sources and open data only. This is not negotiable, and a change that
+Glossa is designed from public sources and open data only. This is not negotiable, and a change that
 breaks it cannot be merged.
 
 - **Do not use, run, study, screenshot or copy** the Logos Bible Software app, or any other commercial
@@ -23,7 +23,7 @@ breaks it cannot be merged.
 
 ## Licences
 
-Xegesis is licensed MIT OR Apache-2.0, and your contribution is too. Dependencies must be permissive
+Glossa is licensed MIT OR Apache-2.0, and your contribution is too. Dependencies must be permissive
 (MIT, Apache-2.0, BSD, ISC, zlib or similar). No GPL, LGPL, AGPL or "source available" code, even as a
 linked library. Bundled Bibles and datasets must be public domain or openly licensed, with the licence
 recorded.

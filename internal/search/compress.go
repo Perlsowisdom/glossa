@@ -89,7 +89,7 @@ func unpackText(b []byte) (string, error) {
 		out, err := io.ReadAll(r)
 		return string(out), err
 	}
-	return "", fmt.Errorf("passage blob kind %d is from a newer Xegesis", b[0])
+	return "", fmt.Errorf("passage blob kind %d is from a newer Glossa", b[0])
 }
 
 // The index files' passages_text view calls xg_unpack for a passage's text, so FTS5 reads plain

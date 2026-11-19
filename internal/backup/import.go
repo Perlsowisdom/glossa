@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 const maxFile = 256 << 20 // largest single file read from an export
@@ -98,7 +98,7 @@ func openExport(p string) (fs.FS, func(), error) {
 			}
 		}
 		closeFS()
-		return nil, nil, command.Errorf("bad_params", "%s has no manifest.json: not a Xegesis export", p)
+		return nil, nil, command.Errorf("bad_params", "%s has no manifest.json: not a Glossa export", p)
 	}
 	return fsys, closeFS, nil
 }
@@ -125,11 +125,11 @@ func checkManifest(fsys fs.FS) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return command.Errorf("bad_params", "manifest.json: %v", err)
 	}
-	if m.Format != ManifestFormat {
+	if m.Format != ManifestFormat && m.Format != legacyManifestFormat {
 		return command.Errorf("bad_params", "manifest.json: format is %q, not %q", m.Format, ManifestFormat)
 	}
 	if m.FormatVersion > FormatVersion {
-		return command.Errorf("bad_params", "this export is format version %d; this Xegesis reads up to %d",
+		return command.Errorf("bad_params", "this export is format version %d; this Glossa reads up to %d",
 			m.FormatVersion, FormatVersion)
 	}
 	return nil

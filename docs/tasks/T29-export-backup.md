@@ -16,11 +16,11 @@ current pages before building:
   Datetimes are `{"$date": "<RFC 3339>"}`, a `date` is midnight UTC, `choice` values are arrays of
   option keys, and `relation` values are arrays of `any://<objectId>` URIs.
 
-any does not document a whole-space archive format, so Xegesis defines a folder layout that uses
+any does not document a whole-space archive format, so Glossa defines a folder layout that uses
 those encodings:
 
 ```
-xegesis-export-<date>/
+glossa-export-<date>/
   manifest.json          format version, app version, device, export time, counts
   types.json             one entry per object type: xKey, name, and properties with kind and xFormat
   objects/<type>/<id>.json   the object's properties, in any's JSON encoding

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // sectionWeight is how many verses one section of a library book counts for when a plan is
@@ -39,7 +39,7 @@ type bookPart struct {
 	section     int
 }
 
-// chapterVerses holds the verse count of every chapter, from the KJV numbering that Xegesis uses
+// chapterVerses holds the verse count of every chapter, from the KJV numbering that Glossa uses
 // for references (the public-domain counts in internal/bible/sword/kjv.txt).
 var chapterVerses = func() map[int][]int {
 	v, ok := sword.LookupVersification("")

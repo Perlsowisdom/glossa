@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/update/updatesig"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/update/updatesig"
 )
 
 func TestNewer(t *testing.T) {
@@ -90,7 +91,7 @@ func newRelease(t *testing.T, version string, priv string, body []byte, tamper f
 	mux := http.NewServeMux()
 	r.srv = httptest.NewServer(mux)
 	t.Cleanup(r.srv.Close)
-	r.manifest = Manifest{Version: version, URL: r.srv.URL + "/Xegesis-" + version + "-setup.exe", SHA256: h, Signature: sig}
+	r.manifest = Manifest{Version: version, URL: r.srv.URL + "/Glossa-" + version + "-setup.exe", SHA256: h, Signature: sig}
 	if tamper != nil {
 		tamper(&r.manifest)
 	}
@@ -98,7 +99,7 @@ func newRelease(t *testing.T, version string, priv string, body []byte, tamper f
 		r.hits.Add(1)
 		json.NewEncoder(w).Encode(r.manifest)
 	})
-	mux.HandleFunc("/Xegesis-"+version+"-setup.exe", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/Glossa-"+version+"-setup.exe", func(w http.ResponseWriter, _ *http.Request) {
 		r.hits.Add(1)
 		w.Write(r.body)
 	})
@@ -136,7 +137,7 @@ func TestDownloadVerifies(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, _ := os.ReadFile(file)
-		if string(got) != string(body) || filepath.Base(file) != "Xegesis-1.1.0-setup.exe" {
+		if string(got) != string(body) || filepath.Base(file) != "Glossa-1.1.0-setup.exe" {
 			t.Fatalf("file %s holds %q", file, got)
 		}
 	})
@@ -297,5 +298,24 @@ func TestInstallRefusesBadSignatureAndOldVersions(t *testing.T) {
 				t.Fatal("an installer was launched")
 			}
 		})
+	}
+}
+
+// A release made while the public key is still the placeholder has no latest.json (the release
+// workflow skips signing), and an unsigned manifest is refused: either way no update is offered.
+func TestMissingOrUnsignedManifestOffersNothing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/unsigned.json" {
+			io.WriteString(w, `{"version":"9.9.9","url":"https://github.com/x/y/setup.exe","sha256":"`+strings.Repeat("ab", 32)+`"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	for _, path := range []string{"/latest.json", "/unsigned.json"} {
+		cfg := Config{Endpoint: srv.URL + path, Current: "1.0.0", HTTP: srv.Client(), AllowHTTP: true, TempDir: t.TempDir()}
+		if m, err := cfg.Check(context.Background()); err == nil {
+			t.Errorf("%s: offered %+v", path, m)
+		}
 	}
 }

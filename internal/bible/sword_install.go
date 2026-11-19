@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Perlsowisdom/xegesis/internal/bible/sword"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/bible/sword"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // InstallSWORD installs one SWORD module whose data files are in dir, as described by c. It is the
@@ -136,7 +136,7 @@ func (c cmds) installSWORDFolder(ctx context.Context, root string, p InstallPara
 			continue
 		}
 		if conf.Locked() {
-			problems = append(problems, fmt.Sprintf("%s is locked: it needs the publisher's unlock key, which Xegesis does not support", firstNonEmpty(conf.Get("Description"), conf.Name)))
+			problems = append(problems, fmt.Sprintf("%s is locked: it needs the publisher's unlock key, which Glossa does not support", firstNonEmpty(conf.Get("Description"), conf.Name)))
 			continue
 		}
 		o := swordOptions(conf, p, len(files) == 1, user)

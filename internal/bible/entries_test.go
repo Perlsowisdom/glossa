@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 func installEntries(t *testing.T, markup EntryMarkup, entries []Entry) (*Module, []string) {

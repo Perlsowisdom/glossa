@@ -3,8 +3,8 @@ package core
 import (
 	"context"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
 // linkBook gives the verses a place in a library book typed Bible falls in (a note or highlight

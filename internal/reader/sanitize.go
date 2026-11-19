@@ -12,7 +12,7 @@ import (
 
 	xhtml "golang.org/x/net/html"
 
-	"github.com/Perlsowisdom/xegesis/internal/search"
+	"github.com/Perlsowisdom/glossa/internal/search"
 )
 
 // Sanitised HTML keeps a fixed set of text elements and attributes; everything else is dropped,

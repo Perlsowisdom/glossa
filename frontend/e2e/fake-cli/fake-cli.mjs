@@ -4,7 +4,7 @@
 //   --version               prints a version
 //   a question that has    prints a tool call and an answer that mentions Romans 8:28
 //     "Romans 8"
-//   a question that has    writes the process IDs of itself and a child to xegesis-fake-cli.pids
+//   a question that has    writes the process IDs of itself and a child to glossa-fake-cli.pids
 //     "stop test"            in the temp folder, streams a first word, then waits for a minute
 //
 // The prompt is read from standard input, as the app sends it.
@@ -32,7 +32,7 @@ const text = (t) => (claude
   : out({ type: "item.completed", item: { id: `m${Math.random()}`, type: "agent_message", text: t } }));
 
 if (q.includes("stop test")) {
-  const pids = join(tmpdir(), "xegesis-fake-cli.pids");
+  const pids = join(tmpdir(), "glossa-fake-cli.pids");
   // A child that would outlive its parent if only the parent were killed.
   const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 120000)"], { stdio: "ignore" });
   appendFileSync(pids, `${process.pid}\n${child.pid}\n`);
@@ -48,14 +48,14 @@ if (q.includes("Romans 8")) {
     out({ type: "system", subtype: "init", session_id: "fake-session" });
     text("Let me read it. ");
     await pause(150);
-    out({ type: "assistant", message: { content: [{ type: "text", text: "Let me read it. " }, { type: "tool_use", id: "toolu_1", name: "mcp__xegesis__read_passage", input }] } });
+    out({ type: "assistant", message: { content: [{ type: "text", text: "Let me read it. " }, { type: "tool_use", id: "toolu_1", name: "mcp__glossa__read_passage", input }] } });
     await pause(150);
     out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", content: [{ type: "text", text: result }] }] } });
   } else {
     out({ type: "thread.started", thread_id: "fake-thread" });
-    out({ type: "item.started", item: { id: "item_1", type: "mcp_tool_call", server: "xegesis", tool: "read_passage", arguments: input, status: "in_progress" } });
+    out({ type: "item.started", item: { id: "item_1", type: "mcp_tool_call", server: "glossa", tool: "read_passage", arguments: input, status: "in_progress" } });
     await pause(150);
-    out({ type: "item.completed", item: { id: "item_1", type: "mcp_tool_call", server: "xegesis", tool: "read_passage", arguments: input, result: { content: [{ type: "text", text: result }] }, status: "completed" } });
+    out({ type: "item.completed", item: { id: "item_1", type: "mcp_tool_call", server: "glossa", tool: "read_passage", arguments: input, result: { content: [{ type: "text", text: result }] }, status: "completed" } });
   }
   for (const t of ["Paul says in ", "Romans 8:28 ", "that God works all things ", "together for good."]) {
     text(t);

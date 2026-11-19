@@ -6,19 +6,19 @@ import (
 	"context"
 	"time"
 
-	"github.com/Perlsowisdom/xegesis/internal/command"
-	"github.com/Perlsowisdom/xegesis/internal/licence"
-	"github.com/Perlsowisdom/xegesis/internal/store"
-	"github.com/Perlsowisdom/xegesis/internal/verse"
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/licence"
+	"github.com/Perlsowisdom/glossa/internal/store"
+	"github.com/Perlsowisdom/glossa/internal/verse"
 )
 
-// Version is the Xegesis version, set at build time.
+// Version is the Glossa version, set at build time.
 var Version = "0.0.0-dev"
 
 // Register adds the core commands to r.
 func Register(r *command.Registry) {
 	r.Add(
-		command.Define("app.info", "Show the Xegesis version, schema version and device ID.", false, appInfo),
+		command.Define("app.info", "Show the Glossa version, schema version and device ID.", false, appInfo),
 		command.Define("verse.parse", "Read a Bible reference such as \"Rom 8:28-30\" into verse IDs.", false, verseParse),
 		command.Define("verse.convert", "Convert a reference between verse-numbering systems.", false, verseConvert),
 		command.Define("verse.books", "List the books of the Bible with their numbers and OSIS IDs.", false, verseBooks),
