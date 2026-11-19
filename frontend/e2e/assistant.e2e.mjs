@@ -22,7 +22,7 @@ function reply(body) {
   const msgs = body.messages ?? [];
   const last = msgs.at(-1) ?? {};
   // The question, without the line saying what is open in the app.
-  const q = ([...msgs].reverse().find((m) => m.role === "user")?.content ?? "").replace(/^\[Open in Xegesis now:[^\]]*\]\n\n/, "");
+  const q = ([...msgs].reverse().find((m) => m.role === "user")?.content ?? "").replace(/^\[Open in Glossa now:[^\]]*\]\n\n/, "");
   const call = (name, args) => ({ calls: [[name, JSON.stringify(args)]] });
   if (last.role === "tool") {
     if (q.includes("commentary")) return { text: ["I could not read that book: ", "it is a personal copy."] };

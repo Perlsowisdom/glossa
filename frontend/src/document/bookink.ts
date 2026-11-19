@@ -37,7 +37,7 @@ export const newInk = (): InkCtl => ({ writing: false, hidden: false, pages: new
 
 export const isPdf = (c: BookCtx) => !!c.book && !c.book.reflowable && c.book.format === "pdf";
 
-const hideKey = (itemId: string) => `xegesis.ink.hidden.${itemId}`;
+const hideKey = (itemId: string) => `glossa.ink.hidden.${itemId}`;
 function readHidden(itemId: string): boolean {
   try {
     return localStorage.getItem(hideKey(itemId)) === "1";
@@ -142,7 +142,7 @@ function set(c: BookCtx, n: number, st: PageState, next: PageStroke[]) {
 // announce tells the other panes (and the Highlights tool) that marks changed, not this pane.
 function announce(c: BookCtx) {
   c.announcing = true;
-  document.dispatchEvent(new Event("xegesis:marks-changed"));
+  document.dispatchEvent(new Event("glossa:marks-changed"));
   c.announcing = false;
 }
 

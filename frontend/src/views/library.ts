@@ -21,7 +21,7 @@ import { loadPref, savePref } from "../state";
 
 const FETCH = 1000;
 const SHOW = 120;
-const VIEW_KEY = "xegesis.library.view";
+const VIEW_KEY = "glossa.library.view";
 const READABLE = new Set(["epub", "pdf", "docx", "html", "md", "txt"]);
 
 interface ScanResult {
@@ -93,7 +93,7 @@ export function libraryView() {
   const foldersBox = h("details", { class: "lib-folders" },
     h("summary", {}, h("span", { class: "lib-folders-title" }, "Folders on this computer"), h("span", { class: "hint" }, " · where your books are kept")),
     h("div", { class: "row between lib-folders-head" },
-      h("p", { class: "hint" }, "Files you choose are copied into Documents/Xegesis Library. Folders stay where they are and are checked for new books every few minutes."),
+      h("p", { class: "hint" }, "Files you choose are copied into Documents/Glossa Library. Folders stay where they are and are checked for new books every few minutes."),
       button("Look for moved drives", async () => {
         if (await folderMsg.attempt(() => run("library.locate"))) {
           folderMsg.ok("Checked connected drives.");

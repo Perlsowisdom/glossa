@@ -20,16 +20,37 @@ import (
 const LibraryFolderName = "Glossa Library"
 
 // booksDir is where added files are copied when the caller names no folder. Tests replace it.
-var booksDir = func() string { return filepath.Join(documentsDir(), LibraryFolderName) }
+var booksDir = func() string { return chooseBooksDir(documentsDir()) }
+
+// legacyLibraryFolderName is what the folder was called before the rename (Xegesis).
+const legacyLibraryFolderName = "Xegesis Library"
+
+// chooseBooksDir is Glossa Library in docs, unless only the old Xegesis Library exists there: that
+// one keeps being used, not renamed, because the library records the full paths of the files in it.
+func chooseBooksDir(docs string) string {
+	dir := filepath.Join(docs, LibraryFolderName)
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	if old := filepath.Join(docs, legacyLibraryFolderName); isDir(old) {
+		return old
+	}
+	return dir
+}
+
+func isDir(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
+}
 
 type AddParams struct {
 	Paths []string `json:"paths" required:"true" desc:"Book files and folders. Folders are added, scanned and watched; files are copied into the library folder and scanned"`
-	Into  string   `json:"into,omitempty" desc:"Folder to copy files into; Documents/Glossa Library when omitted"`
+	Into  string   `json:"into,omitempty" desc:"Folder to copy files into; Documents/Glossa Library (Documents/Xegesis Library if that already exists) when omitted"`
 }
 
 type AddFilesParams struct {
 	Files []string `json:"files" required:"true" desc:"Book files to copy into the library folder"`
-	Into  string   `json:"into,omitempty" desc:"Folder to copy them into; Documents/Glossa Library when omitted"`
+	Into  string   `json:"into,omitempty" desc:"Folder to copy them into; Documents/Glossa Library (Documents/Xegesis Library if that already exists) when omitted"`
 }
 
 // LicenceCount is how many of the new books have one licence.

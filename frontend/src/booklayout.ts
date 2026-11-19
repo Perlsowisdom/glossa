@@ -3,8 +3,8 @@
 
 import { Layout, effectiveLayout, tidyPrefs } from "./bookhelpers";
 
-const KEY = "xegesis.book.layout";
-export const LAYOUT_EVENT = "xegesis:book-layout";
+const KEY = "glossa.book.layout";
+export const LAYOUT_EVENT = "glossa:book-layout";
 
 export function chosenLayout(): Layout | null {
   try {
@@ -29,8 +29,8 @@ export function setLayout(l: Layout): void {
 }
 
 // The zoom for PDF pages is kept with the other book reading choices, on this device only.
-const PREFS_KEY = "xegesis.book.prefs";
-export const ZOOM_EVENT = "xegesis:book-zoom";
+const PREFS_KEY = "glossa.book.prefs";
+export const ZOOM_EVENT = "glossa:book-zoom";
 
 export function bookZoom(): number {
   try {

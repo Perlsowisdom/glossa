@@ -36,7 +36,7 @@ export function dataSection(): { el: HTMLElement; show: () => void } {
   async function exportTo(kind: "folder" | "zip") {
     const dir = await msg.attempt(() => pick("folder", kind === "zip" ? "Folder for the .zip file" : "Folder for the export"));
     if (!dir) return;
-    const path = kind === "zip" ? `${dir}/xegesis-export-${new Date().toISOString().slice(0, 10)}.zip` : dir;
+    const path = kind === "zip" ? `${dir}/glossa-export-${new Date().toISOString().slice(0, 10)}.zip` : dir;
     msg.info("Exporting…");
     const r = await msg.attempt(() => run<{ path: string; counts: Record<string, number> }>("export.data",
       { path, types: chosen(), history: history.checked }));
@@ -95,7 +95,7 @@ export function dataSection(): { el: HTMLElement; show: () => void } {
       button("Import a .zip", () => importFrom("file")),
       button("Import a folder", () => importFrom("folder"))),
     h("h3", {}, "Backups"),
-    h("p", { class: "hint" }, "A backup is a complete copy of your library database, made safely while Xegesis runs."),
+    h("p", { class: "hint" }, "A backup is a complete copy of your library database, made safely while Glossa runs."),
     h("div", { class: "row wrap" },
       button("Back up now", backupNow),
       h("div", { class: "field" }, h("span", { class: "field-label" }, "Automatic backups"), every),

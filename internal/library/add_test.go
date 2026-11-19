@@ -128,3 +128,18 @@ func TestSummary(t *testing.T) {
 		t.Fatal(s)
 	}
 }
+
+func TestChooseBooksDirKeepsAnExistingXegesisLibrary(t *testing.T) {
+	docs := t.TempDir()
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Glossa Library") {
+		t.Fatalf("fresh: %s", got)
+	}
+	os.Mkdir(filepath.Join(docs, "Xegesis Library"), 0o755)
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Xegesis Library") {
+		t.Fatalf("only the old folder exists: %s", got)
+	}
+	os.Mkdir(filepath.Join(docs, "Glossa Library"), 0o755)
+	if got := chooseBooksDir(docs); got != filepath.Join(docs, "Glossa Library") {
+		t.Fatalf("both exist: %s", got)
+	}
+}

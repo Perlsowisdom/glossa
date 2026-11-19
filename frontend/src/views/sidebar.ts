@@ -211,7 +211,7 @@ function makeSidebar() {
 
   function setOpen(open: boolean) {
     setPrefs({ sidebar: { ...prefs.sidebar, open } });
-    if (!open) document.dispatchEvent(new CustomEvent("xegesis:sidebar-closed"));
+    if (!open) document.dispatchEvent(new CustomEvent("glossa:sidebar-closed"));
   }
 
   // open shows the sidebar, on a tool when one is named (showing it if Settings had hidden it).
@@ -226,9 +226,9 @@ function makeSidebar() {
     tools.highlights.stale = true;
     if (prefs.sidebar.open && activeTool(prefs.sidebar.tools, prefs.sidebar.tool) === "highlights") load("highlights");
   };
-  document.addEventListener("xegesis:pane-changed", marksStale);
-  document.addEventListener("xegesis:book-section", marksStale);
-  document.addEventListener("xegesis:marks-changed", marksStale);
+  document.addEventListener("glossa:pane-changed", marksStale);
+  document.addEventListener("glossa:book-section", marksStale);
+  document.addEventListener("glossa:marks-changed", marksStale);
 
   onPassage(() => {
     for (const t of Object.values(tools)) if (t.refresh) t.stale = true;
@@ -271,7 +271,7 @@ export function sidebar() {
 }
 
 // Compare shows the passage in several Bibles, verse by verse.
-const COMPARE_KEY = "xegesis.compare";
+const COMPARE_KEY = "glossa.compare";
 
 function comparePanel() {
   const msg = new Message();

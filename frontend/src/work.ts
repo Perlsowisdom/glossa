@@ -36,7 +36,7 @@ export function folderName(id?: string): string {
   return folderPath(folderRows, id);
 }
 
-const CHANGED = "xegesis:work-changed";
+const CHANGED = "glossa:work-changed";
 
 // workChanged tells My work's column and views that notes, sermons, lists or folders changed.
 export function workChanged(): void {
@@ -80,7 +80,7 @@ export function moveMenu(anchor: HTMLElement, msg: Message, item: WorkItem): voi
 
 // Dragging ------------------------------------------------------------------------------------------
 
-export const ITEM_TYPE = "application/x-xegesis-work";
+export const ITEM_TYPE = "application/x-glossa-work";
 
 // draggableItem lets a card or row be dragged onto a folder, or into the study grid as a tab.
 export function draggableItem(el: HTMLElement, item: () => WorkItem, spec: () => TabSpec): void {

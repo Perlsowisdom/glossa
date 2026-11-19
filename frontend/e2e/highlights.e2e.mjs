@@ -15,7 +15,7 @@ export async function readRom12(t, ...verses) {
   if (await read.getAttribute("aria-pressed") !== "true") await read.click();
   await page.waitForFunction(() => [...document.querySelectorAll(".doc-bible .vt[data-tb]")].some((e) => e.offsetParent && e.dataset.tb === "45012012"), null, { timeout: 15000 });
   // Repaint after the clean-up, as the app does after any change to highlights.
-  await page.evaluate(() => document.dispatchEvent(new Event("xegesis:marks-changed")));
+  await page.evaluate(() => document.dispatchEvent(new Event("glossa:marks-changed")));
   await page.waitForTimeout(300);
 }
 
@@ -360,7 +360,7 @@ export default [
       const { page } = t;
       await readRom12(t, 12);
       const whole = await t.app.run("highlight.create", { ref: "Rom 12:12", style: "green" });
-      await page.evaluate(() => document.dispatchEvent(new Event("xegesis:marks-changed")));
+      await page.evaluate(() => document.dispatchEvent(new Event("glossa:marks-changed")));
       await page.waitForFunction((n) => !!document.querySelector(`.doc-bible .verse[data-base="${n}"].hl-green`), v(12), { timeout: 8000 });
       await t.shot("hl-10a-whole.png");
       const { a } = await highlightWords(t, [v(12), 2, 4], null, "pink");

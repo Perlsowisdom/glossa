@@ -76,7 +76,7 @@ export default [
         const para = Number(await p.evaluate((e) => (e.querySelector(".bp") ?? e.closest("[data-p]") ?? e).dataset.p));
         t.assert.ok(para > 0, "the paragraph has a number");
         await app.run("highlight.create", { item_id: it.id, style: "green", locator: { section: 1, para, offset: 0, end_para: para, end_offset: 24, text: text.slice(0, 24) } });
-        await page.evaluate(() => document.dispatchEvent(new Event("xegesis:marks-changed")));
+        await page.evaluate(() => document.dispatchEvent(new Event("glossa:marks-changed")));
         await p.locator("mark.hl").first().waitFor({ timeout: 8000 });
         // Drag over characters 12 to 40 of the paragraph: the end of the green words and beyond.
         await p.scrollIntoViewIfNeeded();

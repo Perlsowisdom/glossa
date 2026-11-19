@@ -17,7 +17,7 @@ export interface ExportRequest {
   options?: ExportOptions;
 }
 
-const OPTIONS_KEY = "xegesis.printOptions";
+const OPTIONS_KEY = "glossa.printOptions";
 
 function savedOptions(): ExportOptions {
   try {

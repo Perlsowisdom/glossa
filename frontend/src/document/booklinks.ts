@@ -41,7 +41,7 @@ export function wireLinks(c: BookCtx) {
     } else if (a.dataset.section) {
       jump(c, Number(a.dataset.section), { anchor: a.dataset.anchor, flash: !!a.dataset.anchor });
     } else if (a.dataset.url) {
-      c.msg.info(`This link goes to ${a.dataset.url}. Xegesis does not open web pages from books.`);
+      c.msg.info(`This link goes to ${a.dataset.url}. Glossa does not open web pages from books.`);
     }
   });
   c.el.addEventListener("keydown", (e) => {

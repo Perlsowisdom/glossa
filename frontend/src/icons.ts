@@ -1,4 +1,4 @@
-// Line icons for the shell, drawn for Xegesis on a 24-unit grid. They take the text colour and are
+// Line icons for the shell, drawn for Glossa on a 24-unit grid. They take the text colour and are
 // hidden from screen readers: every icon sits beside a label or inside a named button.
 
 const PATHS: Record<string, string> = {

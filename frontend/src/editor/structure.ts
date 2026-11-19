@@ -24,7 +24,7 @@ export interface StructureOptions {
   caretBlock(): string | null; // the top-level block holding the caret
 }
 
-const STORE = "xegesis.folds.";
+const STORE = "glossa.folds.";
 
 export function structure(o: StructureOptions) {
   const doc = o.host.ownerDocument;

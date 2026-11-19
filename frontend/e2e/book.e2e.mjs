@@ -46,7 +46,7 @@ export async function openFromLibrary(t, title, button) {
 // closeBooks closes the test books' tabs and goes back to Study mode, so later checks start clean.
 export async function closeBooks(t) {
   const { page } = t;
-  await page.evaluate(() => { location.hash = "#reader"; localStorage.removeItem("xegesis.book.layout"); });
+  await page.evaluate(() => { location.hash = "#reader"; localStorage.removeItem("glossa.book.layout"); });
   await page.waitForTimeout(200);
   for (let i = 0; i < 12; i++) {
     const tab = page.locator(".grid-tab-btn").filter({ hasText: /E2E Test Book|e2e-test-pages|e2e-scroll-pages/ }).first();
@@ -181,7 +181,7 @@ const checks = [
       const { page } = t;
       await addBooks(t);
       const tabs = () => page.evaluate(() => {
-        const g = JSON.parse(localStorage.getItem("xegesis.grid") || "{}");
+        const g = JSON.parse(localStorage.getItem("glossa.grid") || "{}");
         const leaves = (n) => (n?.kids ? n.kids.flatMap(leaves) : n?.tabs ? [n] : []);
         const ps = g.root ? leaves(g.root) : (g.columns ?? []).flatMap((c) => c.panes);
         return ps.flatMap((p) => p.tabs).filter((x) => x.kind === "book" && x.title === "E2E Test Book").length;

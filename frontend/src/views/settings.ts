@@ -229,7 +229,7 @@ function privacyPage(): PageView {
   const msg = new Message();
   const rows = h("dl", { class: "info privacy-list" });
   const el = pageEl("Privacy",
-    "Xegesis sends nothing about you: no tracking and no usage statistics. Only the features below can use the internet, and each stays off until you turn it on.",
+    "Glossa sends nothing about you: no tracking and no usage statistics. Only the features below can use the internet, and each stays off until you turn it on.",
     rows, msg.el);
 
   // Both status commands read local settings only; neither uses the network.
@@ -265,7 +265,7 @@ function updatesPage(): PageView {
   const msg = new Message();
   const body = h("div", {});
   const el = pageEl("Updates",
-    "Xegesis can look for new versions on its public releases page on GitHub, once a day. It sends nothing but that web request. Off until you turn it on.",
+    "Glossa can look for new versions on its public releases page on GitHub, once a day. It sends nothing but that web request. Off until you turn it on.",
     body, msg.el);
   let newer = false;
 
@@ -288,7 +288,7 @@ function updatesPage(): PageView {
     const check = button("Check for updates", () => void checkNow(), { class: "check-updates" });
     check.disabled = !info.enabled;
     clear(body,
-      toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Xegesis is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
+      toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Glossa is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
       h("div", { class: "row wrap" }, check, newer ? button("Restart to update", () => void restartToUpdate(msg), { class: "primary" }) : null),
       h("p", { class: "hint update-status" }, lastCheckedText(info.last_checked), " ", versionLine(info, newer)),
       info.key_set ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));
@@ -519,5 +519,5 @@ function aboutPage(): PageView {
       h("dt", {}, "This device"), h("dd", {}, h("code", {}, a.device)),
       h("dt", {}, "Licence"), h("dd", {}, "MIT OR Apache-2.0"));
   }
-  return { el: pageEl("About Xegesis", "A free, open-source Bible study app that works offline.", info, msg.el), show };
+  return { el: pageEl("About Glossa", "A free, open-source Bible study app that works offline.", info, msg.el), show };
 }

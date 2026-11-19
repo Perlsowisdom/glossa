@@ -12,10 +12,10 @@ import { carriesItem, droppedItem, folders, loadFolders, moveItem, onWorkChanged
 import { BinEntry, FolderNode, Scope, canNestUnder, folderTree, sameScope, scopeHash, scopeOf } from "../workwords";
 
 type Section = "folders" | "tags" | "writing";
-const OPEN_KEY = "xegesis.work.sections";
-const FOLDERS_KEY = "xegesis.work.openFolders";
-const FOLDER_TYPE = "application/x-xegesis-folder";
-const TAGS_KEY = "xegesis.work.allTags";
+const OPEN_KEY = "glossa.work.sections";
+const FOLDERS_KEY = "glossa.work.openFolders";
+const FOLDER_TYPE = "application/x-glossa-folder";
+const TAGS_KEY = "glossa.work.allTags";
 // The Tags section shows this many until "more" is chosen, so Writing stays in reach.
 const FEW_TAGS = 8;
 

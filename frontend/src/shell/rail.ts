@@ -21,7 +21,7 @@ export interface RailHooks {
 }
 
 const ICONS: Record<string, string> = { search: "search", library: "library", reader: "reader", work: "work" };
-const RECENT_KEY = "xegesis.search.recent";
+const RECENT_KEY = "glossa.search.recent";
 
 function placeLabel(p: PlaceId): string {
   return PLACES.find((x) => x.id === p)?.label ?? p;
@@ -206,6 +206,6 @@ function helpContent(hooks: RailHooks): HTMLElement {
     h("h2", { class: "pop-title" }, "Keyboard shortcuts"),
     h("dl", { class: "keys" }, keys.map(([k, what]) => [h("dt", {}, h("kbd", {}, k)), h("dd", {}, what)])),
     h("div", { class: "pop-links" },
-      button("Every command Xegesis has…", () => { closePopover(); hooks.settings("commands"); }, { class: "link" }),
-      button("About Xegesis", () => { closePopover(); hooks.settings("about"); }, { class: "link" })));
+      button("Every command Glossa has…", () => { closePopover(); hooks.settings("commands"); }, { class: "link" }),
+      button("About Glossa", () => { closePopover(); hooks.settings("about"); }, { class: "link" })));
 }

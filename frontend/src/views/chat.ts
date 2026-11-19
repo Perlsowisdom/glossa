@@ -77,7 +77,7 @@ export function chatPanel() {
   function off() {
     clear(el, h("div", { class: "chat-off" },
       h("h3", {}, "The assistant is off"),
-      h("p", {}, "Xegesis can work with an AI assistant when you choose one. There are three ways to turn it on:"),
+      h("p", {}, "Glossa can work with an AI assistant when you choose one. There are three ways to turn it on:"),
       h("ul", {},
         h("li", {}, h("strong", {}, "Your own key"), " for an online service such as Claude or OpenAI."),
         h("li", {}, h("strong", {}, "Claude Code or Codex"), " already set up on this computer."),
@@ -220,7 +220,7 @@ export function chatPanel() {
       };
       const panel = h("section", { class: "privacy-panel", role: "dialog", "aria-label": `What is sent to ${pv.provider}` },
         h("h3", {}, `Before your first message to ${pv.provider}`),
-        h("p", {}, pv.cli ? `${pv.provider} runs on this computer, but it signs in and connects to its own online service itself. Your question and what it reads are sent there, under that service's terms; Xegesis cannot see or change where.`
+        h("p", {}, pv.cli ? `${pv.provider} runs on this computer, but it signs in and connects to its own online service itself. Your question and what it reads are sent there, under that service's terms; Glossa cannot see or change where.`
           : pv.local ? "This model runs on this computer. Nothing leaves it." : "This is sent over the internet. The service's own terms apply to it."),
         h("dl", { class: "info" },
           h("dt", {}, pv.cli ? "Runs" : "Sent to"), h("dd", {}, h("code", {}, pv.endpoint)),
@@ -231,7 +231,7 @@ export function chatPanel() {
             pv.local ? null : " Personal copies of books are never sent to an online service.",
             " Each one shows below as a line you can open to see exactly what was sent.")),
         h("details", {}, h("summary", {}, "Show the full request"), h("pre", { class: "privacy-body" }, pv.body)),
-        h("p", { class: "hint" }, pv.cli ? "Xegesis keeps no key for this tool. You are asked once for each tool." : "Your key is sent only to this address and is not shown here. You are asked once for each service."),
+        h("p", { class: "hint" }, pv.cli ? "Glossa keeps no key for this tool. You are asked once for each tool." : "Your key is sent only to this address and is not shown here. You are asked once for each service."),
         h("div", { class: "row wrap" },
           button("Send", () => void finish(true), { class: "primary" }),
           button("Cancel", () => void finish(false))));

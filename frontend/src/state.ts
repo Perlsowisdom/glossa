@@ -13,19 +13,19 @@ const listeners = new Set<Listener>();
 export const state = {
   ref: "" as string,
   parsed: null as Ref | null,
-  modules: load<string[]>("xegesis.modules", []),
+  modules: load<string[]>("glossa.modules", []),
 };
 
 export function setPassage(ref: string, parsed: Ref | null) {
   state.ref = ref;
   state.parsed = parsed;
-  save("xegesis.ref", ref);
+  save("glossa.ref", ref);
   listeners.forEach((l) => l());
 }
 
 export function setModules(ids: string[]) {
   state.modules = ids;
-  save("xegesis.modules", ids);
+  save("glossa.modules", ids);
 }
 
 export function onPassage(l: Listener): void {
@@ -69,8 +69,8 @@ export interface Prefs {
 }
 
 const PREF_KEYS: Record<keyof Prefs, string> = {
-  rail: "xegesis.rail", sidebar: "xegesis.sidebar", reading: "xegesis.reading",
-  theme: "xegesis.theme",
+  rail: "glossa.rail", sidebar: "glossa.sidebar", reading: "glossa.reading",
+  theme: "glossa.theme",
 };
 
 export const prefs: Prefs = {

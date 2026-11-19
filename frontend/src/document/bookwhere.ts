@@ -53,7 +53,7 @@ export function header(c: BookCtx, n: number) {
   c.prev.disabled = n <= 1;
   c.next.disabled = n >= c.book.sections;
   c.tocAt = currentEntry(c.toc, n);
-  document.dispatchEvent(new Event("xegesis:book-section"));
+  document.dispatchEvent(new Event("glossa:book-section"));
 }
 
 export function wireWhere(c: BookCtx) {

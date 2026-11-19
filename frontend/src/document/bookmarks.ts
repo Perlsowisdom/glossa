@@ -194,7 +194,7 @@ export async function writeClipboard(c: BookCtx, s: string) {
 export function marksChanged(c: BookCtx) {
   void loadMarks(c);
   c.announcing = true;
-  document.dispatchEvent(new Event("xegesis:marks-changed"));
+  document.dispatchEvent(new Event("glossa:marks-changed"));
   c.announcing = false;
 }
 
@@ -218,7 +218,7 @@ export function wireMarks(c: BookCtx) {
     go: (ref) => c.host.go(ref),
   });
   const onMarks = () => { if (c.alive && c.book && !c.announcing) void loadMarks(c); };
-  document.addEventListener("xegesis:marks-changed", onMarks);
+  document.addEventListener("glossa:marks-changed", onMarks);
   const marking = attachMarking(c.body, {
     highlight: (st, r) => addHighlight(c, styleOf(st), r),
     restyle: async (id, style) => {
@@ -239,6 +239,6 @@ export function wireMarks(c: BookCtx) {
   });
   c.unwireMarks = () => {
     marking.close();
-    document.removeEventListener("xegesis:marks-changed", onMarks);
+    document.removeEventListener("glossa:marks-changed", onMarks);
   };
 }

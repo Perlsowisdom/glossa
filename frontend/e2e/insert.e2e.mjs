@@ -278,7 +278,7 @@ export default [
         t.note = "no commentary in the scratch library: drop checked with a card's data, not a dragged card";
         await t.editor().evaluate((el) => {
           const dt = new DataTransfer();
-          dt.setData("application/x-xegesis-related", JSON.stringify({ module: "NoSuchCommentary", name: "A commentary", ref: "Romans 8:28", osis: "Rom.8.28", text: "Comment." }));
+          dt.setData("application/x-glossa-related", JSON.stringify({ module: "NoSuchCommentary", name: "A commentary", ref: "Romans 8:28", osis: "Rom.8.28", text: "Comment." }));
           const r = el.getBoundingClientRect();
           const at = { clientX: r.left + 20, clientY: r.top + 10, bubbles: true, cancelable: true, dataTransfer: dt };
           el.dispatchEvent(new DragEvent("dragover", at));
@@ -320,7 +320,7 @@ export default [
     row: "A plain click on an http(s) or mailto link in a note asks the system to open it, and the app stays put",
     shot: "in-07-external-link.png",
     async run(t) {
-      await t.openNote("Visit [the site](https://example.com/xegesis-e2e) or [write](mailto:e2e@example.com) today", "External link");
+      await t.openNote("Visit [the site](https://example.com/glossa-e2e) or [write](mailto:e2e@example.com) today", "External link");
       const links = t.editor().locator("a.rt-link");
       await links.first().waitFor();
       // Record the calls instead of opening a browser.
@@ -334,7 +334,7 @@ export default [
       await links.nth(0).click();
       await links.nth(1).click();
       await t.page.waitForTimeout(300);
-      t.assert.equal(JSON.stringify(await t.page.evaluate(() => window.__opened)), JSON.stringify(["https://example.com/xegesis-e2e", "mailto:e2e@example.com"]), "BrowserOpenURL got both links");
+      t.assert.equal(JSON.stringify(await t.page.evaluate(() => window.__opened)), JSON.stringify(["https://example.com/glossa-e2e", "mailto:e2e@example.com"]), "BrowserOpenURL got both links");
       t.assert.equal(await t.page.evaluate(() => window.__windows.length), 0, "no pop-up window was opened");
       t.assert.equal(await t.page.evaluate(() => location.href), here, "the app did not navigate");
       await t.shot();

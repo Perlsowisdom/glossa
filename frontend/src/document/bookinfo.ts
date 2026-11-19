@@ -53,7 +53,7 @@ export interface Target {
   flash?: boolean;
 }
 
-const PREFS_KEY = "xegesis.book.prefs";
+const PREFS_KEY = "glossa.book.prefs";
 
 export function loadPrefs(): ReadingPrefs {
   try {

@@ -23,7 +23,7 @@ function hide() {
 export async function restartToUpdate(msg: Message): Promise<void> {
   try {
     await run("update.install");
-    msg.ok("Updating. Xegesis will close and open again in a moment.");
+    msg.ok("Updating. Glossa will close and open again in a moment.");
   } catch (e) {
     msg.error(e);
   }
@@ -32,7 +32,7 @@ export async function restartToUpdate(msg: Message): Promise<void> {
 function offer(version: string) {
   const msg = new Message();
   show("Update ready",
-    h("p", {}, h("strong", {}, `Xegesis ${version} is ready.`), " It installs in a moment and opens again; your library is not touched."),
+    h("p", {}, h("strong", {}, `Glossa ${version} is ready.`), " It installs in a moment and opens again; your library is not touched."),
     h("div", { class: "row" },
       button("Restart to update", () => void restartToUpdate(msg), { class: "primary" }),
       button("Later", hide)),
@@ -42,7 +42,7 @@ function offer(version: string) {
 function ask() {
   show("Check for updates",
     h("p", {}, h("strong", {}, "Check for updates automatically?")),
-    h("p", { class: "hint" }, "Xegesis can look at its public releases page on GitHub once a day and tell you when a new version is ready. It sends nothing but that web request, and nothing happens unless you say yes. You can change this in Settings, under Updates."),
+    h("p", { class: "hint" }, "Glossa can look at its public releases page on GitHub once a day and tell you when a new version is ready. It sends nothing but that web request, and nothing happens unless you say yes. You can change this in Settings, under Updates."),
     h("div", { class: "row" },
       button("Yes, check for updates", () => void answer(true), { class: "primary" }),
       button("No thanks", () => void answer(false))));

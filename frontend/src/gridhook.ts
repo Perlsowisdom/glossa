@@ -9,7 +9,7 @@
 //   import { setGridPresets } from "./gridhook";
 //   setGridPresets((anchor) => openPopover(anchor, presetPicker(), { label: "Grid presets", side: "right" }));
 //
-// The same request is also sent as a "xegesis:grid-presets" event on window, with the anchor as its
+// The same request is also sent as a "glossa:grid-presets" event on window, with the anchor as its
 // detail, for code that would rather listen than replace the handler.
 
 import { h } from "./dom";
@@ -31,7 +31,7 @@ export function setGridPresets(fn: GridPresetsHandler): void {
 }
 
 // The selected pane's view, for the sidebar tools that follow it (the Highlights tool). The grid
-// sends "xegesis:pane-changed" on document when the selected pane or its tab changes.
+// sends "glossa:pane-changed" on document when the selected pane or its tab changes.
 let selected: () => { markScope?(): unknown } | null = () => null;
 
 export function setSelectedView(fn: () => { markScope?(): unknown } | null): void {
@@ -43,6 +43,6 @@ export function selectedMarkScope(): unknown {
 }
 
 export function openGridPresets(anchor: HTMLElement): void {
-  window.dispatchEvent(new CustomEvent("xegesis:grid-presets", { detail: anchor }));
+  window.dispatchEvent(new CustomEvent("glossa:grid-presets", { detail: anchor }));
   handler(anchor);
 }
