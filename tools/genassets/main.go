@@ -1,99 +1,73 @@
-// Command genassets draws Glossa's placeholder logo and writes every icon the Windows build and the
-// Microsoft Store package need: the app icon (.ico) and the MSIX logos. Replace the drawing in
-// draw() when there is a designed logo; nothing else changes.
+// Command genassets writes the app and Store icons from the approved Glossa icon in build/icon/:
+// the Windows icon (build/windows/icon.ico), build/appicon.png, the MSIX tiles in
+// build/msix/Assets and the Store listing logos in docs/store.
 //
-//	go run ./genassets <repo root>
+// The sources in build/icon/ are the user's approved files and are never edited here. A size that
+// exists in build/icon/png is copied as is; any other size is scaled down from the 1024 px PNG.
+// Wide tiles and splash screens put the icon in the middle of a navy (#0A1E38) background.
+//
+//	cd tools && go run ./genassets <repo root>
 package main
 
 import (
 	"bytes"
-	"encoding/binary"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/image/draw"
 )
 
-var (
-	navy  = color.NRGBA{0x1f, 0x3a, 0x5f, 0xff}
-	cream = color.NRGBA{0xf7, 0xf3, 0xe8, 0xff}
-	gold  = color.NRGBA{0xd9, 0xa4, 0x41, 0xff}
-)
+// navy is the icon's background colour, used around the icon on wide tiles and splash screens.
+var navy = color.NRGBA{0x0A, 0x1E, 0x38, 0xFF}
 
-// segDist is the distance from (px,py) to the segment a-b.
-func segDist(px, py, ax, ay, bx, by float64) float64 {
-	dx, dy := bx-ax, by-ay
-	t := ((px-ax)*dx + (py-ay)*dy) / (dx*dx + dy*dy)
-	t = math.Max(0, math.Min(1, t))
-	return math.Hypot(px-(ax+t*dx), py-(ay+t*dy))
+type icons struct {
+	dir   string // build/icon/png
+	cache map[int]image.Image
 }
 
-// sample gives the colour at u,v in 0..1 (alpha 0 outside the rounded square when round is set).
-func sample(u, v float64, full bool) color.NRGBA {
-	if !full { // rounded square
-		r := 0.18
-		cx, cy := math.Abs(u-0.5)-(0.5-r), math.Abs(v-0.5)-(0.5-r)
-		if math.Hypot(math.Max(cx, 0), math.Max(cy, 0)) > r {
-			return color.NRGBA{}
+// square gives the icon at size x size: the PNG of that size when there is one, else the 1024 px
+// PNG scaled with Catmull-Rom.
+func (s *icons) square(size int) image.Image {
+	if img, ok := s.cache[size]; ok {
+		return img
+	}
+	img, err := readPNG(filepath.Join(s.dir, fmt.Sprintf("glossa-icon-%d.png", size)))
+	if os.IsNotExist(err) {
+		src, err2 := readPNG(filepath.Join(s.dir, "glossa-icon-1024.png"))
+		if err2 != nil {
+			log.Fatal(err2)
 		}
+		dst := image.NewNRGBA(image.Rect(0, 0, size, size))
+		draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)
+		img = dst
+	} else if err != nil {
+		log.Fatal(err)
 	}
-	c := navy
-	// A "G": a ring open at the upper right, with a bar running in from the right at mid-height.
-	const cx0, cy0, ring, half = 0.5, 0.44, 0.2, 0.07
-	dx, dy := u-cx0, v-cy0
-	ang := math.Atan2(dy, dx) * 180 / math.Pi // degrees; up is negative
-	inGap := ang > -58 && ang < -8
-	if math.Abs(math.Hypot(dx, dy)-ring) < half && !inGap {
-		c = cream
-	}
-	if segDist(u, v, cx0+0.02, cy0, cx0+ring, cy0) < half*0.8 {
-		c = cream
-	}
-	if math.Abs(u-0.5) < 0.22 && math.Abs(v-0.79) < 0.025 {
-		c = gold
-	}
-	return c
-}
-
-// logo draws w by h: the mark, centred and sized to the shorter side. Wide logos get the navy
-// background across the whole image.
-func logo(w, h int, full bool) *image.NRGBA {
-	img := image.NewNRGBA(image.Rect(0, 0, w, h))
-	side := float64(min(w, h))
-	const ss = 4
-	for y := range h {
-		for x := range w {
-			var r, g, b, a float64
-			for sy := range ss {
-				for sx := range ss {
-					px := float64(x) + (float64(sx)+0.5)/ss
-					py := float64(y) + (float64(sy)+0.5)/ss
-					u := (px-float64(w)/2)/side + 0.5
-					v := (py-float64(h)/2)/side + 0.5
-					var c color.NRGBA
-					if u < 0 || u > 1 || v < 0 || v > 1 {
-						if full {
-							c = navy
-						}
-					} else {
-						c = sample(u, v, full)
-					}
-					fa := float64(c.A) / 255
-					r += float64(c.R) * fa
-					g += float64(c.G) * fa
-					b += float64(c.B) * fa
-					a += fa
-				}
-			}
-			if a > 0 {
-				img.SetNRGBA(x, y, color.NRGBA{uint8(r / a), uint8(g / a), uint8(b / a), uint8(255 * a / (ss * ss))})
-			}
-		}
-	}
+	s.cache[size] = img
 	return img
+}
+
+// wide puts the icon, iconSize tall, in the middle of a w x h navy background.
+func (s *icons) wide(w, h, iconSize int) image.Image {
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(dst, dst.Bounds(), &image.Uniform{navy}, image.Point{}, draw.Src)
+	x, y := (w-iconSize)/2, (h-iconSize)/2
+	draw.Draw(dst, image.Rect(x, y, x+iconSize, y+iconSize), s.square(iconSize), image.Point{}, draw.Over)
+	return dst
+}
+
+func readPNG(path string) (image.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return png.Decode(f)
 }
 
 func pngBytes(img image.Image) []byte {
@@ -111,24 +85,7 @@ func write(path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// ico packs PNG images into one .ico file.
-func ico(sizes []int) []byte {
-	var head, body bytes.Buffer
-	binary.Write(&head, binary.LittleEndian, [3]uint16{0, 1, uint16(len(sizes))})
-	off := 6 + 16*len(sizes)
-	for _, s := range sizes {
-		data := pngBytes(logo(s, s, false))
-		d := byte(s)
-		if s >= 256 {
-			d = 0
-		}
-		head.Write([]byte{d, d, 0, 0, 1, 0, 32, 0})
-		binary.Write(&head, binary.LittleEndian, [2]uint32{uint32(len(data)), uint32(off + body.Len())})
-		body.Write(data)
-	}
-	return append(head.Bytes(), body.Bytes()...)
+	fmt.Println("wrote", path)
 }
 
 func main() {
@@ -136,30 +93,47 @@ func main() {
 		log.Fatal("usage: genassets <repo root>")
 	}
 	root := os.Args[1]
-	write(filepath.Join(root, "build", "windows", "icon.ico"), ico([]int{16, 24, 32, 48, 64, 128, 256}))
-	write(filepath.Join(root, "build", "appicon.png"), pngBytes(logo(512, 512, false)))
+	src := filepath.Join(root, "build", "icon")
+	s := &icons{dir: filepath.Join(src, "png"), cache: map[int]image.Image{}}
+
+	// The Windows icon is the approved .ico as it is (16 to 256 px, small sizes from the small SVG).
+	ico, err := os.ReadFile(filepath.Join(src, "glossa-icon.ico"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	write(filepath.Join(root, "build", "windows", "icon.ico"), ico)
+	write(filepath.Join(root, "build", "appicon.png"), pngBytes(s.square(512)))
+
 	assets := filepath.Join(root, "build", "msix", "Assets")
-	type asset struct {
+	squares := []struct {
 		name string
-		w, h int
-		wide bool
+		size int
+	}{
+		{"StoreLogo", 50}, {"StoreLogo.scale-200", 100},
+		{"Square44x44Logo", 44}, {"Square44x44Logo.scale-200", 88},
+		{"Square44x44Logo.targetsize-24_altform-unplated", 24},
+		{"Square44x44Logo.targetsize-48_altform-unplated", 48},
+		{"Square44x44Logo.targetsize-256_altform-unplated", 256},
+		{"SmallTile", 71}, {"SmallTile.scale-200", 142},
+		{"Square150x150Logo", 150}, {"Square150x150Logo.scale-200", 300},
+		{"LargeTile", 310}, {"LargeTile.scale-200", 620},
 	}
-	list := []asset{
-		{"StoreLogo", 50, 50, false}, {"StoreLogo.scale-200", 100, 100, false},
-		{"Square44x44Logo", 44, 44, false}, {"Square44x44Logo.scale-200", 88, 88, false},
-		{"Square44x44Logo.targetsize-24_altform-unplated", 24, 24, false},
-		{"Square44x44Logo.targetsize-48_altform-unplated", 48, 48, false},
-		{"Square44x44Logo.targetsize-256_altform-unplated", 256, 256, false},
-		{"SmallTile", 71, 71, false}, {"SmallTile.scale-200", 142, 142, false},
-		{"Square150x150Logo", 150, 150, false}, {"Square150x150Logo.scale-200", 300, 300, false},
-		{"LargeTile", 310, 310, false}, {"LargeTile.scale-200", 620, 620, false},
-		{"Wide310x150Logo", 310, 150, true}, {"Wide310x150Logo.scale-200", 620, 300, true},
-		{"SplashScreen", 620, 300, true}, {"SplashScreen.scale-200", 1240, 600, true},
+	for _, a := range squares {
+		write(filepath.Join(assets, a.name+".png"), pngBytes(s.square(a.size)))
 	}
-	for _, a := range list {
-		write(filepath.Join(assets, a.name+".png"), pngBytes(logo(a.w, a.h, a.wide)))
+	wides := []struct {
+		name       string
+		w, h, icon int
+	}{
+		{"Wide310x150Logo", 310, 150, 96}, {"Wide310x150Logo.scale-200", 620, 300, 192},
+		{"SplashScreen", 620, 300, 150}, {"SplashScreen.scale-200", 1240, 600, 300},
 	}
-	// Store listing logos (Partner Center asks for these as uploads).
-	write(filepath.Join(root, "docs", "store", "logo-300.png"), pngBytes(logo(300, 300, false)))
-	write(filepath.Join(root, "docs", "store", "logo-1080.png"), pngBytes(logo(1080, 1080, false)))
+	for _, a := range wides {
+		write(filepath.Join(assets, a.name+".png"), pngBytes(s.wide(a.w, a.h, a.icon)))
+	}
+
+	// Store listing logos (Partner Center asks for these as uploads). 1080 is the 1024 px PNG
+	// scaled up slightly; replace it when a 1080 px or larger export exists.
+	write(filepath.Join(root, "docs", "store", "logo-300.png"), pngBytes(s.square(300)))
+	write(filepath.Join(root, "docs", "store", "logo-1080.png"), pngBytes(s.square(1080)))
 }
