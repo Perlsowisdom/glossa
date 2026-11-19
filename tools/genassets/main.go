@@ -132,8 +132,9 @@ func main() {
 		write(filepath.Join(assets, a.name+".png"), pngBytes(s.wide(a.w, a.h, a.icon)))
 	}
 
-	// Store listing logos (Partner Center asks for these as uploads). 1080 is the 1024 px PNG
-	// scaled up slightly; replace it when a 1080 px or larger export exists.
+	// Store listing logos (Partner Center asks for these as uploads): 1080 and 2160 px box art from
+	// the exported PNGs, and a 300 px logo scaled from the 1024 px PNG.
 	write(filepath.Join(root, "docs", "store", "logo-300.png"), pngBytes(s.square(300)))
 	write(filepath.Join(root, "docs", "store", "logo-1080.png"), pngBytes(s.square(1080)))
+	write(filepath.Join(root, "docs", "store", "logo-2160.png"), pngBytes(s.square(2160)))
 }
