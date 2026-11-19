@@ -631,3 +631,17 @@ func TestScanManyFiles(t *testing.T) {
 		t.Fatalf("bulk licence: %d", out.Updated)
 	}
 }
+
+func TestReadMarkerAcceptsLegacyName(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, legacyMarkerName), []byte(`{"xegesis_library":1,"id":"abc"}`), 0o644)
+	m, err := readMarker(dir)
+	if err != nil || m.ID != "abc" {
+		t.Fatalf("legacy marker: %+v, %v", m, err)
+	}
+	// The new name wins when both exist.
+	os.WriteFile(filepath.Join(dir, MarkerName), []byte(`{"glossa_library":1,"id":"new"}`), 0o644)
+	if m, _ := readMarker(dir); m.ID != "new" {
+		t.Fatalf("got %s", m.ID)
+	}
+}

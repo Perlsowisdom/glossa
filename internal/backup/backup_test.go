@@ -458,6 +458,12 @@ func TestImportRejectsBadInput(t *testing.T) {
 	if _, err := r(s, dir, "import.data", ImportParams{Path: zp}); err != nil {
 		t.Fatal(err)
 	}
+	// An export made before the rename (Xegesis) still imports.
+	legacy := t.TempDir()
+	os.WriteFile(filepath.Join(legacy, "manifest.json"), []byte(`{"format":"xegesis-export","format_version":1}`), 0o644)
+	if _, err := r(s, dir, "import.data", ImportParams{Path: legacy}); err != nil {
+		t.Fatalf("old-format export: %v", err)
+	}
 }
 
 // Ink on a PDF page is a highlight row of style "ink" whose anchor holds the strokes, so the export

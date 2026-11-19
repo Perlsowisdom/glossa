@@ -456,4 +456,7 @@ func writeManifest(ctx context.Context, s *store.Store, out sink, sn *snapshot, 
 // ManifestFormat identifies an Glossa export.
 const ManifestFormat = "glossa-export"
 
+// legacyManifestFormat is what exports made before the rename (Xegesis) say; they still import.
+const legacyManifestFormat = "xegesis-export"
+
 var now = time.Now

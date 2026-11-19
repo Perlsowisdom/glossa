@@ -20,6 +20,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/Perlsowisdom/glossa/frontend"
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"github.com/Perlsowisdom/glossa/internal/assistant"
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/command/all"
@@ -139,14 +140,14 @@ func (a *App) Run(id, params string) (string, error) {
 
 // libraryPath is library.db in the user's config folder, or GLOSSA_LIBRARY when set, as for the CLI.
 func libraryPath() string {
-	if p := os.Getenv("GLOSSA_LIBRARY"); p != "" {
+	if p := appdir.Getenv("GLOSSA_LIBRARY"); p != "" {
 		return p
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return filepath.Join(dir, "Glossa", "library.db")
+	return filepath.Join(appdir.DataDir(dir, log.Printf), "library.db")
 }
 
 // memoryLimit is the Go heap's soft limit (ADR 0008) unless GOMEMLIMIT is set. The 10,000-book
@@ -170,6 +171,7 @@ func main() {
 		return
 	}
 	setMemoryLimit()
+	migrateWebViewData()
 	lib := libraryPath()
 	s, err := store.Open(lib)
 	if err != nil {

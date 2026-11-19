@@ -18,10 +18,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"github.com/Perlsowisdom/glossa/internal/assistant"
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/command/all"
@@ -231,12 +233,12 @@ func openEnv(path string) (*command.Env, func(), error) {
 }
 
 func defaultLibrary() string {
-	if p := os.Getenv("GLOSSA_LIBRARY"); p != "" {
+	if p := appdir.Getenv("GLOSSA_LIBRARY"); p != "" {
 		return p
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = "."
 	}
-	return filepath.Join(dir, "Glossa", "library.db")
+	return filepath.Join(appdir.DataDir(dir, log.Printf), "library.db")
 }

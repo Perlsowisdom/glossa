@@ -19,6 +19,9 @@ import (
 // ID, which identifies the folder wherever its drive is mounted.
 const MarkerName = ".glossa-library.json"
 
+// legacyMarkerName is the marker file folders got before the rename (Xegesis); it is still read.
+const legacyMarkerName = ".xegesis-library.json"
+
 const rootsKey = "library.search_roots"
 
 // seenEvery is how stale last_seen_at may get before library.locate records a fresh sighting.
@@ -32,6 +35,9 @@ type marker struct {
 
 func readMarker(dir string) (marker, error) {
 	b, err := os.ReadFile(filepath.Join(dir, MarkerName))
+	if os.IsNotExist(err) {
+		b, err = os.ReadFile(filepath.Join(dir, legacyMarkerName))
+	}
 	if err != nil {
 		return marker{}, err
 	}

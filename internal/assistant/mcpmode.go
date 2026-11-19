@@ -3,8 +3,8 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/Perlsowisdom/glossa/internal/command"
@@ -34,7 +34,7 @@ func MCPTools(d *Deps) []mcp.Custom {
 // treats the reader as online: personal copies of books are withheld and quoting limits apply.
 // GLOSSA_ASSISTANT_BIBLE names the Bible open in the Reader, if any.
 func ServeMCP(ctx context.Context, reg *command.Registry, env *command.Env, version string, in io.Reader, out io.Writer) error {
-	d := &Deps{Run: RegistryRunner(reg, env), Gate: Gate{Local: false}, Bible: os.Getenv("GLOSSA_ASSISTANT_BIBLE")}
+	d := &Deps{Run: RegistryRunner(reg, env), Gate: Gate{Local: false}, Bible: appdir.Getenv("GLOSSA_ASSISTANT_BIBLE")}
 	s := &mcp.Server{Name: "glossa-assistant", Version: version, Only: MCPTools(d)}
 	return s.Serve(ctx, in, out)
 }

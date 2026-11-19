@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"image/png"
 	"log"
 	"os"
@@ -33,7 +34,7 @@ func screenshotArg(args []string) string {
 func takeScreenshot(ctx context.Context, path string) {
 	go func() {
 		// GLOSSA_OPEN names a section to show first, such as "sermons", to check one screen.
-		if section := os.Getenv("GLOSSA_OPEN"); section != "" {
+		if section := appdir.Getenv("GLOSSA_OPEN"); section != "" {
 			time.Sleep(screenshotDelay / 2)
 			runtime.WindowExecJS(ctx, "location.hash = "+strconv.Quote("#"+section)+";")
 		}

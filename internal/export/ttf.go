@@ -3,6 +3,7 @@ package export
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/Perlsowisdom/glossa/internal/appdir"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -346,7 +347,7 @@ func fontDirs() []string {
 	default:
 		dirs = append(dirs, "/usr/share/fonts", "/usr/local/share/fonts", filepath.Join(home, ".local", "share", "fonts"), filepath.Join(home, ".fonts"))
 	}
-	if d := os.Getenv("GLOSSA_FONTS"); d != "" {
+	if d := appdir.Getenv("GLOSSA_FONTS"); d != "" {
 		dirs = append([]string{d}, dirs...)
 	}
 	return dirs

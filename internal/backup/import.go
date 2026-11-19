@@ -125,7 +125,7 @@ func checkManifest(fsys fs.FS) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return command.Errorf("bad_params", "manifest.json: %v", err)
 	}
-	if m.Format != ManifestFormat {
+	if m.Format != ManifestFormat && m.Format != legacyManifestFormat {
 		return command.Errorf("bad_params", "manifest.json: format is %q, not %q", m.Format, ManifestFormat)
 	}
 	if m.FormatVersion > FormatVersion {

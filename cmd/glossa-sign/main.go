@@ -106,6 +106,9 @@ func run(args []string, stdout io.Writer, getenv func(string) string) error {
 			return errors.New("usage: glossa-sign sign -version V [-key file] <file>")
 		}
 		key := getenv("GLOSSA_UPDATE_KEY")
+		if key == "" {
+			key = getenv("XEGESIS_UPDATE_KEY") // the name before the rename
+		}
 		if *keyFile != "" {
 			b, err := os.ReadFile(*keyFile)
 			if err != nil {
