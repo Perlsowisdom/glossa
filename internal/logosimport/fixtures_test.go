@@ -121,3 +121,19 @@ func readFixture(t *testing.T, src Source) *Result {
 	}
 	return res
 }
+
+// makeFacets adds the references Logos worked out for a note's first anchor.
+func makeFacets(t *testing.T, docs string, noteID int, refs ...string) {
+	t.Helper()
+	path := filepath.Join(docs, filepath.FromSlash(fileNotes))
+	db, err := sql.Open("sqlite", "file:/"+filepath.ToSlash(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, r := range refs {
+		if _, err := db.Exec(`INSERT INTO NoteAnchorFacetReferences (NoteId, AnchorIndex, DataTypeId, Reference) VALUES (?, 0, 1, ?)`, noteID, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
