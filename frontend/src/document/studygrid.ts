@@ -57,6 +57,8 @@ interface Mounted {
 export interface StudyGridOptions {
   mode(): "read" | "study";
   defaultTab(): TabSpec;
+  // The top bar's slot for the selected pane's reader controls (place, Bibles, contents, ⋯).
+  controls: HTMLElement;
 }
 
 export function studyGrid(o: StudyGridOptions) {
@@ -104,6 +106,7 @@ export function studyGrid(o: StudyGridOptions) {
     g = n;
     savePref(GRID_KEY, g);
     for (const [id, ui] of uis) ui.el.classList.toggle("selected", id === paneId);
+    syncControls();
     syncPassage();
     document.dispatchEvent(new Event("glossa:pane-changed"));
   }
@@ -194,8 +197,19 @@ export function studyGrid(o: StudyGridOptions) {
       const p = findPane(g, m.paneId)?.pane;
       if (p) m.view.refChanged?.(paneRef(g, p));
     }
+    syncControls();
     syncPassage();
     document.dispatchEvent(new Event("glossa:pane-changed"));
+  }
+
+  // syncControls puts the selected pane's reader controls in the top bar. A pane whose tab has none
+  // (a note, a browser) leaves the slot empty and hidden.
+  function syncControls() {
+    const ui = uis.get(g.selected);
+    const v = selectedView();
+    const show = !!ui && !!(v?.placeBox || v?.menu?.contents || v?.tools);
+    setChildren(o.controls, show && ui ? [ui.place, ui.tools, ui.contents, ui.more] : []);
+    o.controls.hidden = !show;
   }
 
   function drawPane(p: Pane, selected: boolean): HTMLElement {
@@ -291,7 +305,8 @@ export function studyGrid(o: StudyGridOptions) {
     contents.addEventListener("click", () => viewOf(paneId)?.menu?.contents?.(contents));
     const more: HTMLButtonElement = h("button", { type: "button", class: "icon-btn", "aria-label": "Pane menu", title: "More", "aria-haspopup": "menu", "aria-expanded": "false" }, icon("more"));
     more.addEventListener("click", () => togglePopover(more, () => paneMenu(paneId, more), { label: "Pane menu", side: "below", menu: true, className: "pane-menu" }));
-    const bar = h("div", { class: "grid-bar" }, h("div", { class: "grid-tabstrip" }, tabs), plus, place, tools, link, contents, more);
+    // The place box, Bibles button, contents and ⋯ are drawn in the top bar for the selected pane (syncControls).
+    const bar = h("div", { class: "grid-bar" }, h("div", { class: "grid-tabstrip" }, tabs), plus, link);
     const body = h("div", { class: "grid-body" });
     const preview = h("div", { class: "grid-preview", hidden: true, "aria-hidden": "true" });
     const pel = h("section", { class: "grid-pane", "data-pane": paneId }, bar, body, preview);
@@ -373,6 +388,7 @@ export function studyGrid(o: StudyGridOptions) {
       splitRight: !!tab && insertTab(g, spec()!, paneId, "right") !== null,
       splitDown: !!tab && insertTab(g, spec()!, paneId, "bottom") !== null,
       bibles: !!menu.bibles && folded(ui?.tools),
+      contents: !!menu.contents && folded(ui?.contents),
       ink: menu.ink ? { writing: menu.ink.writing(), shown: menu.ink.shown() } : undefined,
     });
     const run: Record<string, () => void> = {
@@ -383,6 +399,7 @@ export function studyGrid(o: StudyGridOptions) {
         if (l) void navigator.clipboard.writeText(`${location.origin}${location.pathname}${l}`).then(() => flash("Link copied."), () => flash("The clipboard is not available here."));
       },
       bibles: later(() => menu.bibles?.(anchor)),
+      contents: later(() => menu.contents?.(anchor)),
       "ink-write": () => menu.ink?.toggleWriting(),
       "ink-show": () => menu.ink?.toggleShown(),
       "split-right": () => { const sp = spec(); if (sp) setGrid(insertTab(g, sp, paneId, "right")); },

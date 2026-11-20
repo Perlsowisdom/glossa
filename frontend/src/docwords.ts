@@ -63,6 +63,7 @@ export interface PaneMenuState {
   link: boolean; // it has a place to link to
   splitRight: boolean; // there is room beside it
   splitDown: boolean; // there is room under it
+  contents?: boolean; // the Contents button is folded away in a narrow top bar
   bibles?: boolean; // the Bibles button is folded away in a narrow pane
   ink?: { writing: boolean; shown: boolean }; // a PDF: writing on its pages, and whether its ink is shown
 }
@@ -74,6 +75,7 @@ export function paneMenu(s: PaneMenuState): MenuGroup[] {
     { id: "print", label: "Print or export…", keys: "Ctrl+P", disabled: !s.print },
     { id: "copylink", label: "Copy link to this place", disabled: !s.link },
   ];
+  if (s.contents) pane.unshift({ id: "contents", label: "Contents…" });
   if (s.bibles) pane.push({ id: "bibles", label: "Bibles to show…" });
   if (s.ink) pane.push({ id: "ink-write", label: s.ink.writing ? "Stop writing" : "Write on this PDF" }, { id: "ink-show", label: s.ink.shown ? "Hide ink" : "Show ink" });
   return [

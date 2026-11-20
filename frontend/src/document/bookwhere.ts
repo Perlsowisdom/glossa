@@ -47,6 +47,8 @@ export function header(c: BookCtx, n: number) {
   c.section = n;
   c.unitText.textContent = c.book.format === "pdf" ? "Page" : "Section";
   c.ofText.textContent = `of ${c.book.sections}`;
+  c.ofText.dataset.n = String(c.book.sections);
+  c.whereInput.style.setProperty("--digits", String(Math.max(3, String(c.book.sections).length)));
   c.whereInput.setAttribute("aria-label", c.book.format === "pdf" ? "Go to a page number" : "Go to a section number, or words from a heading");
   if (!c.typing) c.whereInput.value = String(n);
   if (c.host.tab().section !== n) c.host.update({ section: n });

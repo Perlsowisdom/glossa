@@ -94,13 +94,15 @@ export default [
       await openFromLibrary(t, "E2E Test Book", "Open in Study");
       const pane = page.locator(".grid-pane:visible", { has: page.locator(".doc-book") }).first();
       await pane.locator(".book-text p").first().waitFor({ timeout: 15000 });
-      const field = pane.locator(".book-where-input");
+      // The place field is in the top bar, with the selected pane's other reader controls.
+      const bar = page.locator(".topbar .reader-controls");
+      const field = bar.locator(".book-where-input");
       t.assert.equal(await field.inputValue(), "1");
-      t.assert.equal(await pane.locator(".book-of").textContent(), "of 2");
+      t.assert.equal(await bar.locator(".book-of").textContent(), "of 2");
       await field.click();
       await t.type("2");
       await t.press("Enter");
-      await page.waitForFunction(() => document.querySelector(".grid-pane .book-where-input:not([hidden])")?.value === "2", null, { timeout: 8000 });
+      await page.waitForFunction(() => document.querySelector(".reader-controls .book-where-input:not([hidden])")?.value === "2", null, { timeout: 8000 });
       await pane.locator(".book-text p").first().waitFor();
       t.assert.equal(await field.inputValue(), "2");
       await field.click();
@@ -119,9 +121,9 @@ export default [
       await closeBooks(t);
       await openFromLibrary(t, "e2e-test-pages", "Open in Study");
       const pp = page.locator(".grid-pane:visible", { has: page.locator(".doc-book") }).first();
-      const pf = pp.locator(".book-where-input");
+      const pf = bar.locator(".book-where-input");
       await pf.waitFor({ timeout: 15000 });
-      await page.waitForFunction(() => /Page/.test(document.querySelector(".grid-pane .book-unit")?.textContent ?? ""), null, { timeout: 15000 });
+      await page.waitForFunction(() => /Page/.test(document.querySelector(".reader-controls .book-unit")?.textContent ?? ""), null, { timeout: 15000 });
       await pf.click();
       await t.type("2");
       await t.press("Enter");

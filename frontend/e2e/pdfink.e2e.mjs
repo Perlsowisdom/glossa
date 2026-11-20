@@ -39,7 +39,8 @@ async function zoom(t, label, times = 1) {
 async function paneMenu(t, item) {
   const page = t.app.page;
   // the menu of the pane that shows the book (Study mode may have other panes)
-  await page.locator(".grid-pane:has(.doc-book:visible)").first().locator("[aria-label='Pane menu']").click();
+  // The pane menu is in the top bar, for the selected pane.
+  await page.locator(".topbar .reader-controls [aria-label='Pane menu']").click();
   await page.locator(".menu-item:visible", { hasText: item }).first().click();
   await page.waitForTimeout(150);
 }
