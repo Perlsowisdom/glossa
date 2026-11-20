@@ -27,8 +27,11 @@ Glossa is designed from public sources and open data only.
   these projects, never their code: most are GPL, and translating GPL code into Go is still copying it.
 - Describe features in generic terms. Do not reuse another product's screen names, layouts or wording.
 - When you add a feature, note its source (Phase 1 row, specification or open project) in the pull request.
-- The only code that may read Logos data is the separate own-data importer (task T22), which reads the
-  user's own notes and nothing else.
+- The only code that may read Logos data is the separate own-data importer (task T22,
+  `internal/logosimport`). It reads the user's own data files (notes, highlights, clippings, lists,
+  plans, sermons) and the library catalogue's metadata only (title, author, resource ID, type and
+  licence or rights fields), always from a read-only copy. It never opens a Logos resource content
+  file and never decrypts or bypasses anything. Nothing else in Glossa reads Logos data.
 
 ## Licence rules
 

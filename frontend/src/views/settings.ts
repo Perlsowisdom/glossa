@@ -15,6 +15,7 @@ import { APP_THEMES, ToolId, moveTool, showTool, toolLabel } from "../shellwords
 import { prefs, setPrefs } from "../state";
 import { commandsView } from "./commands";
 import { dataSection } from "./data";
+import { logosSection } from "./logos";
 import { readingControls } from "./reader";
 import { restartToUpdate } from "../updates";
 import { UpdateInfo, lastCheckedText, versionLine } from "../updatewords";
@@ -306,7 +307,8 @@ function newerThan(a: string, b: string): boolean {
 
 function dataPage(): PageView {
   const data = dataSection();
-  return { el: pageEl("Your data", null, data.el), show: data.show };
+  const logos = logosSection();
+  return { el: pageEl("Your data", null, data.el, logos.el), show: () => { data.show(); logos.show(); } };
 }
 
 // Assistant ---------------------------------------------------------------------------------------
