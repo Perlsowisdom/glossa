@@ -345,8 +345,10 @@ td.actions button { margin: 0 2px 2px 0; }
 
 /* Reader */
 .reader { padding-top: 8px; }
-.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+.topbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; padding: 4px 0 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 3; background: var(--bg); }
+.topbar[data-fit="wrap"] { flex-wrap: wrap; }
+.topbar > :not(.spacer) { flex: none; }
 .find input { width: 14rem; }
 .passage-box { display: flex; align-items: center; gap: 2px; flex: 0 1 20rem; min-width: 12rem; }
 .passage-box input { flex: 1; }
@@ -390,23 +392,29 @@ td.actions button { margin: 0 2px 2px 0; }
 [data-mode="read"] .grid-plus { display: none; }
 .grid-plus .icon, .grid-link .icon { width: 17px; height: 17px; }
 .grid-link[aria-pressed="true"] { color: var(--accent); }
-.grid-place { flex: 0 2 11rem; min-width: 5.5rem; display: flex; }
-.grid-place:empty { display: none; }
-.grid-place .passage-box, .grid-place .book-nav { flex: 1; min-width: 0; margin: 0; }
-.grid-place input { padding: 2px 8px; min-width: 3rem; height: 28px; }
-.grid-place .icon-btn { padding: 3px; }
-.grid-tools { flex: none; display: flex; }
-.grid-tools:empty { display: none; }
-.grid-tools .bibles-btn { padding: 2px 8px; font-size: .85rem; max-width: 8rem; height: 28px; min-width: 0; }
 .grid-bar > .icon-btn { flex: none; padding: 4px; border-radius: 6px; }
-@container pane (max-width: 340px) {
-  .grid-tools { display: none; }
-}
 @container pane (max-width: 300px) {
-  .grid-place .passage-box > .icon-btn, .grid-place .book-nav > :not(.book-where) { display: none; }
-  .grid-place { flex-basis: 8rem; min-width: 4.5rem; }
   .grid-tab { max-width: 8rem; }
 }
+/* The selected pane's reader controls, in the top bar (studygrid.ts syncControls, reader.ts fit). */
+.reader-controls { display: flex; align-items: center; gap: 4px; flex: none; min-width: 0; }
+.reader-controls[hidden] { display: none; }
+.grid-place { display: flex; flex: none; }
+.grid-place:empty, .grid-tools:empty { display: none; }
+.grid-place .passage-box, .grid-place .book-nav { margin: 0; }
+.grid-place .passage-box { flex: none; min-width: 0; }
+.grid-place .passage-box input { width: 10.5rem; flex: none; }
+.grid-place input { padding: 2px 8px; height: 28px; }
+.grid-place .icon-btn { padding: 3px; }
+.grid-tools { flex: none; display: flex; }
+.grid-tools .bibles-btn { padding: 2px 8px; font-size: .85rem; max-width: 8rem; height: 28px; min-width: 0; }
+.reader-controls > .icon-btn { flex: none; padding: 4px; border-radius: 6px; }
+.reader-controls .icon { width: 17px; height: 17px; }
+.topbar[data-fit="compact"] .book-unit, .topbar[data-fit="menu"] .book-unit, .topbar[data-fit="wrap"] .book-unit { display: none; }
+/* Compact label "3 / 1070": the "of N" text is hidden visually and its number drawn after a slash. */
+.topbar[data-fit] .book-of { font-size: 0; }
+.topbar[data-fit] .book-of::before { content: "/ " attr(data-n); font-size: .85rem; }
+.topbar[data-fit="menu"] .grid-tools, .topbar[data-fit="menu"] .grid-contents, .topbar[data-fit="wrap"] .grid-tools, .topbar[data-fit="wrap"] .grid-contents { display: none; }
 .grid-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 14px; display: flex; flex-direction: column; }
 .grid-body > .doc { flex: 1 0 auto; }
 .grid-body > .doc-book { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -440,9 +448,7 @@ td.actions button { margin: 0 2px 2px 0; }
 [draggable="true"].lib-drag { cursor: grab; }
 /* Read mode: the selected pane alone, without its tabs. */
 .study-grid[data-mode="read"] .grid-pane { border: 0; }
-.study-grid[data-mode="read"] .grid-bar { background: none; border-bottom: 0; justify-content: center; }
-.study-grid[data-mode="read"] .grid-tabstrip, .study-grid[data-mode="read"] .grid-link,
-.study-grid[data-mode="read"] .grid-gutter { display: none; }
+.study-grid[data-mode="read"] .grid-bar, .study-grid[data-mode="read"] .grid-gutter { display: none; }
 .reader[data-font="sans"] .bible-text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
 .reader[data-width="wide"] .bible-text { max-width: none; }
 .module-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -507,7 +513,8 @@ dl.info dd { margin: 0; }
 /* Book pane */
 .book-nav { margin: 4px 0; }
 .book-where { margin: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.book-where input.book-where-input[type=text] { width: 4.2em; min-width: 0; padding: 2px 6px; height: 26px; text-align: center; font-size: .85rem; }
+/* The field is sized to the number of digits in the last section (at least 3), so the number always shows. */
+.book-where input.book-where-input[type=text] { flex: none; width: calc(var(--digits, 3) * 1ch + 20px); min-width: calc(3ch + 20px); padding: 2px 6px; height: 26px; text-align: center; font-size: .85rem; }
 .book-where input.book-where-input[type=text]:focus { width: 9em; text-align: left; }
 .book-actions { margin: 4px 0; font-size: .9rem; }
 .book-actions .hint { margin: 0; }
@@ -881,7 +888,6 @@ details.more summary { cursor: pointer; color: var(--accent); }
 .browse-list li .hint { margin: 0; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .browse-list li:hover { background: var(--panel); }
 .drags-tab { cursor: grab; }
-.study-grid[data-mode="read"] .grid-place { flex: 0 1 28rem; }
 
 /* My work (views/work.ts, notes.ts, sermons.ts, bin.ts): a column of folders, tags and writing with
    the bin pinned at its foot, beside cards of notes and sermons, the sermon table and the bin. */

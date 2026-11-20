@@ -26,9 +26,12 @@ export function readerView() {
   const msg = new Message();
   const side = sidebar();
   const today = todayCard();
+  // The selected pane's reader controls live in the top bar, after the search and Aa.
+  const controls = h("div", { class: "reader-controls", role: "group", "aria-label": "Reader controls for the selected pane", hidden: true });
   const grid = studyGrid({
     mode: () => prefs.reading.mode,
     defaultTab: () => ({ kind: "bible" }),
+    controls,
   });
   setGridPresets((anchor) => grid.presets(anchor));
   setOpener((spec) => grid.open(spec));
@@ -86,7 +89,7 @@ export function readerView() {
   const sideBtn = iconButton("panel", "Right sidebar", () => side.toggle(), { "aria-controls": "rightbar", title: "Right sidebar (Ctrl+.)", "aria-keyshortcuts": "Control+." });
 
   const bar = h("div", { class: "topbar", role: "group", "aria-label": "Reader" },
-    modeSwitch, findBtn, findForm, aaBtn, gridBtn, h("span", { class: "spacer" }), moreBtn, sideBtn);
+    modeSwitch, findBtn, findForm, aaBtn, controls, gridBtn, h("span", { class: "spacer" }), moreBtn, sideBtn);
 
   const el = h("div", { class: "view reader" },
     h("h1", { class: "sr-only" }, "Reader"),
@@ -97,6 +100,7 @@ export function readerView() {
   function applyPrefs() {
     const r = prefs.reading;
     el.dataset.mode = r.mode;
+    queueMicrotask(fit);
     modeBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(modes[i] === r.mode)));
     aaBtn.hidden = r.mode !== "read" && !showsBook();
     gridBtn.hidden = gridButtonPlace(r.mode, prefs.rail) !== "toolbar";
@@ -115,6 +119,29 @@ export function readerView() {
   // In Study mode the Aa button is there while the selected pane shows a book (Pages / Scroll, PDF zoom).
   const showsBook = () => grid.selectedView()?.markScope?.()?.kind === "item";
   document.addEventListener("glossa:pane-changed", () => { aaBtn.hidden = prefs.reading.mode !== "read" && !showsBook(); });
+  // fit keeps the top bar on one line: first the section label shortens ("3 / 1070"), then the
+  // contents and Bibles buttons move into the pane's ⋯ menu, and as a last resort the bar wraps.
+  let fitting = false;
+  function fit() {
+    if (fitting) return;
+    fitting = true;
+    try {
+      const over = () => bar.scrollWidth > bar.clientWidth + 1;
+      delete bar.dataset.fit;
+      for (const stage of ["compact", "menu", "wrap"]) {
+        if (!over()) break;
+        bar.dataset.fit = stage;
+      }
+    } finally {
+      fitting = false;
+    }
+  }
+  new ResizeObserver(() => fit()).observe(bar);
+  new MutationObserver(() => fit()).observe(controls, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["hidden"] });
+  document.addEventListener("glossa:pane-changed", fit);
+  document.addEventListener("glossa:book-section", fit);
+  findBtn.addEventListener("click", () => queueMicrotask(fit));
+
   onPrefs(applyPrefs);
   applyPrefs();
 

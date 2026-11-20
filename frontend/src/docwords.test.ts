@@ -46,5 +46,6 @@ describe("pane menu", () => {
     expect(g[0].items.find((i) => i.id === "search")?.disabled).toBe(true);
     expect(g[1].items.find((i) => i.id === "split-down")?.disabled).toBe(true);
     expect(g[0].items.map((i) => i.id)).toContain("bibles");
+    expect(paneMenu({ ...all, contents: true })[0].items[0].id).toBe("contents");
   });
 });
