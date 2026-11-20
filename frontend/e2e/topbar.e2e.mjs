@@ -21,7 +21,10 @@ const restore = (t) => size(t, 1480, 950);
 async function twoPanes(t) {
   const { page } = t;
   await addBooks(t);
-  await page.evaluate(() => { location.hash = "#reader"; });
+  // Start from one fresh pane: earlier checks leave the grid as they like.
+  await page.evaluate(() => { localStorage.removeItem("glossa.grid"); location.hash = "#reader"; });
+  await page.reload();
+  await page.waitForSelector(".grid-pane", { timeout: 15000 });
   const study = page.locator(".topbar button", { hasText: /^Study$/ }).first();
   if ((await study.getAttribute("aria-pressed")) !== "true") await study.click();
   await openFromLibrary(t, EPUB_TITLE, "Open in Study");
