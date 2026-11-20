@@ -173,8 +173,10 @@ export default [
         await page.keyboard.press("Enter");
         await page.waitForFunction(() => document.querySelector(".grid-pane.selected .book-where-input, .reader-controls .book-where-input")?.value === "2", null, { timeout: 8000 });
         t.assert.equal(await field.inputValue(), "2");
+        // The pane's text moved too, not just the field.
+        await page.waitForFunction(() => /first words of chapter 2/.test(document.querySelector(".grid-pane.selected .book-text")?.textContent ?? ""), null, { timeout: 8000 });
         await page.locator(`${CONTROLS} [aria-label='Previous section']`).click();
-        await page.waitForFunction(() => document.querySelector(".reader-controls .book-where-input")?.value === "1", null, { timeout: 8000 });
+        await page.waitForFunction(() => document.querySelector(".reader-controls .book-where-input")?.value === "1" && /first words of chapter 1/.test(document.querySelector(".grid-pane.selected .book-text")?.textContent ?? ""), null, { timeout: 8000 });
         await page.locator(`${CONTROLS} [aria-label='Next section']`).click();
         await page.waitForFunction(() => document.querySelector(".reader-controls .book-where-input")?.value === "2", null, { timeout: 8000 });
         await page.locator(`${CONTROLS} .grid-contents`).click();
@@ -203,9 +205,16 @@ export default [
         await ref.click();
         await ref.fill("Romans 8");
         await page.keyboard.press("Enter");
-        await page.waitForFunction(() => /Romans 8/.test(document.querySelector(".reader-controls .place-input")?.value ?? "") && /Romans/.test(document.querySelector(".grid-pane.selected .doc-bible")?.textContent ?? ""), null, { timeout: 10000 });
+        // The pane's own text must move: heading Romans 8, first verse 8:1 ("no condemnation").
+        await page.waitForFunction(() => {
+          const pane = document.querySelector(".grid-pane.selected .doc-bible");
+          const h = [...(pane?.querySelectorAll("h3.chapter") ?? [])].map((e) => e.textContent.trim());
+          return h.length > 0 && h[0] === "Romans 8" && !h.includes("Romans 12") && /no condemnation/i.test(pane.textContent) && document.querySelector(".reader-controls .place-input")?.value === "Romans 8";
+        }, null, { timeout: 10000 });
+        t.assert.ok(await page.locator(".grid-pane.selected .grid-tab-btn", { hasText: "Romans 8" }).count(), "the tab names Romans 8");
         await page.locator(`${CONTROLS} .bibles-btn`).click();
-        await page.locator(".popover", { hasText: "Bibles to show" }).waitFor({ timeout: 5000 });
+        await page.locator(".popover", { hasText: "Bibles to show" }).waitFor({ state: "visible", timeout: 5000 });
+        await page.waitForTimeout(300);
         await t.shot("topbar-04-bible.png");
         await page.keyboard.press("Escape");
         const s = await barState(t);
