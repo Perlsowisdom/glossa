@@ -118,7 +118,10 @@ export function readerView() {
   }
   // In Study mode the Aa button is there while the selected pane shows a book (Pages / Scroll, PDF zoom).
   const showsBook = () => grid.selectedView()?.markScope?.()?.kind === "item";
-  document.addEventListener("glossa:pane-changed", () => { aaBtn.hidden = prefs.reading.mode !== "read" && !showsBook(); });
+  const syncAa = () => { aaBtn.hidden = prefs.reading.mode !== "read" && !showsBook(); };
+  document.addEventListener("glossa:pane-changed", syncAa);
+  // A book's pane says what it holds once the book has opened.
+  document.addEventListener("glossa:book-section", syncAa);
   // fit keeps the top bar on one line: first the section label shortens ("3 / 1070"), then the
   // contents and Bibles buttons move into the pane's ⋯ menu, and as a last resort the bar wraps.
   let fitting = false;

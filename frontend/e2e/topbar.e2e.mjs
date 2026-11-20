@@ -17,7 +17,7 @@ async function size(t, w, h) {
 }
 const restore = (t) => size(t, 1480, 950);
 
-// twoPanes leaves an EPUB in one pane and a PDF (beside a Bible tab) in the pane to its right.
+// twoPanes leaves a Bible in the left pane and, in the right pane, an EPUB tab beside a PDF tab (the PDF shown).
 async function twoPanes(t) {
   const { page } = t;
   await addBooks(t);
@@ -26,10 +26,10 @@ async function twoPanes(t) {
   if ((await study.getAttribute("aria-pressed")) !== "true") await study.click();
   await openFromLibrary(t, EPUB_TITLE, "Open in Study");
   await page.locator(".grid-pane:visible .book-text p").first().waitFor({ timeout: 15000 });
-  await page.locator("[aria-label='Grid presets']:visible").first().click();
+  await page.locator(".rail-grid:visible, .topbar [aria-label='Grid presets']:visible").first().click();
   await page.locator(".preset-cell[data-c='2'][data-r='1']").click();
   await page.waitForFunction(() => document.querySelectorAll(".grid-pane").length >= 2, null, { timeout: 8000 });
-  await page.locator(".grid-pane").nth(1).locator(".grid-tab-btn").first().click();
+  await page.locator(".grid-pane", { has: page.locator(".grid-tab-btn", { hasText: EPUB_TITLE }) }).locator(".grid-tab-btn").first().click();
   await openFromLibrary(t, "e2e-test-pages", "Open in Study");
   await page.locator(".grid-pane:visible .pdf-box").first().waitFor({ timeout: 15000 });
   await t.settled();
@@ -40,9 +40,25 @@ async function clean(t) {
   await restore(t).catch(() => {});
   await t.page.emulateMedia({ colorScheme: "light" }).catch(() => {});
   await closeBooks(t);
+  // Back to one pane, so later checks start from the usual grid.
+  await t.page.evaluate(() => { location.hash = "#reader"; });
+  const note = tab(t, "Topbar note");
+  if (await note.count()) await note.dispatchEvent("auxclick", { button: 1 });
+  await t.page.locator(".rail-grid:visible, .topbar [aria-label='Grid presets']:visible").first().click().catch(() => {});
+  await t.page.locator(".preset-cell[data-c='1'][data-r='1']").click({ timeout: 3000 }).catch(() => {});
+  await t.page.waitForTimeout(300);
 }
 
-const paneWith = (t, sel) => t.page.locator(".grid-pane:visible", { has: t.page.locator(sel) }).first();
+const tab = (t, name) => t.page.locator(".grid-pane .grid-tab-btn", { hasText: name }).first();
+// show selects a tab and waits for its place field to hold a number (a tab is mounted when it is shown).
+async function show(t, name, unit) {
+  await tab(t, name).click();
+  await t.page.waitForFunction((unit) => /^[0-9]+$/.test(document.querySelector(".reader-controls .book-where-input")?.value ?? "") && document.querySelector(".reader-controls .book-unit")?.textContent === unit, unit, { timeout: 15000 }).catch(async (e) => {
+    throw new Error(`${e.message}
+${await t.page.evaluate(() => JSON.stringify({ c: document.querySelector(".reader-controls")?.outerHTML.slice(0, 900), sel: [...document.querySelectorAll(".grid-pane")].map((p) => [p.className, p.textContent.slice(0, 60)]) }))}`);
+  });
+  await t.settled();
+}
 const barState = (t) => t.page.evaluate(({ BAR, CONTROLS }) => {
   const bar = document.querySelector(BAR);
   const c = document.querySelector(CONTROLS);
@@ -54,9 +70,8 @@ const barState = (t) => t.page.evaluate(({ BAR, CONTROLS }) => {
     fit: bar.dataset.fit ?? "",
     scrolls: bar.scrollWidth > bar.clientWidth + 1,
     overlap,
-    wraps: new Set(rects.map((r) => Math.round(r.top / 10))).size > 1,
+    wraps: new Set(rects.map((r) => Math.round((r.top + r.bottom) / 2 / 8))).size > 1,
     controlsShown: !!c && !c.hidden && !!c.offsetParent,
-    in: (sel) => false,
     fieldValue: input?.value ?? null,
     fieldW: input?.offsetWidth ?? 0,
     fieldHidden: !input || !input.offsetParent,
@@ -76,9 +91,7 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        // Select the book pane.
-        await paneWith(t, ".book-text").locator(".grid-tab-btn").first().click();
-        await page.waitForFunction(() => document.querySelector(".grid-pane.selected .doc-book"), null, { timeout: 5000 });
+        await show(t, EPUB_TITLE, "Section");
         const s = await barState(t);
         t.assert.ok(s.controlsShown, "controls in the top bar");
         t.assert.ok(!s.fieldHidden && /^\d+$/.test(s.fieldValue), `the section field shows a number: ${JSON.stringify(s)}`);
@@ -112,21 +125,20 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        const book = paneWith(t, ".book-text");
-        const pdf = paneWith(t, ".pdf-box");
-        await book.locator(".grid-tab-btn").first().click();
+        await show(t, EPUB_TITLE, "Section");
         let s = await barState(t);
-        t.assert.equal(s.unit, "Section", JSON.stringify(s));
-        await pdf.locator(".grid-tab-btn").last().click();
-        await page.waitForFunction(() => document.querySelector(".grid-pane.selected .pdf-box"), null, { timeout: 5000 });
+        t.assert.ok(s.has.includes("Pane menu") && s.has.includes("Contents"), JSON.stringify(s));
+        // Into the Bible pane: its reference field and Bibles chip replace the book's.
+        await page.locator(".grid-pane", { has: page.locator(".doc-bible") }).locator(".grid-tab-btn").first().click();
+        await page.locator(`${CONTROLS} .place-input`).waitFor({ timeout: 8000 });
+        t.assert.equal(await page.locator(".book-where-input:visible").count(), 0, "the book's field is gone");
+        t.assert.ok(await page.locator(`${CONTROLS} .bibles-btn`).isVisible(), "the Bibles chip is in the bar");
+        await show(t, "e2e-test-pages", "Page");
         s = await barState(t);
         t.assert.equal(s.unit, "Page", `the PDF pane's page field is in the bar: ${JSON.stringify(s)}`);
         t.assert.equal(await page.locator(".book-where-input:visible").count(), 1, "only the selected pane's field is on screen");
         await t.shot("topbar-02-focus.png");
-        await book.locator(".grid-tab-btn").first().click();
-        await page.waitForFunction(() => document.querySelector(".grid-pane.selected .book-text"), null, { timeout: 5000 });
-        s = await barState(t);
-        t.assert.equal(s.unit, "Section", JSON.stringify(s));
+        await show(t, EPUB_TITLE, "Section");
         // A note has no reader controls.
         const n = await t.app.run("note.create", { title: "Topbar note", body: "x" });
         noteId = n.id;
@@ -134,7 +146,7 @@ export default [
         await page.waitForFunction(() => document.querySelector(".grid-pane.selected .note-page"), null, { timeout: 8000 });
         s = await barState(t);
         t.assert.ok(!s.controlsShown, `no reader controls for a note: ${JSON.stringify(s)}`);
-        await page.locator(".grid-pane", { has: page.locator(".grid-tab-btn", { hasText: "Topbar note" }) }).locator(".grid-tab-close").first().click();
+        await tab(t, "Topbar note").dispatchEvent("auxclick", { button: 1 });
       } finally {
         if (noteId) await t.app.run("note.delete", { id: noteId }).catch(() => {});
         await clean(t);
@@ -150,7 +162,7 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        await paneWith(t, ".book-text").locator(".grid-tab-btn").first().click();
+        await show(t, EPUB_TITLE, "Section");
         const field = page.locator(`${CONTROLS} .book-where-input`);
         await field.waitFor();
         await field.click();
@@ -180,8 +192,7 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        const pane = page.locator(".grid-pane").nth(1);
-        await pane.locator(".grid-tab-btn", { hasText: /Bible|ESV|KJV|WEB|[A-Z]{3,}/ }).first().click();
+        await page.locator(".grid-pane", { has: page.locator(".doc-bible") }).locator(".grid-tab-btn").first().click();
         await page.waitForFunction(() => document.querySelector(".grid-pane.selected .doc-bible"), null, { timeout: 8000 });
         const ref = page.locator(`${CONTROLS} .place-input`);
         await ref.waitFor();
@@ -210,7 +221,7 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        await paneWith(t, ".book-text").locator(".grid-tab-btn").first().click();
+        await show(t, EPUB_TITLE, "Section");
         await page.locator(".topbar button", { hasText: /^Read$/ }).first().click();
         await page.waitForFunction(() => document.querySelector(".study-grid")?.dataset.mode === "read", null, { timeout: 5000 });
         await page.waitForTimeout(300);
@@ -234,9 +245,9 @@ export default [
       try {
         await size(t, 1536, 816);
         await twoPanes(t);
-        await paneWith(t, ".book-text").locator(".grid-tab-btn").first().click();
+        await show(t, EPUB_TITLE, "Section");
         const seen = new Map();
-        for (let w = 1100; w >= 560; w -= 20) {
+        for (let w = 1100; w >= 400; w -= 20) {
           await size(t, w, 816);
           const s = await barState(t);
           t.assert.ok(!s.scrolls && !s.overlap, `at ${w}px the bar does not overflow or overlap: ${JSON.stringify(s)}`);
