@@ -19,6 +19,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
 	"github.com/Perlsowisdom/glossa/internal/library"
 	"github.com/Perlsowisdom/glossa/internal/lists"
+	"github.com/Perlsowisdom/glossa/internal/logosimport"
 	"github.com/Perlsowisdom/glossa/internal/plan"
 	"github.com/Perlsowisdom/glossa/internal/reader"
 	"github.com/Perlsowisdom/glossa/internal/report"
@@ -47,6 +48,7 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	report.Register(r)
 	document.Register(r)
 	folder.Register(r)
+	logosimport.Register(r)
 	assistant.Register(r, s)
 	update.Register(r) // nothing in the Store build
 	return r

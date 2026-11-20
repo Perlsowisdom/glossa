@@ -409,6 +409,7 @@ func biblePlan(name string, days []sessionJSON, done map[string]bool) (*PlanData
 			return nil, false
 		}
 		p.Days = append(p.Days, refs)
+		p.Dates = append(p.Dates, d.Date[:min(len(d.Date), 10)])
 		if done[d.Date[:min(len(d.Date), 10)]] || done[fmt.Sprintf("#%d", i)] {
 			p.Done = append(p.Done, i+1)
 		}

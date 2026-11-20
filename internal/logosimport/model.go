@@ -98,6 +98,7 @@ type PlanData struct {
 	Start string     // ISO date of the first day
 	Days  [][]string // each day's Bible passages
 	Done  []int      // 1-based days marked read
+	Dates []string   // each day's date in Logos, to find the days of the week it reads on
 }
 
 // Unmapped is something that could not be placed in Glossa, with the reason.
