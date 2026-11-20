@@ -275,9 +275,11 @@ func wrap(text string, m marks) string {
 	return lead + body + trail
 }
 
+var linkRe = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+
 // PlainText is the text of rich text with no marks, as a title or a sample.
 func PlainText(src string) string {
-	md := ToMarkdown(src)
-	r := strings.NewReplacer("**", "", "<u>", "", "</u>", "", "<br>", " ", "\n", " ")
+	md := linkRe.ReplaceAllString(ToMarkdown(src), "$1")
+	r := strings.NewReplacer("**", "", "*", "", "<u>", "", "</u>", "", "<br>", " ", "\n", " ")
 	return strings.Join(strings.Fields(r.Replace(md)), " ")
 }

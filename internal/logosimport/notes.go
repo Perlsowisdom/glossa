@@ -304,7 +304,7 @@ func mapHighlight(res *Result, cat *catalog, n noteRow, key string) {
 	res.Items = append(res.Items, Item{
 		Kind: KindHighlight, Key: key, Changed: changed(n.modified, n.created),
 		Title:  span.String(),
-		Sample: span.String() + " (" + style + ")",
+		Sample: style + ", from " + strings.TrimPrefix(n.style, "custom:"),
 		Highlight: &HighlightData{
 			Range: *span, Style: style, OriginalStyle: strings.TrimPrefix(n.style, "custom:"),
 			Created: millis(n.created),

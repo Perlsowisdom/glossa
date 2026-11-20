@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"unicode"
 
 	"github.com/Perlsowisdom/glossa/internal/command"
 )
@@ -166,7 +167,7 @@ func buildPreview(res *Result, root string, log map[string]logRow) PreviewResult
 	out.Folders = len(folders)
 	out.Unmapped = groupUnmapped(res.Unmapped)
 	for text, n := range res.Notes {
-		out.Notes = append(out.Notes, fmt.Sprintf("%d %s", n, text))
+		out.Notes = append(out.Notes, noteLine(text, n))
 	}
 	sort.Strings(out.Notes)
 	return out
@@ -214,4 +215,13 @@ func contains(list []string, s string) bool {
 func marshal(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// noteLine writes a note with how many it applies to: "Highlights that ... (3)".
+func noteLine(text string, n int) string {
+	r := []rune(text)
+	if len(r) > 0 {
+		r[0] = unicode.ToUpper(r[0])
+	}
+	return fmt.Sprintf("%s (%d)", string(r), n)
 }

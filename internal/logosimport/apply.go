@@ -154,12 +154,22 @@ func (s *service) importCmd(ctx context.Context, env *command.Env, p ImportParam
 		}
 	}
 	for text, n := range res.Notes {
-		result.Notes = append(result.Notes, fmt.Sprintf("%d %s", n, text))
+		result.Notes = append(result.Notes, noteLine(text, n))
 	}
 	sort.Strings(result.Notes)
+	did := r.folders
+	for _, kr := range r.kinds {
+		did += kr.Created + kr.Updated
+	}
 	err = env.Store.Write(ctx, "logos.import", func(tx *store.Tx) error {
+		if did == 0 { // nothing happened, so there is no import to list or take back
+			return tx.Delete("logos_import_runs", store.ByID(r.id))
+		}
 		return tx.Update("logos_import_runs", store.ByID(r.id), store.Row{"counts_json": marshal(result)})
 	})
+	if did == 0 {
+		result.RunID = ""
+	}
 	return result, err
 }
 

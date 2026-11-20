@@ -10,6 +10,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/folder"
 	"github.com/Perlsowisdom/glossa/internal/plan"
+	"github.com/Perlsowisdom/glossa/internal/reader"
 	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
@@ -62,6 +63,7 @@ func newHarness(t *testing.T) *harness {
 	core.Register(r)
 	folder.Register(r)
 	plan.Register(r)
+	reader.Register(r)
 	Register(r)
 	return &harness{t: t, r: r, env: &command.Env{Store: st}, st: st, src: src, svc: &service{r: r, tmpDir: t.TempDir()}}
 }
@@ -166,6 +168,14 @@ func TestImportRerunUndo(t *testing.T) {
 	if n := h.count(`SELECT COUNT(*) FROM list_entries`); n != 2 {
 		t.Errorf("list entries = %d", n)
 	}
+	var hls []struct {
+		Style string `json:"style"`
+		Ref   string `json:"ref"`
+	}
+	h.must("highlight.list", map[string]any{"ref": "John 3:16"}, &hls)
+	if len(hls) != 1 || hls[0].Style != "yellow" {
+		t.Errorf("highlights on John 3:16 = %+v", hls)
+	}
 	var plans []struct {
 		ID       string `json:"id"`
 		Name     string `json:"name"`
@@ -221,7 +231,7 @@ func TestImportRerunUndo(t *testing.T) {
 	// Undo the first import: what it added goes to the bin and the folders it made go too.
 	var runs []RunInfo
 	h.must("logos.runs", struct{}{}, &runs)
-	if len(runs) != 3 || runs[0].Report == nil {
+	if len(runs) != 2 || runs[0].Report == nil { // the second run changed nothing, so it left no run behind
 		t.Fatalf("runs = %+v", runs)
 	}
 	var undo UndoResult
