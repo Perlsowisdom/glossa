@@ -6,6 +6,7 @@ import { rmSync } from "node:fs";
 import { makeLogosFolder } from "./logosfixture.mjs";
 
 let root;
+let bible; // an installed Bible the fixture sermon quotes
 
 // accept answers the next confirmation the page asks, and gives back what it said.
 function acceptNext(page) {
@@ -35,7 +36,10 @@ export default [
     row: "Logos import: the preview counts each kind, shows samples and says what cannot be placed",
     shot: "t22a-preview.png",
     async run(t) {
-      root = makeLogosFolder();
+      const mods = await t.app.run("bible.modules", {});
+      const list = Array.isArray(mods) ? mods : mods.modules;
+      bible = list.find((m) => m.licence?.store && m.abbreviation) ?? list[0];
+      root = makeLogosFolder({ abbreviation: bible.abbreviation, name: bible.name });
       const card = await preview(t);
       const text = await card.locator(".logos-kinds").innerText();
       t.assert.match(text, /Notes: 2 found, 2 new/, text);
@@ -43,6 +47,8 @@ export default [
       t.assert.match(text, /Clippings: 1 found, 1 new/, text);
       t.assert.match(text, /Passage lists: 1 found, 1 new/, text);
       t.assert.match(text, /Reading plans: 1 found, 1 new/, text);
+      t.assert.match(text, /Sermons: 2 found, 2 new/, text);
+      t.assert.match(await card.locator('[data-kind="sermon"] .logos-samples').innerText(), /Nothing can separate us/);
       // A sample of the notes: the first words of the note, without the markup.
       t.assert.match(await card.locator('[data-kind="note"] .logos-samples').innerText(), /Grace alone, see this page/);
       // What cannot be placed, with the reason, behind a disclosure.
@@ -51,7 +57,10 @@ export default [
       t.assert.match(unmapped, /Highlights, 1 left out: a highlight in a book, not in a Bible \(for example Fixture Commentary on Romans\)/, unmapped);
       t.assert.match(unmapped, /Notes, 1 left out: shared with you by someone else/, unmapped);
       t.assert.match(unmapped, /Notes, 1 left out: an empty note/, unmapped);
-      t.assert.match(await card.locator(".logos-notes").innerText(), /cover the whole verse/);
+      t.assert.match(unmapped, /Sermons, 1 left out: a Logos sermon template, not a sermon/, unmapped);
+      const pnotes = await card.locator(".logos-notes").innerText();
+      t.assert.match(pnotes, /cover the whole verse/);
+      t.assert.match(pnotes, /ESV is not installed in Glossa \(1\)/, pnotes);
       // Previewing changed nothing.
       t.assert.equal((await t.app.run("note.list", {})).length, (await t.app.run("note.list", {})).length);
       t.assert.equal((await t.app.run("logos.runs")).length, 0);
@@ -74,7 +83,9 @@ export default [
       t.assert.match(report, /Notes: 2 added/, report);
       t.assert.match(report, /Highlights: 2 added/, report);
       t.assert.match(report, /Reading plans: 1 added/, report);
-      t.assert.match(await card.locator(".msg").innerText(), /Imported 7 items and 2 folders\./);
+      t.assert.match(report, /Sermons: 2 added/, report);
+      t.assert.match(await card.locator(".msg").innerText(), /Imported 9 items and 4 folders\./);
+      t.assert.match(await card.locator(".logos-report-notes").innerText(), /ESV is not installed in Glossa/);
 
       // What is in the library now.
       const notes = await app.run("note.list", { limit: 1000 });
@@ -104,6 +115,24 @@ export default [
       const plan = plans.find((p) => p.name === "John in three days");
       t.assert.equal(plan.days, 3);
       t.assert.equal(plan.days_done, 1);
+      // Sermons: the outline, passages, date and series folder; a verse quote from the installed Bible with its credit.
+      const sermons = await app.run("document.list", { kind: "sermon" });
+      const sermon = await app.run("document.get", { id: sermons.find((d) => d.title === "Nothing can separate us").id });
+      t.assert.equal(sermon.preached_on, "2024-03-10");
+      t.assert.equal(sermon.theme, "Romans 8");
+      t.assert.deepEqual(sermon.passages.map((p) => p.display), ["Romans 8:28-30", "John 3:16"]);
+      t.assert.deepEqual(sermon.points.map((p) => p.h), ["God works for good", "Called"]);
+      t.assert.equal(sermon.points[0].ref, "Romans 8:28");
+      t.assert.match(sermon.body, /# God works for good\n\n\*\*Paul says it plainly\.\*\*/, sermon.body);
+      t.assert.match(sermon.body, /\n> \*\*28\*\* /, "the quote is copied from the installed Bible: " + sermon.body);
+      t.assert.ok(sermon.body.includes(`(#bible/${bible.id})`), sermon.body);
+      t.assert.match(sermon.body, /> \[Romans 8:30\]\(#passage\/Rom\.8\.30\) \(ESV\)/, "a Bible Glossa lacks stays a plain quote");
+      t.assert.match(sermon.body, /- first\n- second/);
+      t.assert.match(sermon.body, /## Notes\n\nRemember to slow down here/);
+      t.assert.ok(sermon.folder_id, "in its series folder");
+      const plain = sermons.find((d) => d.title === "A short word on John");
+      t.assert.ok(plain.folder_id && plain.folder_id !== sermon.folder_id);
+      t.assert.ok((await app.run("folder.list")).some((f) => f.name === "Sermons from Logos"));
       t.assert.equal((await app.run("logos.runs")).length, 1);
       await card.locator(".logos-report").scrollIntoViewIfNeeded();
       await t.shot();
@@ -119,6 +148,7 @@ export default [
       const text = await card.locator(".logos-kinds").innerText();
       t.assert.match(text, /Notes: 2 found, 0 new, 2 already imported/, text);
       t.assert.match(text, /Reading plans: 1 found, 0 new, 1 already imported/, text);
+      t.assert.match(text, /Sermons: 2 found, 0 new, 2 already imported/, text);
       const button = card.locator("#logos-import");
       t.assert.equal(await button.innerText(), "Nothing new to import");
       t.assert.equal(await button.isDisabled(), true);
@@ -147,6 +177,8 @@ export default [
       t.assert.ok(!folders.some((f) => f.name === "Romans study" || f.name === "Word studies"), "its folders are gone");
       t.assert.equal((await app.run("highlight.list", { ref: "John 3:16" })).length, 0);
       t.assert.ok(!(await app.run("plan.list", {})).some((p) => p.name === "John in three days"));
+      t.assert.ok(!(await app.run("document.list", { kind: "sermon" })).some((d) => d.title === "Nothing can separate us"), "the imported sermons are gone");
+      t.assert.ok(!folders.some((f) => f.name === "Romans 8" || f.name === "Sermons from Logos"), "the sermon folders are gone");
       await card.scrollIntoViewIfNeeded();
       await t.shot();
       rmSync(root, { recursive: true, force: true });

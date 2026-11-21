@@ -46,3 +46,15 @@ text" opens the builder: its title, kind, main passage, date preached and theme,
 each point can hold verses and quote them), a Quote verses box, and the text editor. Changes save on
 their own after a short pause, or with Ctrl+S. "Add the outline to the text" puts each point in the
 text as a heading to write under. The address `#sermons/<id>` opens one document; `#sermons/<id>?new` opens one just made, its title empty and ready to type.
+
+## Sermons from Logos
+
+Settings → Your data → Import from Logos also brings in Sermon Builder documents (T22b). Each becomes a
+sermon: title, the passages the sermon is tagged with (or, failing that, the verses it quotes; up to 20),
+date preached, and as theme the series (or else the topic tags). The outline is the headings, and the text
+is the body: paragraphs, lists, quotes, illustrations and questions, clippings as quotes with their source,
+and the notes written inside the sermon under "Notes". A sermon in a series goes in a folder named for the
+series; others go in "Sermons from Logos". Verse quotes are made with `document.quote` from the Bible
+Logos showed them in, when that Bible is installed in Glossa and its licence allows it, with its credit
+line; otherwise they stay plain quotes with their reference, and the report says which and why. Templates
+and empty documents are listed as not imported.
