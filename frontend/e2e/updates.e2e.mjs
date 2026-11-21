@@ -24,7 +24,9 @@ export default [
       // "No thanks" answers it and leaves updates off.
       await banner.getByRole("button", { name: "No thanks" }).click();
       await banner.waitFor({ state: "detached" });
-      const after = await app.run("update.settings.get");
+      // The banner goes at the click; the answer is saved a moment later.
+      let after = await app.run("update.settings.get");
+      for (const until = Date.now() + 8000; !after.asked && Date.now() < until; after = await app.run("update.settings.get")) await page.waitForTimeout(100);
       t.assert.equal(after.asked, true);
       t.assert.equal(after.enabled, false, "still off after No thanks");
       // It does not come back after a reload.

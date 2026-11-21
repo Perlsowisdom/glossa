@@ -42,10 +42,11 @@ export default [
       if (first) {
         t.assert.ok(await page.locator("#fromlogos-empty").isVisible(), "before reading there is an invitation to read the library");
         await t.shot("t22c-empty.png");
-        await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
-        await page.locator("#fromlogos-folder").fill(root);
-        await page.locator("#fromlogos-read").click();
       }
+      // The folder field is what Read and Refresh use (empty, they look where Logos keeps its data).
+      await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
+      await page.locator("#fromlogos-folder").fill(root);
+      if (first) await page.locator("#fromlogos-read").click();
       await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
       await rows(page, 8);
       t.assert.match(await page.locator("#fromlogos-status").innerText(), /8 books · 4 public domain/);
