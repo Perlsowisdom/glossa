@@ -370,7 +370,7 @@ func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 			} `json:"items"`
 		}
 		if err := s.call(ctx, env, "bible.available", map[string]any{"kind": kind, "supported": true, "limit": 100000}, &res); err != nil {
-			return nil
+			return s.ccelItems(ctx, env)
 		}
 		for _, it := range res.Items {
 			if it.Locked || !it.Supported || (it.Licence.Type != "public_domain" && it.Licence.Type != "creative_commons") {
@@ -379,6 +379,28 @@ func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 			out = append(out, FreeItem{Source: it.Source, ID: it.ID, Name: it.Name, Abbreviation: it.Abbreviation,
 				About: it.About, Language: it.Language, Kind: it.Kind, Installed: it.Installed})
 		}
+	}
+	return append(out, s.ccelItems(ctx, env)...)
+}
+
+// ccelItems are CCEL's public-domain books from its cached list. The list is read from the cache
+// only, and is empty until the user has turned CCEL on.
+func (s *service) ccelItems(ctx context.Context, env *command.Env) []FreeItem {
+	var res struct {
+		Items []struct {
+			ID        string `json:"id"`
+			Title     string `json:"title"`
+			Author    string `json:"author"`
+			Kind      string `json:"kind"`
+			Installed bool   `json:"installed"`
+		} `json:"items"`
+	}
+	if err := s.call(ctx, env, "ccel.items", map[string]any{"limit": 100000}, &res); err != nil {
+		return nil
+	}
+	out := make([]FreeItem, 0, len(res.Items))
+	for _, it := range res.Items {
+		out = append(out, FreeItem{Source: "ccel", ID: it.ID, Name: it.Title, About: it.Author, Kind: it.Kind, Installed: it.Installed})
 	}
 	return out
 }

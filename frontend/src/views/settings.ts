@@ -235,10 +235,11 @@ function privacyPage(): PageView {
 
   // Both status commands read local settings only; neither uses the network.
   async function show() {
-    const [key, cat, ai] = await Promise.all([
+    const [key, cat, ai, ccel] = await Promise.all([
       run<KeyStatus>("apibible.status").catch(() => null),
       run<{ enabled: boolean }>("bible.sources").catch(() => null),
       run<AssistantConfig>("assistant.config.get").catch(() => null),
+      run<{ enabled: boolean; works: number }>("ccel.settings").catch(() => null),
     ]);
     const aiOn = !!ai && ai.provider !== "off";
     const on = (yes: boolean | undefined) => (yes ? badge("On", "ok") : badge("Off"));
@@ -248,6 +249,19 @@ function privacyPage(): PageView {
         cat?.enabled ? [" ", button("Turn off", async () => {
           if ((await msg.attempt(() => run("bible.sources", { enable: false }))) !== undefined) void show();
         })] : null),
+      h("dt", {}, "Free books"),
+      h("dd", {},
+        toggleSwitch({
+          label: "Christian Classics Ethereal Library (ccel.org)", checked: !!ccel?.enabled,
+          hint: "Free public-domain books. When on, Glossa asks ccel.org for its list of books (once a week at most) and, for a book you choose, its rights note and file. " +
+            "Nothing else is sent: no account, no information about your library. Off until you turn it on.",
+          onChange: async (on) => {
+            if ((await msg.attempt(() => run("ccel.settings", { enable: on }))) === undefined) return;
+            // Turning it on fetches CCEL's list of books once; the cache is kept for a week.
+            if (on) await msg.attempt(() => run("ccel.refresh"));
+            void show();
+          },
+        })),
       h("dt", {}, "Bibles online"),
       h("dd", {}, on(key?.key_set), " Reads Bibles from API.Bible with your own key. Set it in Bibles online."),
       h("dt", {}, "Assistant"),

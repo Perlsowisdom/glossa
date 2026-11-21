@@ -9,6 +9,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/backup"
 	"github.com/Perlsowisdom/glossa/internal/bible"
 	"github.com/Perlsowisdom/glossa/internal/bible/repos"
+	"github.com/Perlsowisdom/glossa/internal/ccel"
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/document"
@@ -48,6 +49,7 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	report.Register(r)
 	document.Register(r)
 	folder.Register(r)
+	ccel.Register(r, filepath.Join(dataDir, "ccel"))
 	logosimport.Register(r)
 	assistant.Register(r, s)
 	update.Register(r) // nothing in the Store build

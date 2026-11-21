@@ -113,6 +113,17 @@ func isYear(w string) bool {
 	return w[0] == '1' || w[0] == '2'
 }
 
+// without drops the words that are the author's surname.
+func without(ws []string, sur string) []string {
+	var out []string
+	for _, w := range ws {
+		if plain(w) != sur {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 func equalWords(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -182,6 +193,9 @@ type indexed struct {
 	idAbbr string
 	about  string
 	lang   string
+	// hasAuthor is true when the item's About names an author (CCEL's does; the catalogues' often
+	// hold a description instead, so for those it is false and no clash is judged).
+	hasAuthor bool
 }
 
 func newIndex(items []FreeItem) *index {
@@ -189,7 +203,8 @@ func newIndex(items []FreeItem) *index {
 	for _, it := range items {
 		w := words(it.Name)
 		e := indexed{FreeItem: it, words: w, set: set(w), years: yearRe.FindAllString(it.Name, -1), abbr: plain(it.Abbreviation), idAbbr: plain(it.ID),
-			about: plain(it.Name + " " + it.About), lang: baseLanguage(it.Language)}
+			about: plain(it.Name + " " + it.About), lang: baseLanguage(it.Language),
+			hasAuthor: it.Source == "ccel" && it.About != ""}
 		i := len(ix.items)
 		ix.items = append(ix.items, e)
 		for t := range e.set {
@@ -210,14 +225,16 @@ func baseLanguage(tag string) string {
 	return b
 }
 
-// surname is the family name of the first author ("Barnes, Albert" gives "barnes").
-func surname(authors string) string {
-	first := authors
-	for _, sep := range []string{"\t", ";"} {
-		first, _, _ = strings.Cut(first, sep)
+// surnames are the family names of the authors ("Barnes, Albert" gives "barnes").
+func surnames(authors string) []string {
+	var out []string
+	for _, a := range strings.FieldsFunc(authors, func(r rune) bool { return r == '\t' || r == ';' }) {
+		last, _, _ := strings.Cut(a, ",")
+		if p := plain(last); len(p) >= 3 {
+			out = append(out, p)
+		}
 	}
-	last, _, _ := strings.Cut(first, ",")
-	return plain(last)
+	return out
 }
 
 func (ix *index) match(b Book) (Match, bool) {
@@ -228,7 +245,7 @@ func (ix *index) match(b Book) (Match, bool) {
 	tw := words(b.Title)
 	ts := set(tw)
 	abbr := plain(b.Abbreviation)
-	sur := surname(b.Authors)
+	surs := surnames(b.Authors)
 	volume := false
 	years := yearRe.FindAllString(b.Title, -1)
 	for _, w := range tw {
@@ -265,7 +282,7 @@ func (ix *index) match(b Book) (Match, bool) {
 		if len(langs) > 0 && it.lang != "" && !langs[it.lang] {
 			continue
 		}
-		m, ok := score(it, tw, ts, abbr, sur, volume, years)
+		m, ok := score(it, tw, ts, abbr, surs, volume, years)
 		if !ok {
 			continue
 		}
@@ -286,14 +303,22 @@ func better(a, b Match) bool {
 	return a.Item.Source+"/"+a.Item.ID < b.Item.Source+"/"+b.Item.ID
 }
 
-func score(it indexed, tw []string, ts map[string]bool, abbr, sur string, volume bool, years []string) (Match, bool) {
+func score(it indexed, tw []string, ts map[string]bool, abbr string, surs []string, volume bool, years []string) (Match, bool) {
 	shared, union, subset := overlap(ts, it.set)
 	jac := 0.0
 	if union > 0 {
 		jac = float64(shared) / float64(union)
 	}
 	abbrHit := abbr != "" && (it.abbr == abbr || it.idAbbr == abbr)
-	surHit := sur != "" && len(sur) >= 3 && strings.Contains(it.about, sur)
+	sur, surHit := "", false
+	for _, x := range surs {
+		if strings.Contains(it.about, x) {
+			sur, surHit = x, true
+			break
+		}
+	}
+	// Both sides name an author and they differ: the same words in the title are another book.
+	authorClash := len(surs) > 0 && it.hasAuthor && !surHit
 	// A year in both titles that is not the same year means another edition.
 	yearHit := false
 	for _, y := range years {
@@ -304,17 +329,23 @@ func score(it indexed, tw []string, ts map[string]bool, abbr, sur string, volume
 	yearClash := len(years) > 0 && len(it.years) > 0 && !yearHit
 	m := Match{Item: it.FreeItem, Score: jac}
 	exact := len(tw) > 0 && (equalWords(tw, it.words) || (len(tw) == len(it.words) && shared == len(tw)))
+	// "Calvin's Institutes of the Christian Religion" and "Institutes of the Christian Religion" by
+	// Calvin are the same title once the author's name is set aside.
+	if !exact && surHit {
+		a, b := without(tw, sur), without(it.words, sur)
+		exact = len(a) >= 2 && equalWords(a, b)
+	}
 	switch {
-	case exact && len(tw) >= 2 && !volume && !yearClash:
+	case exact && len(tw) >= 2 && !volume && !yearClash && !authorClash:
 		m.Confidence = Certain
-	case exact && (surHit || abbrHit) && !volume && !yearClash:
+	case exact && (surHit || abbrHit) && !volume && !yearClash && !authorClash:
 		m.Confidence = Certain
 	case exact:
 		m.Confidence = Likely
 	case abbrHit && jac >= 0.5 && !volume && !yearClash:
 		m.Confidence = Certain
 		m.Score = jac + 0.5
-	case jac >= 0.75:
+	case jac >= 0.75 && (!authorClash || jac >= 0.9):
 		m.Confidence = Likely
 	case subset && min(len(ts), len(it.set)) >= 2 && surHit:
 		m.Confidence = Likely

@@ -48,7 +48,7 @@ interface Available {
 
 interface Progress { source: string; item: string; phase: string; done: number; total: number }
 
-function size(n?: number): string {
+export function size(n?: number): string {
   if (!n) return "—";
   return n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 }
