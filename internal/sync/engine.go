@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	gosync "sync"
 	"time"
 
@@ -198,11 +199,11 @@ func (e *Engine) listDevice(ctx context.Context, dev string) (devFiles, error) {
 		}
 		var n uint64
 		if m := changeRE.FindStringSubmatch(en.Name); m != nil {
-			fmt.Sscan(m[1], &n)
+			n, _ = strconv.ParseUint(m[1], 10, 64)
 			d.changes[n] = true
 			d.maxSeq = max(d.maxSeq, n)
 		} else if m := snapRE.FindStringSubmatch(en.Name); m != nil {
-			fmt.Sscan(m[1], &n)
+			n, _ = strconv.ParseUint(m[1], 10, 64)
 			d.snaps = append(d.snaps, n)
 		} else {
 			continue
