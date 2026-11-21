@@ -13,7 +13,7 @@
 
 import { $createParagraphNode, $getRoot, $isElementNode, $isParagraphNode, COMMAND_PRIORITY_HIGH, COMMAND_PRIORITY_LOW, createEditor as createLexical, DRAGOVER_COMMAND, DROP_COMMAND, KEY_BACKSPACE_COMMAND, KEY_DOWN_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, SELECTION_CHANGE_COMMAND } from "lexical";
 import { createEmptyHistoryState, registerHistory } from "@lexical/history";
-import { followsLink } from "./linkclick";
+import { externalURL, followsLink } from "./linkclick";
 import { $toggleLink, LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
 import { ListItemNode, ListNode, registerCheckList, registerList } from "@lexical/list";
 import { BOLD_ITALIC_STAR, BOLD_STAR, CHECK_LIST, HEADING, INLINE_CODE, ITALIC_STAR, ITALIC_UNDERSCORE, LINK, ORDERED_LIST, QUOTE, registerMarkdownShortcuts, UNORDERED_LIST } from "@lexical/markdown";
@@ -148,10 +148,11 @@ export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichE
     if (!plain && !(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
     if (href.startsWith("#")) open(href);
-    else if (/^(https?:|mailto:)/i.test(href)) {
+    else if (externalURL(href)) {
+      const url = externalURL(href);
       const rt = (window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }).runtime;
-      if (rt?.BrowserOpenURL) rt.BrowserOpenURL(href);
-      else window.open(href, "_blank", "noopener");
+      if (rt?.BrowserOpenURL) rt.BrowserOpenURL(url);
+      else window.open(url, "_blank", "noopener");
     }
   };
   let hadSelection = false;

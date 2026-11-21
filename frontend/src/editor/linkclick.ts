@@ -12,3 +12,13 @@ export interface LinkClick {
 export function followsLink(c: LinkClick): boolean {
   return c.button === 0 && !c.shift && !c.alt && !c.hadSelection && !c.hasSelection;
 }
+
+// externalURL gives the address to open for a link that leaves Glossa, or "" when it isn't one.
+// Notes imported from Logos link to Logos books as https://ref.ly/logosres/<id>, a web address that
+// works everywhere the note goes (exports included). Inside Glossa it opens Logos directly through
+// the logosres: handler Logos registers, so no request goes to the web.
+export function externalURL(href: string): string {
+  const logos = /^https:\/\/ref\.ly\/logosres\/([^?#]+)/i.exec(href);
+  if (logos) return "logosres:" + decodeURIComponent(logos[1]);
+  return /^(https?:|mailto:)/i.test(href) ? href : "";
+}
