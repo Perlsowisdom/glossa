@@ -49,6 +49,12 @@ type state struct {
 	RefreshedAt int64    `json:"refreshed_at,omitempty"`
 	Works       []Work   `json:"works,omitempty"`
 	Installed   []string `json:"installed,omitempty"`
+	// Base and Into are not settings in the interface: they are for tests and for people who run a
+	// mirror. Base replaces https://ccel.org; Into is the folder books are put in.
+	Base string `json:"base,omitempty"`
+	Into string `json:"into,omitempty"`
+	// GapMS replaces the ten seconds between requests; only for a mirror of your own.
+	GapMS *int `json:"gap_ms,omitempty"`
 }
 
 // Service is the CCEL source.
@@ -104,6 +110,12 @@ func (s *Service) load() (*state, error) {
 		if err := json.Unmarshal(data, st); err != nil {
 			return nil, fmt.Errorf("ccel: %s: %w", s.path(), err)
 		}
+	}
+	if st.Base != "" && s.base == DefaultBase {
+		s.base = strings.TrimRight(st.Base, "/")
+	}
+	if st.GapMS != nil && s.base != DefaultBase {
+		s.gap = time.Duration(*st.GapMS) * time.Millisecond
 	}
 	s.st = st
 	return st, nil
@@ -469,6 +481,13 @@ func (s *Service) get(ctx context.Context, env *command.Env, p GetParams) (GetRe
 			why = fmt.Sprintf("CCEL gives its rights as %q, not public domain", res.Rights)
 		}
 		return res, command.Errorf("not_public_domain", "%s, so Glossa will not download it.", why)
+	}
+	if p.Into == "" {
+		s.mu.Lock()
+		if st, err := s.load(); err == nil {
+			p.Into = st.Into
+		}
+		s.mu.Unlock()
 	}
 	url := s.epubURL(author, work)
 	if head, err := s.fetch(ctx, http.MethodHead, url, ""); err == nil {
