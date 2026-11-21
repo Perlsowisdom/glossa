@@ -1,6 +1,6 @@
 # 0013: Folder sync
 
-Status: Proposed (T20a and T20b; for the user to accept). Builds on 0004, 0005, 0009 and 0010.
+Status: Accepted (approved by the user, 21 November 2026; T20a–T20c). Builds on 0004, 0005, 0009 and 0010.
 
 ## Context
 
@@ -108,7 +108,7 @@ is restored), that device writes them again.
 
 ## Books, Bibles and modules (T20b)
 
-Status stays Proposed.
+Status: Accepted with the rest of this record.
 
 **What is per device and what is shared.** A book's file lives at a path that exists on one computer, so
 `files` (item, library folder, relative path, hash) and `library_folders` (marker ID, drive, path) are
