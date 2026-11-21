@@ -5,6 +5,7 @@
 //   npm run e2e -- --no-build       use the last build
 //   npm run e2e -- markdown         only files or checks whose name contains "markdown"
 //   npm run e2e -- --no-keep-awake  let the PC sleep during the run (the default keeps it awake)
+//   npm run e2e -- --shuffle        run the files in random order (prints the seed); --seed=N repeats an order
 //
 // Each file's default export is a list of checks { row, shot, run(t) }. A check passes when run
 // returns; it saves its screenshot to e2e/shots/<shot>. Results go to e2e/shots/results.md.
@@ -19,7 +20,14 @@ import { helpers } from "./helpers.mjs";
 const args = process.argv.slice(2);
 const filters = args.filter((a) => !a.startsWith("--")).map((a) => a.toLowerCase());
 const here = import.meta.dirname;
-const files = readdirSync(here).filter((f) => f.endsWith(".e2e.mjs")).sort();
+let files = readdirSync(here).filter((f) => f.endsWith(".e2e.mjs")).sort();
+// --shuffle exposes order dependence: a check that needs what an earlier file left behind fails in some orders.
+if (args.includes("--shuffle") || args.some((a) => a.startsWith("--seed="))) {
+  let seed = Number(args.find((a) => a.startsWith("--seed="))?.slice(7)) || (Date.now() % 1000000);
+  console.log(`Shuffled with --seed=${seed}`);
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  files = files.map((f) => [rnd(), f]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+}
 
 // A run takes a while and types into a real window, so the PC must not sleep or turn the screen off
 // part-way. On Windows a small PowerShell asks for ES_CONTINUOUS | ES_SYSTEM_REQUIRED |
@@ -45,10 +53,25 @@ let stopping;
 const stop = () => (stopping ??= app.stop());
 for (const sig of ["SIGINT", "SIGTERM", "SIGBREAK"]) process.on(sig, () => void stop().finally(() => process.exit(130)));
 
+// alive says whether the app still answers; a crashed or hung app is restarted instead of failing every later check.
+const alive = () => within(app.page.evaluate(() => 1 + 1), 5000, "the app to answer").then(() => true, () => false);
+
 const results = [];
 try {
+  await app.rememberSettings();
   for (const f of files) {
     const checks = (await import(pathToFileURL(join(here, f)).href)).default;
+    const wanted = checks.filter((c) => !filters.length || filters.some((x) => f.toLowerCase().includes(x) || c.row.toLowerCase().includes(x)));
+    if (!wanted.length) continue;
+    // Each file starts from a known state, whatever the file before it did (see helpers.reset).
+    try {
+      if (!(await alive())) { console.log("      (the app did not answer; restarting it)"); await app.restart(); }
+      await helpers(app, "").reset();
+    } catch (e) {
+      console.log(`      (could not reset before ${f}: ${String(e.message).split("\n")[0]}; restarting the app)`);
+      await app.restart();
+      await helpers(app, "").reset();
+    }
     for (const c of checks) {
       if (filters.length && !filters.some((x) => f.toLowerCase().includes(x) || c.row.toLowerCase().includes(x))) continue;
       const t = helpers(app, c.shot);
@@ -60,9 +83,10 @@ try {
         results.push({ file: f, row: c.row, ok: true, shot: c.shot, note: t.note });
         console.log(`PASS  ${c.row}  (${Date.now() - started} ms)${t.note ? `\n      note: ${t.note}` : ""}`);
       } catch (e) {
+        const state = await app.dump();
         await app.shot(`FAIL-${c.shot}`).catch(() => {});
         results.push({ file: f, row: c.row, ok: false, shot: `FAIL-${c.shot}`, error: String(e?.message ?? e).split("\n")[0] });
-        console.log(`FAIL  ${c.row}\n      ${String(e?.stack ?? e).split("\n").slice(0, 4).join("\n      ")}`);
+        console.log(`FAIL  ${c.row}\n      ${String(e?.stack ?? e).split("\n").slice(0, 4).join("\n      ")}\n      ${state}`);
       }
     }
   }

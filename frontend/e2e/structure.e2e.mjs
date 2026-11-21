@@ -108,7 +108,10 @@ export default [
       t.assert.ok(box.x >= text.x + text.width, "the strip is at the right edge");
       const page = await t.page.locator("[data-e2e=current] .sermon-page").boundingBox();
       const layout = await t.page.locator("[data-e2e=current]").boundingBox();
-      t.assert.ok(page.x - layout.x < 40, "the page starts at the left, with no column beside it");
+      // The page is centred in whatever width it has (a wide window leaves margins, a narrow one, such as with the
+      // right sidebar open, none): a column beside it would make the two gaps differ.
+      const left = page.x - layout.x, right = layout.x + layout.width - (page.x + page.width);
+      t.assert.ok(Math.abs(left - right) < 4, `the page sits centred, with no column beside it (gaps ${left} and ${right})`);
     },
   },
   {

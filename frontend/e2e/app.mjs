@@ -229,6 +229,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   // launch starts the app on the run folder's library and connects to it. Each launch uses the same
   // library and WebView2 profile, so a restart shows what a person who quits and reopens sees.
   let log = "";
+  const seen = [];
+  const remember = (m) => { seen.push(m.slice(0, 300)); if (seen.length > 50) seen.shift(); };
   const launch = async (port) => {
     const child = spawn(EXE, [], {
       cwd: run,
@@ -240,7 +242,10 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         WEBVIEW2_USER_DATA_FOLDER: profile,
         // Keys the tests save go to their own keychain entries, never the person's.
         GLOSSA_KEYRING_SERVICE: keyring,
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-allow-origins=*`,
+        // The occlusion and background flags keep the page painting and its timers running when another
+        // window covers the app or the screen dims: a hidden page never finishes document.fonts.ready,
+        // and every screenshot then waits "for fonts to load" until it times out.
+        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-allow-origins=* --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling`,
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: false,
@@ -260,6 +265,12 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     s.browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: left() });
     s.page = await waitFor(() => s.browser.contexts().flatMap((c) => c.pages()).find((p) => p.url().startsWith("http")), left(), "the app page");
     s.page.setDefaultTimeout(30000);
+    // What the page says on the way (console errors, uncaught exceptions), for the state dump of a failed check.
+    s.page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") remember(`console.${m.type()}: ${m.text()}`); });
+    s.page.on("pageerror", (e) => remember(`pageerror: ${e.message}`));
+    // Count the page as focused and visible whatever is in front of it.
+    s.cdp = await s.page.context().newCDPSession(s.page);
+    await s.cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true }).catch(() => {});
     // The checks were written for a 1480 x 950 page. Pin that size, so a smaller screen (a laptop
     // at 125 % scaling gives about 1230 x 650) does not push toolbar buttons into "More" and fail
     // checks that have nothing to do with screen size. GLOSSA_E2E_SIZE=native keeps the window's
@@ -267,8 +278,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     const size = process.env.GLOSSA_E2E_SIZE ?? process.env.XEGESIS_E2E_SIZE ?? "1480x950";
     if (size !== "native") {
       const [width, height] = size.split("x").map(Number);
-      const cdp = await s.page.context().newCDPSession(s.page);
-      await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+      await s.cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
     }
     await s.page.waitForFunction(() => !!(window.go && window.go.main && window.go.main.App), null, { timeout: left() });
     await s.page.waitForSelector("#app, body", { timeout: left() });
@@ -307,9 +317,65 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     browser: cur.browser,
     library: lib,
     log: () => log,
+    forget: () => { seen.length = 0; },
+    // The settings that checks change through commands, as the run found them (see rememberSettings).
+    baseline: null,
+    // rememberSettings notes the settings the checks may change, so restoreSettings can put them back.
+    async rememberSettings() {
+      const get = (id, p = {}) => app.run(id, p).catch(() => null);
+      app.baseline = {
+        update: await get("update.settings.get"), ccel: await get("ccel.settings"),
+        assistant: await get("assistant.config.get"), sources: await get("bible.sources"),
+      };
+    },
+    // restoreSettings puts them back where a check left them different. A restart, or a command that fails, never stops it.
+    async restoreSettings() {
+      const b = app.baseline;
+      if (!b) return;
+      const same = (a, c) => JSON.stringify(a) === JSON.stringify(c);
+      const put = async (id, p) => { await app.run(id, p).catch((e) => remember(`restore ${id}: ${e.message}`)); };
+      const u = await app.run("update.settings.get").catch(() => null);
+      if (b.update && u && (u.enabled !== b.update.enabled || u.asked !== b.update.asked)) await put("update.settings.set", { enabled: b.update.enabled, asked: b.update.asked });
+      const c = await app.run("ccel.settings").catch(() => null);
+      if (b.ccel && c && c.enabled !== b.ccel.enabled) await put("ccel.settings", { enable: b.ccel.enabled });
+      const a = await app.run("assistant.config.get").catch(() => null);
+      if (b.assistant && a && !same(a.provider, b.assistant.provider)) await put("assistant.config.set", { provider: b.assistant.provider });
+      const s = await app.run("bible.sources").catch(() => null);
+      if (b.sources && s && s.enabled !== b.sources.enabled) await put("bible.sources", { enable: b.sources.enabled });
+    },
     // run calls a command the way the interface does.
     run: (id, params = {}) => within(app.page.evaluate(async ([id, p]) => JSON.parse((await window.go.main.App.Run(id, JSON.stringify(p))) || "null"), [id, params]), 30000, `the command ${id}`),
-    shot: (name) => app.page.screenshot({ path: join(shots, name), timeout: 15000 }),
+    // shot saves a screenshot. It first waits for fonts for a moment, asking the page to the front; if
+    // Playwright's own screenshot still stalls (it waits on document.fonts.ready), the page is captured
+    // straight through DevTools, which does not.
+    async shot(name) {
+      const path = join(shots, name);
+      await within(app.page.evaluate(() => document.fonts.ready.then(() => true)), 3000, "fonts").catch(() => {});
+      try {
+        await app.page.screenshot({ path, timeout: 8000, animations: "disabled", caret: "hide" });
+      } catch (e) {
+        const { data } = await within(cur.cdp.send("Page.captureScreenshot", { format: "png" }), 10000, "a screenshot through DevTools");
+        writeFileSync(path, Buffer.from(data, "base64"));
+        remember(`screenshot ${name}: Playwright stalled (${String(e.message).split("\n")[0]}); saved through DevTools`);
+      }
+    },
+    // dump says what the page is in, as a few lines for a failed check: the view, visibility, open
+    // dialogs and popovers, and what the console reported.
+    async dump() {
+      const state = await within(app.page.evaluate(() => {
+        const vis = (e) => e.offsetParent !== null || getComputedStyle(e).position === "fixed";
+        const text = (e) => (e.getAttribute("aria-label") || e.className || e.tagName).toString().slice(0, 60);
+        return {
+          hash: location.hash, visibility: document.visibilityState, focused: document.hasFocus(), fonts: document.fonts.status,
+          dialogs: [...document.querySelectorAll("[role=dialog], dialog[open]")].filter(vis).map(text),
+          popovers: [...document.querySelectorAll(".popover, [role=menu], [role=listbox]")].filter(vis).map(text),
+          rightbar: !!document.querySelector("#rightbar") && vis(document.querySelector("#rightbar")),
+          panes: document.querySelectorAll(".grid-pane").length, tabs: document.querySelectorAll(".grid-tab").length,
+          busy: [...document.querySelectorAll("[aria-busy=true], .spinner, .loading")].filter(vis).length,
+        };
+      }), 3000, "the state dump").catch((e) => ({ unreachable: String(e.message) }));
+      return `state ${JSON.stringify(state)}${seen.length ? `\n      console: ${seen.slice(-6).join(" | ")}` : ""}`;
+    },
     // restart quits the app and opens it again on the same library copy; app.page is then the
     // new window's page.
     async restart() {

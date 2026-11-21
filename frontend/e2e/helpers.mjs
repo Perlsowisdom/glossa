@@ -15,6 +15,23 @@ export function helpers(app, shotName) {
       t.shotTaken = true;
       await app.shot(name);
     },
+    // reset puts the app in a known state: the settings a check may have changed are put back to what the run
+    // started with, the page forgets its saved layout (panes, tabs, sidebar, sort orders), reloads on the Bible
+    // reader and stops changing. run.mjs calls it before each file; a check that needs a clean screen can too.
+    async reset() {
+      await app.restoreSettings();
+      await page.evaluate(() => {
+        for (const k of Object.keys(localStorage)) if (k.startsWith("glossa.") && k !== "glossa.storageMigrated") localStorage.removeItem(k);
+        sessionStorage.clear();
+        location.hash = "#reader";
+      });
+      await page.reload();
+      await page.waitForSelector(".shell", { timeout: 30000 });
+      await page.waitForFunction(() => location.hash.startsWith("#reader"), null, { timeout: 10000 });
+      await page.mouse.move(0, 0);
+      await t.settled();
+      app.forget();
+    },
     // openNote makes a note through note.create and opens its page in My work.
     async openNote(body = "", title = "E2E note") {
       const n = await app.run("note.create", { title, body });
