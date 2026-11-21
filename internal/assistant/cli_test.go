@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -160,6 +162,9 @@ func TestStopKillsTheWholeProcessTree(t *testing.T) {
 }
 
 func TestDetectFindsToolOnPath(t *testing.T) {
+	old := extraToolDirs
+	t.Cleanup(func() { extraToolDirs = old })
+	extraToolDirs = func() []string { return nil }
 	info := Detect(context.Background(), Preset{ID: "codex", Label: "Codex", CLI: true})
 	if info.Found && info.Path == "" {
 		t.Fatal("found without a path")
@@ -281,4 +286,39 @@ func TestChatThroughACommandLineTool(t *testing.T) {
 	}
 	// The chat goes on; the second prompt carries the first exchange.
 	g.must("assistant.chat", map[string]any{"conversation_id": res.Conversation, "message": "And verse 7?"}, &res)
+}
+
+func TestFindToolUsesExtraFolders(t *testing.T) {
+	empty := t.TempDir()
+	t.Setenv("PATH", empty)
+	t.Setenv("Path", empty)
+	dir := t.TempDir()
+	name := "glossa-fake-tool"
+	file := filepath.Join(dir, name)
+	if runtime.GOOS == "windows" {
+		t.Skip("extra tool folders are for macOS and Linux")
+	}
+	if err := os.WriteFile(file, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := extraToolDirs
+	t.Cleanup(func() { extraToolDirs = old })
+	extraToolDirs = func() []string { return nil }
+	if _, err := findTool(name); err == nil {
+		t.Fatal("found a tool in no folder")
+	}
+	extraToolDirs = func() []string { return []string{dir} }
+	got, err := findTool(name)
+	if err != nil || got != file {
+		t.Fatalf("findTool = %q, %v", got, err)
+	}
+	var path string
+	for _, kv := range toolEnv(got) {
+		if v, ok := strings.CutPrefix(kv, "PATH="); ok {
+			path = v
+		}
+	}
+	if !strings.Contains(path, dir) || !strings.HasPrefix(path, empty) {
+		t.Fatalf("PATH = %q", path)
+	}
 }
