@@ -298,7 +298,7 @@ export default [
       await goSync(inst);
       const line = sync(inst).locator(".sync-conflict");
       await line.waitFor({ timeout: 15000 });
-      t.assert.match(await line.first().innerText(), /was changed on .* too/);
+      t.assert.match(await line.first().innerText(), /Two devices changed this .*; the one from .* is kept in its history/);
       await line.first().scrollIntoViewIfNeeded();
       await inst.shot("sync-11-conflict.png");
       await dark(inst, "sync-11b-conflict-dark.png");

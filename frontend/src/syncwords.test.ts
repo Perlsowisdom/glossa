@@ -76,8 +76,9 @@ describe("advice", () => {
 });
 
 describe("conflictLine", () => {
-  it("names the item and the other device", () => {
+  it("names the item and the device whose edit was replaced", () => {
     const c = { id: "1", object_type: "notes", object_id: "n", field: "body", change_id: "c", device: "d2", text: "", note: "Changed on Office desk too", created_at: 0 };
-    expect(conflictLine(c)).toBe("A note was changed on Office desk too. The replaced text is kept in its history.");
+    expect(conflictLine(c)).toBe("Two devices changed this note. The newer edit is shown; the one from Office desk is kept in its history.");
+    expect(conflictLine({ ...c, note: "" })).toBe("Two devices changed this note. The newer edit is shown; the other one is kept in its history.");
   });
 });

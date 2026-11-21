@@ -117,6 +117,7 @@ export function advice(code: string | undefined): string {
 // was replaced ("Changed on <device> too").
 export function conflictLine(c: SyncConflict): string {
   const what = ({ notes: "note", documents: "document or sermon" } as Record<string, string>)[c.object_type] ?? "text";
-  const device = /^Changed on (.+) too$/.exec(c.note)?.[1] ?? "another device";
-  return `A ${what} was changed on ${device} too. The replaced text is kept in its history.`;
+  const device = /^Changed on (.+) too$/.exec(c.note)?.[1];
+  const from = device ? `the one from ${device}` : "the other one";
+  return `Two devices changed this ${what}. The newer edit is shown; ${from} is kept in its history.`;
 }
