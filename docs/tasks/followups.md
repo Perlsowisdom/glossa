@@ -160,8 +160,8 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
   printing and choosing where to save are still checked by hand. [5 Nov]
 - Selecting a book's text by dragging in Read mode is unreliable as the first check of a full e2e run; the
   test retries. [4 Nov]
-- e2e: "Highlights in verses: clicking a highlight selects all of it..." failed in two full runs (a highlight
-  box was null after recolouring) but passes alone; likely a timing flake. Worth a wait-for-mark there. [after T38b]
+- e2e: "Highlights in verses: clicking a highlight selects all of it..." (a highlight box was null after recolouring)
+  now waits for the mark and a settled page before taking its box. Fixed (e2e hardening, 21 Nov). [after T38b]
 - e2e: `bibles2.e2e.mjs` is named to run after `bibles.e2e`, whose `form.card .hint` selector finds the
   Search view's form once it has been opened. [T38c]
 - e2e: the pen, touch and palm checks send synthetic pointer events (the harness has no pen); the mouse
@@ -215,4 +215,4 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - Databases are closed on shutdown (T39): the Bible module library and the search indexes.
 - The M2 real-app steps no longer depend on each other (T39).
 - e2e: build the keep-awake request (SetThreadExecutionState with ES_DISPLAY_REQUIRED) into run.mjs on Windows. On 12 November a laptop display going to sleep during a full run made screenshots hang and the app close, failing 116 of 130; the same run passed 130 of 130 with the display kept awake.
-- e2e flakiness is growing (21 November): full runs fail 1–4 different, unrelated checks (PDF ink undo/restart, T38b 6 long tabs, the http link click, Updates first-run), each passing alone. Needs a hardening pass: per-check isolation and settled-state waits instead of order dependence.
+- e2e flakiness (21 November): full runs failed 1–4 different, unrelated checks, each passing alone. Fixed in the e2e hardening pass (`m3/e2e-hardening`): each file starts after `t.reset()` (settings restored, saved layout cleared, reload on the reader); the test books open at their first page; From Logos and CCEL read their own folder by command; the Verse text, link click, ink count, highlight box and tab bar checks wait for the state they need; WebView2 gets the occlusion/background flags so a covered window no longer stalls `document.fonts.ready` (the "waiting for fonts to load" screenshot timeouts), with a DevTools capture as fallback; failed checks print a state dump; `npm run e2e -- --shuffle` (`--seed=N` repeats an order) exposes order dependence.
