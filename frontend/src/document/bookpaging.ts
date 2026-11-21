@@ -1,9 +1,10 @@
 // Opening a book and moving in it: sections and PDF pages, the saved place, Pages and Scroll layout.
 
-import { run } from "../api";
+import { RunError, run } from "../api";
 import { base64ToBytes, concatBytes, tidyPrefs } from "../bookhelpers";
 import { bookZoom, currentLayout, LAYOUT_EVENT, ZOOM_EVENT } from "../booklayout";
 import { clear, h } from "../dom";
+import { fetchBook } from "../syncstate";
 import type { BookCtx } from "./bookctx";
 import type { BookInfo, OpenRequest, SectionData, Target } from "./bookinfo";
 import { buildSlots, stopPdfScroll, syncScroll } from "./bookscroll";
@@ -23,7 +24,18 @@ export async function open(c: BookCtx, r: OpenRequest) {
   c.picker.hidden = true;
   c.msg.clear();
   c.copyMsg.clear();
-  const b = await c.msg.attempt(() => run<BookInfo>("book.open", { item_id: r.itemId, ...(r.fileId ? { file_id: r.fileId } : {}) }));
+  const req = { item_id: r.itemId, ...(r.fileId ? { file_id: r.fileId } : {}) };
+  let b: BookInfo | undefined;
+  try {
+    b = await run<BookInfo>("book.open", req);
+  } catch (e) {
+    // A book another device shared has no file here until it is opened: download it, then open it.
+    const got = e instanceof RunError && e.info.code === "unavailable" ? await fetchBook(r.itemId, c.msg) : "none";
+    if (got === "none") return void c.msg.error(e);
+    if (got === "failed" || !c.alive) return;
+    c.msg.clear();
+    b = await c.msg.attempt(() => run<BookInfo>("book.open", req));
+  }
   if (!b || !c.alive) return;
   c.book = b;
   c.back.length = 0;

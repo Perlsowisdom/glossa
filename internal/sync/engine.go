@@ -177,6 +177,7 @@ type Preview struct {
 	AfterMerge    map[string]int `json:"after_merge" desc:"Objects on this device after merging"`
 	ToThisDevice  Summary        `json:"to_this_device"`
 	ToFolder      int            `json:"to_folder" desc:"Changes from this device the folder does not have yet"`
+	NewFolder     bool           `json:"new_folder,omitempty" desc:"The folder has no sync data yet: syncing starts it, with this device's data"`
 }
 
 type unit struct {

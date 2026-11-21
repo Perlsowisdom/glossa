@@ -16,6 +16,7 @@ import { licenceChooser, licenceLine, originText, plainName, termsText } from ".
 import { FACETS, FacetId, Filters, activeCount, applyFilters, chips, countLine, coverHue, initials, options, toggle } from "../librarywords";
 import { draggableSpec } from "../document/drag";
 import { openInStudy, readBook } from "../document/open";
+import { syncNow } from "../syncstate";
 import { closePopover, openPopover } from "../popover";
 import { loadPref, savePref } from "../state";
 
@@ -23,6 +24,11 @@ const FETCH = 1000;
 const SHOW = 120;
 const VIEW_KEY = "glossa.library.view";
 const READABLE = new Set(["epub", "pdf", "docx", "html", "md", "txt"]);
+
+// fromSync says a book has no file here but sync is on, so opening it can download it.
+function fromSync(it: { files?: unknown[] }): boolean {
+  return !!syncNow.status?.configured && (it.files ?? []).length === 0;
+}
 
 interface ScanResult {
   added: number; changed: number; removed: number; moved: number; restored: number; unchanged: number;
@@ -519,6 +525,7 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
   async function read(b: ItemSummary) {
     const it = await msg.attempt(() => run<Item>("library.item", { id: b.id }));
     const f = it?.files?.find((x) => x.online && READABLE.has(x.format));
+    if (it && !f && fromSync(it)) return readBook({ itemId: it.id });
     if (!it || !f) return msg.info(`"${b.title || "This book"}" has no file that can be read here right now.`);
     readBook({ itemId: it.id, fileId: f.id });
   }
@@ -646,10 +653,12 @@ function itemDetail(it: Item, summary: ItemSummary | undefined, folders: Folder[
 
   const folderName = (id: string) => folders.find((f) => f.id === id)?.label ?? "";
   const file = (it.files ?? []).find((f) => f.online && READABLE.has(f.format));
-  const readBtn = h("button", { type: "button", class: "primary", disabled: !file, title: file ? "Read it on its own page" : "No file of this book can be opened right now" }, icon("reader"), h("span", {}, "Read"));
-  readBtn.addEventListener("click", () => file && readBook({ itemId: it.id, fileId: file.id }));
-  const studyBtn = h("button", { type: "button", disabled: !file, title: "Open it in a tab of the Study grid, beside what is open" }, icon("grid"), h("span", {}, "Open in Study"));
-  studyBtn.addEventListener("click", () => file && openInStudy({ kind: "book", itemId: it.id, fileId: file.id, title: it.title || "Untitled" }));
+  // A book another device shared has no file here until it is opened; opening it downloads it.
+  const later = !file && fromSync(it);
+  const readBtn = h("button", { type: "button", class: "primary", disabled: !file && !later, title: file ? "Read it on its own page" : later ? "Downloads from your sync folder, then opens" : "No file of this book can be opened right now" }, icon("reader"), h("span", {}, "Read"));
+  readBtn.addEventListener("click", () => (file || later) && readBook({ itemId: it.id, ...(file ? { fileId: file.id } : {}) }));
+  const studyBtn = h("button", { type: "button", disabled: !file && !later, title: "Open it in a tab of the Study grid, beside what is open" }, icon("grid"), h("span", {}, "Open in Study"));
+  studyBtn.addEventListener("click", () => (file || later) && openInStudy({ kind: "book", itemId: it.id, ...(file ? { fileId: file.id } : {}), title: it.title || "Untitled" }));
   const facetLine = (label: string, f?: Facet) => [h("dt", {}, label), h("dd", {}, h("span", {}, facetValue(f?.value)),
     f ? h("small", { class: "hint" }, reasonText(by(f), f.reason)) : null)];
   const lic = it.licence;

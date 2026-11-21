@@ -17,6 +17,7 @@ import { commandsView } from "./commands";
 import { dataSection } from "./data";
 import { logosSection } from "./logos";
 import { readingControls } from "./reader";
+import { syncSection } from "./sync";
 import { restartToUpdate } from "../updates";
 import { UpdateInfo, lastCheckedText, versionLine } from "../updatewords";
 
@@ -39,6 +40,7 @@ const GROUPS: { label: string; pages: Page[] }[] = [
       { id: "online", label: "Bibles online", make: apiBiblePage },
       { id: "privacy", label: "Privacy", make: privacyPage },
       { id: "data", label: "Your data", make: dataPage },
+      { id: "sync", label: "Sync", make: syncPage },
       { id: "updates", label: "Updates", make: updatesPage },
     ],
   },
@@ -323,6 +325,11 @@ function dataPage(): PageView {
   const data = dataSection();
   const logos = logosSection();
   return { el: pageEl("Your data", null, data.el, logos.el), show: () => { data.show(); logos.show(); } };
+}
+
+function syncPage(): PageView {
+  const s = syncSection();
+  return { el: pageEl("Sync", null, s.el), show: s.show, focus: s.focus };
 }
 
 // Assistant ---------------------------------------------------------------------------------------

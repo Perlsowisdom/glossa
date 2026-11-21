@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	gosync "sync"
+	"time"
 
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
@@ -17,7 +18,19 @@ const (
 	stateFolder  = "folder"
 	secretName   = "sync.password"
 	rememberFlag = "remember"
+	autoOff      = "auto_off"
 )
+
+// AutoEvery is how often the app syncs by itself while it is open.
+const AutoEvery = 5 * time.Minute
+
+type emitKey struct{}
+
+// WithEmitter gives the sync commands a way to send events (the desktop app's Wails events), such
+// as "sync:progress" while books move. Without one, nothing is sent.
+func WithEmitter(ctx context.Context, emit func(name string, data any)) context.Context {
+	return context.WithValue(ctx, emitKey{}, emit)
+}
 
 // setupKDF is the cost sync.setup uses for a new folder; tests lower it.
 var setupKDF = DefaultKDF
@@ -45,6 +58,8 @@ func Register(r *command.Registry, keys secrets.Store, where ...Locations) {
 		command.Define("sync.books", "Show, and with mode change, whether this device downloads every book at sync time (all) or only when a book is opened (opened). Also counts the books and modules shared and how many are on this device.", false, m.books),
 		command.Define("sync.fetch", "Download a book that came from another device and is not on this one yet (what opening it does), or with all every book and module not here yet. Reports progress through sync.progress.", false, m.fetch),
 		command.Define("sync.progress", "Show how far the current book or module transfer has got: bytes and files done and in total.", false, m.progress),
+		command.Define("sync.automatic", "Turn automatic syncing (at start, every few minutes and at quit) on or off. Sync now still works when it is off.", false, m.automatic),
+		command.Define("sync.auto", "Sync if sync is set up, switched on, unlocked and the first sync was confirmed. The app calls this at start, every few minutes and at quit; it never fails, it says why it did not run.", true, m.auto),
 		command.Define("sync.stop", "Turn sync off on this device. The folder and every library are left as they are; the saved password is forgotten.", false, m.stop),
 	)
 	r.OnClose(m.close)
@@ -57,6 +72,10 @@ type manager struct {
 	st   *store.Store // the library eng works on
 	fold string       // its folder
 	loc  Locations    // where books and modules from other devices go
+	emit func(string, any)
+	// lastErr is why the last sync failed, until one succeeds.
+	lastErr, lastCode string
+	syncing           bool
 }
 
 func (m *manager) close() {
@@ -102,6 +121,7 @@ func fail(err error) error {
 func (m *manager) engine(ctx context.Context, env *command.Env, folder, pw string) (*Engine, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.takeEmitter(ctx)
 	if folder == "" {
 		f, _, err := env.Store.SyncState(ctx, stateFolder)
 		if err != nil {
@@ -126,9 +146,30 @@ func (m *manager) engine(ctx context.Context, env *command.Env, folder, pw strin
 	if err != nil {
 		return nil, folder, err
 	}
-	e.Local = m.loc
+	m.attach(e)
 	m.eng, m.st, m.fold = e, env.Store, folder
 	return e, folder, nil
+}
+
+// takeEmitter keeps the interface's event sender, if ctx has one. m.mu is held.
+func (m *manager) takeEmitter(ctx context.Context) {
+	if fn, ok := ctx.Value(emitKey{}).(func(string, any)); ok {
+		m.emit = fn
+	}
+}
+
+// attach points an engine at this device's folders and at the interface's progress events.
+// m.mu is held.
+func (m *manager) attach(e *Engine) {
+	e.Local = m.loc
+	e.OnProgress = func(p BlobProgress) {
+		m.mu.Lock()
+		emit := m.emit
+		m.mu.Unlock()
+		if emit != nil {
+			emit("sync:progress", p)
+		}
+	}
 }
 
 type StrengthParams struct {
@@ -169,6 +210,10 @@ type Status struct {
 	FolderError    string        `json:"folder_error,omitempty" desc:"Why the folder could not be read, in plain words"`
 	Books          *FileStats    `json:"books,omitempty" desc:"Shared books and modules, and how many are on this device"`
 	Progress       *BlobProgress `json:"progress,omitempty" desc:"A book or module transfer under way, or the last one"`
+	Automatic      bool          `json:"automatic" desc:"Syncs by itself at start, every few minutes and at quit"`
+	Syncing        bool          `json:"syncing" desc:"A sync is running now"`
+	LastError      string        `json:"last_error,omitempty" desc:"Why the last sync failed, in plain words"`
+	LastErrorCode  string        `json:"last_error_code,omitempty"`
 }
 
 func (m *manager) setup(ctx context.Context, env *command.Env, p SetupParams) (Status, error) {
@@ -209,9 +254,11 @@ func (m *manager) setup(ctx context.Context, env *command.Env, p SetupParams) (S
 		_ = m.keys.Delete(secretName)
 		_ = env.Store.SetSyncState(ctx, rememberFlag, "")
 	}
-	e.Local = m.loc
 	m.mu.Lock()
+	m.takeEmitter(ctx)
+	m.attach(e)
 	m.eng, m.st, m.fold = e, env.Store, p.Folder
+	m.lastErr, m.lastCode = "", ""
 	m.mu.Unlock()
 	return m.status(ctx, env, struct{}{})
 }
@@ -256,7 +303,7 @@ func (m *manager) preview(ctx context.Context, env *command.Env, p PreviewParams
 			if err := CheckPassword(p.Password); err != nil {
 				return Preview{}, fail(err)
 			}
-			var pv Preview
+			pv := Preview{NewFolder: true}
 			if pv.ThisDevice, err = env.Store.CountObjects(ctx); err != nil {
 				return pv, err
 			}
@@ -282,10 +329,80 @@ func (m *manager) preview(ctx context.Context, env *command.Env, p PreviewParams
 func (m *manager) now(ctx context.Context, env *command.Env, _ struct{}) (Result, error) {
 	e, _, err := m.engine(ctx, env, "", "")
 	if err != nil {
-		return Result{}, fail(err)
+		return Result{}, m.note(fail(err))
 	}
+	m.mu.Lock()
+	m.syncing = true
+	m.mu.Unlock()
 	res, err := e.Sync(ctx)
-	return res, fail(err)
+	m.mu.Lock()
+	m.syncing = false
+	m.mu.Unlock()
+	return res, m.note(fail(err))
+}
+
+// note remembers why a sync failed (or that it worked) for sync.status, and passes err on.
+func (m *manager) note(err error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.lastErr, m.lastCode = "", ""
+	var ce *command.Error
+	if errors.As(err, &ce) {
+		m.lastErr, m.lastCode = ce.Message, ce.Code
+	}
+	return err
+}
+
+type AutomaticParams struct {
+	Enabled bool `json:"enabled" desc:"true: sync by itself; false: only when asked"`
+}
+
+func (m *manager) automatic(ctx context.Context, env *command.Env, p AutomaticParams) (Status, error) {
+	if err := needStore(env); err != nil {
+		return Status{}, err
+	}
+	v := "1"
+	if p.Enabled {
+		v = ""
+	}
+	if err := env.Store.SetSyncState(ctx, autoOff, v); err != nil {
+		return Status{}, err
+	}
+	return m.status(ctx, env, struct{}{})
+}
+
+// AutoResult says whether sync.auto synced, and if not, why.
+type AutoResult struct {
+	Ran    bool    `json:"ran"`
+	Reason string  `json:"reason,omitempty" enum:"not_set_up,off,first_sync_pending,locked,failed" desc:"Why nothing was synced"`
+	Result *Result `json:"result,omitempty"`
+	Error  string  `json:"error,omitempty"`
+}
+
+func (m *manager) auto(ctx context.Context, env *command.Env, _ struct{}) (AutoResult, error) {
+	if env.Store == nil {
+		return AutoResult{Reason: "not_set_up"}, nil
+	}
+	folder, _, err := env.Store.SyncState(ctx, stateFolder)
+	if err != nil || folder == "" {
+		return AutoResult{Reason: "not_set_up"}, nil
+	}
+	if v, _, _ := env.Store.SyncState(ctx, autoOff); v != "" {
+		return AutoResult{Reason: "off"}, nil
+	}
+	// The first sync is the person's decision, made after the preview; never automatic.
+	if v, ok, _ := env.Store.SyncState(ctx, stateLastSync); !ok || v == "" {
+		return AutoResult{Reason: "first_sync_pending"}, nil
+	}
+	res, err := m.now(ctx, env, struct{}{})
+	if err != nil {
+		var ce *command.Error
+		if errors.As(err, &ce) && ce.Code == "locked" {
+			return AutoResult{Reason: "locked"}, nil
+		}
+		return AutoResult{Reason: "failed", Error: err.Error()}, nil
+	}
+	return AutoResult{Ran: true, Result: &res}, nil
 }
 
 func (m *manager) status(ctx context.Context, env *command.Env, _ struct{}) (Status, error) {
@@ -303,6 +420,12 @@ func (m *manager) status(ctx context.Context, env *command.Env, _ struct{}) (Sta
 	if !s.Configured {
 		return s, nil
 	}
+	if v, _, _ := env.Store.SyncState(ctx, autoOff); v == "" {
+		s.Automatic = true
+	}
+	m.mu.Lock()
+	s.Syncing, s.LastError, s.LastErrorCode = m.syncing, m.lastErr, m.lastCode
+	m.mu.Unlock()
 	_, s.PasswordSaved = func() (string, bool) { v, err := m.keys.Get(secretName); return v, err == nil }()
 	m.mu.Lock()
 	s.Unlocked = m.eng != nil && m.st == env.Store && m.fold == folder

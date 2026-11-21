@@ -27,6 +27,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
 	"github.com/Perlsowisdom/glossa/internal/library"
 	"github.com/Perlsowisdom/glossa/internal/store"
+	foldersync "github.com/Perlsowisdom/glossa/internal/sync"
 )
 
 // App is bound to the interface. The interface reaches every feature through Commands and Run.
@@ -46,10 +47,20 @@ const rescanEvery = 10 * time.Minute
 
 func (a *App) startup(ctx context.Context) {
 	// The assistant streams its replies to the interface as events.
-	a.ctx = assistant.WithEmitter(ctx, func(name string, data any) { runtime.EventsEmit(ctx, name, data) })
-	bg, stop := context.WithCancel(context.Background())
+	emit := func(name string, data any) { runtime.EventsEmit(ctx, name, data) }
+	a.ctx = foldersync.WithEmitter(assistant.WithEmitter(ctx, emit), emit)
+	bg, stop := context.WithCancel(foldersync.WithEmitter(context.Background(), emit))
 	a.bg, a.stop = bg, stop
 	a.every(bg, time.Hour, "backup.auto", nil)
+	// Folder sync, if the person set it up: at start, every few minutes, and at quit (shutdown).
+	a.every(bg, foldersync.AutoEvery, "sync.auto", func(res any) {
+		if r, ok := res.(foldersync.AutoResult); ok {
+			emit("sync:done", r)
+			if r.Ran && r.Result != nil && (r.Result.Pulled.Changes > 0 || r.Result.Blobs.Downloaded+r.Result.Blobs.Linked+r.Result.Blobs.Removed > 0) {
+				emit("library:changed", nil)
+			}
+		}
+	})
 	a.every(bg, rescanEvery, "library.rescan", func(res any) {
 		if r, ok := res.(library.RescanResult); ok && r.Added+r.Changed+r.Removed > 0 {
 			runtime.EventsEmit(ctx, "library:changed")
@@ -70,9 +81,17 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
+// quitSyncLimit bounds the last sync at quit, so closing the app is never slow.
+const quitSyncLimit = 8 * time.Second
+
 func (a *App) shutdown(context.Context) {
 	a.stop()
 	a.wg.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), quitSyncLimit)
+	if _, err := a.reg.Run(ctx, a.env, "sync.auto", nil); err != nil {
+		log.Printf("sync.auto: %v", err)
+	}
+	cancel()
 	if _, err := a.reg.Run(context.Background(), a.env, "search.cancel", nil); err != nil {
 		log.Printf("search.cancel: %v", err)
 	}
