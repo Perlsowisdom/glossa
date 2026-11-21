@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -212,5 +213,49 @@ func TestCommandsAreDescribedAndNeverShowThePassword(t *testing.T) {
 		if strings.Contains(jsonOf(Status{}), `"password":`) {
 			t.Fatal("status has a password field")
 		}
+	}
+}
+
+func TestAutoSyncWaitsForTheFirstConfirmedSync(t *testing.T) {
+	setupKDF = fastKDF
+	defer func() { setupKDF = DefaultKDF }()
+	folder := folderOf(t)
+	a := newApp(t, "Laptop")
+	var r AutoResult
+	if err := a.run("sync.auto", nil, &r); err != nil || r.Ran || r.Reason != "not_set_up" {
+		t.Fatalf("before setup: %+v, %v", r, err)
+	}
+	a.d.mkNote("N1", "text")
+	if err := a.run("sync.setup", SetupParams{Folder: folder, Password: password}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.run("sync.auto", nil, &r); err != nil || r.Ran || r.Reason != "first_sync_pending" {
+		t.Fatalf("before the first sync: %+v, %v", r, err)
+	}
+	if err := a.run("sync.now", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.run("sync.auto", nil, &r); err != nil || !r.Ran {
+		t.Fatalf("after the first sync: %+v, %v", r, err)
+	}
+	var s Status
+	if err := a.run("sync.automatic", AutomaticParams{Enabled: false}, &s); err != nil || s.Automatic {
+		t.Fatalf("switched off: %+v, %v", s, err)
+	}
+	if err := a.run("sync.auto", nil, &r); err != nil || r.Ran || r.Reason != "off" {
+		t.Fatalf("while off: %+v, %v", r, err)
+	}
+	if err := a.run("sync.automatic", AutomaticParams{Enabled: true}, &s); err != nil || !s.Automatic {
+		t.Fatalf("switched on: %+v, %v", s, err)
+	}
+	// A lost folder is reported, not raised, and sync.status keeps the reason for the indicator.
+	if err := os.RemoveAll(folder); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.run("sync.auto", nil, &r); err != nil || r.Ran || r.Reason != "failed" {
+		t.Fatalf("folder gone: %+v, %v", r, err)
+	}
+	if err := a.run("sync.status", nil, &s); err != nil || s.LastError == "" {
+		t.Fatalf("status after a failure: %+v, %v", s, err)
 	}
 }
