@@ -113,6 +113,17 @@ func isYear(w string) bool {
 	return w[0] == '1' || w[0] == '2'
 }
 
+// without drops the words that are the author's surname.
+func without(ws []string, sur string) []string {
+	var out []string
+	for _, w := range ws {
+		if plain(w) != sur {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 func equalWords(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -304,6 +315,12 @@ func score(it indexed, tw []string, ts map[string]bool, abbr, sur string, volume
 	yearClash := len(years) > 0 && len(it.years) > 0 && !yearHit
 	m := Match{Item: it.FreeItem, Score: jac}
 	exact := len(tw) > 0 && (equalWords(tw, it.words) || (len(tw) == len(it.words) && shared == len(tw)))
+	// "Calvin's Institutes of the Christian Religion" and "Institutes of the Christian Religion" by
+	// Calvin are the same title once the author's name is set aside.
+	if !exact && surHit && len(sur) >= 3 {
+		a, b := without(tw, sur), without(it.words, sur)
+		exact = len(a) >= 2 && equalWords(a, b)
+	}
 	switch {
 	case exact && len(tw) >= 2 && !volume && !yearClash:
 		m.Confidence = Certain

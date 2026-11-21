@@ -115,3 +115,53 @@ func TestWords(t *testing.T) {
 		}
 	}
 }
+
+// CCEL's list gives a title and the author's name; its commentaries are split by volume.
+var ccelItems = []FreeItem{
+	{Source: "ccel", ID: "calvin/institutes", Name: "Institutes of the Christian Religion", About: "John Calvin", Kind: "book"},
+	{Source: "ccel", ID: "calvin/calcom01", Name: "Commentary on Genesis, Volume 1", About: "John Calvin", Kind: "commentary"},
+	{Source: "ccel", ID: "henry/mhc1", Name: "Matthew Henry's Commentary on the Whole Bible, Vol. 1", About: "Matthew Henry", Kind: "commentary"},
+	{Source: "ccel", ID: "henry/mhc2", Name: "Matthew Henry's Commentary on the Whole Bible, Vol. 2", About: "Matthew Henry", Kind: "commentary"},
+	{Source: "ccel", ID: "spurgeon/morning", Name: "Morning and Evening", About: "Charles Haddon Spurgeon", Kind: "book"},
+	{Source: "ccel", ID: "spurgeon/lectures", Name: "Lectures to My Students", About: "Charles Haddon Spurgeon", Kind: "book"},
+	{Source: "ccel", ID: "spurgeon/treasury", Name: "The Treasury of David", About: "Charles Haddon Spurgeon", Kind: "commentary"},
+	{Source: "ccel", ID: "bunyan/pilgrim", Name: "The Pilgrim's Progress", About: "John Bunyan", Kind: "book"},
+	{Source: "ccel", ID: "augustine/confessions", Name: "The Confessions of St. Augustine", About: "Augustine of Hippo", Kind: "book"},
+}
+
+func TestMatcherCCEL(t *testing.T) {
+	mono, comm := "text.monograph", "text.monograph.commentary.bible"
+	for _, c := range []struct {
+		name string
+		book Book
+		item string
+		conf string
+	}{
+		{"the Institutes under its full title", Book{Title: "Institutes of the Christian Religion", Authors: "Calvin, John", Type: mono}, "calvin/institutes", Certain},
+		{"the Institutes with the author in the title", Book{Title: "Calvin’s Institutes of the Christian Religion", Authors: "Calvin, John", Type: mono}, "calvin/institutes", Certain},
+		{"the Institutes with a translator in brackets", Book{Title: "Institutes of the Christian Religion (Beveridge Translation)", Authors: "John Calvin", Type: mono}, "calvin/institutes", Certain},
+		{"Henry's whole commentary is likely a volume of it", Book{Title: "Matthew Henry’s Commentary on the Whole Bible", Authors: "Henry, Matthew", Type: comm}, "henry/mhc1", Likely},
+		{"Henry's commentary, volume named", Book{Title: "Matthew Henry's Commentary on the Whole Bible, Vol. 2", Authors: "Henry, Matthew", Type: comm}, "henry/mhc2", Likely},
+		{"Spurgeon's Morning and Evening", Book{Title: "Morning and Evening", Authors: "Spurgeon, C. H.", Type: mono}, "spurgeon/morning", Certain},
+		{"Spurgeon's Lectures", Book{Title: "Lectures to My Students", Authors: "Spurgeon, Charles Haddon", Type: mono}, "spurgeon/lectures", Certain},
+		{"Spurgeon's Treasury is a commentary", Book{Title: "The Treasury of David", Authors: "Spurgeon, Charles H.", Type: comm}, "spurgeon/treasury", Certain},
+		{"the Confessions", Book{Title: "The Confessions of St. Augustine", Authors: "Augustine, Saint", Type: mono}, "augustine/confessions", Certain},
+		{"another book by Spurgeon is not matched", Book{Title: "The Soul Winner", Authors: "Spurgeon, Charles Haddon", Type: mono}, "", ""},
+		{"another book by Calvin is not matched", Book{Title: "Calvin's Sermons on Job", Authors: "Calvin, John", Type: mono}, "", ""},
+	} {
+		got, ok := MatchAll([]Book{c.book}, ccelItems)[0]
+		if c.item == "" {
+			if ok {
+				t.Errorf("%s: matched %s with %s, want none", c.name, got.Item.ID, got.Confidence)
+			}
+			continue
+		}
+		if !ok {
+			t.Errorf("%s: no match, want %s", c.name, c.item)
+			continue
+		}
+		if got.Item.ID != c.item || got.Confidence != c.conf {
+			t.Errorf("%s: %s %s, want %s %s", c.name, got.Item.ID, got.Confidence, c.item, c.conf)
+		}
+	}
+}

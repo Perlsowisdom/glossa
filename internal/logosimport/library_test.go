@@ -333,3 +333,43 @@ func TestClassifyRights(t *testing.T) {
 		}
 	}
 }
+
+// CCEL's cached list is offered like the catalogues are: a public-domain book without a catalogue
+// copy gets a CCEL one, with the source "ccel"; with CCEL off (an empty list) nothing is offered.
+func TestCCELFreeCopies(t *testing.T) {
+	root := libraryFixture(t)
+	on := true
+	h := newLibHarness(t, nil)
+	h.r.Add(command.Define("ccel.items", "stand-in", false, func(_ context.Context, _ *command.Env, q struct {
+		Limit int `json:"limit"`
+	}) (map[string]any, error) {
+		if !on {
+			return map[string]any{"items": []any{}}, nil
+		}
+		return map[string]any{"items": []map[string]any{
+			{"id": "sermons/old", "title": "A Sermon of Old", "author": "Anon.", "kind": "book", "installed": false},
+			{"id": "easton/bibledict", "title": "Easton's Bible Dictionary", "author": "M. G. Easton", "kind": "dictionary", "installed": true},
+		}}, nil
+	}))
+	h.run("logos.library_refresh", map[string]any{"folder": root}, &RefreshResult{})
+
+	var res LibraryResult
+	h.run("logos.library", map[string]any{"limit": 100}, &res)
+	b := byID(res.Books, "LLS:OLDNOTE")
+	if b.Free == nil || b.Free.Source != "ccel" || b.Free.Item != "sermons/old" || b.Free.Confidence != Certain || b.Free.Installed {
+		t.Fatalf("old sermon = %+v", b.Free)
+	}
+	if e := byID(res.Books, "LLS:EASTON"); e.Free == nil || e.Free.Source != "ccel" || !e.Free.Installed {
+		t.Fatalf("Easton = %+v", e.Free)
+	}
+	if e := byID(res.Books, "LLS:ESV"); e.Free != nil {
+		t.Fatalf("a copyrighted book was offered: %+v", e.Free)
+	}
+
+	on = false
+	res = LibraryResult{}
+	h.run("logos.library", map[string]any{"limit": 100}, &res)
+	if res.Certain+res.Likely != 0 || byID(res.Books, "LLS:OLDNOTE").Free != nil {
+		t.Fatalf("with CCEL off: %+v", res)
+	}
+}
