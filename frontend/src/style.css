@@ -1713,3 +1713,5 @@ button.danger-link { color: var(--bad); margin-top: 8px; display: block; }
 table.list th .th-sort { font: inherit; color: inherit; padding: 0; text-decoration: none; }
 table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descending"] .th-sort { color: var(--text, inherit); }
 .fromlogos-table .free-cell { min-width: 14rem; }
+.fromlogos-view .row select { width: auto; min-width: 12rem; }
+.fromlogos-view .row .grow { min-width: 16rem; }

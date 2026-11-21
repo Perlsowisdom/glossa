@@ -99,7 +99,7 @@ export function nextSort(col: SortKey, sort: SortKey, desc: boolean): { sort: So
   return col === sort ? { sort, desc: !desc } : { sort: col, desc: false };
 }
 
-// ids shows a book's short name and Logos ID under its title.
+// subline shows a book's short name under its title.
 export function subline(b: LogosBook): string {
-  return [b.abbreviation, b.published && b.published !== "n.d." ? b.published : ""].filter(Boolean).join(" · ");
+  return b.abbreviation ?? "";
 }

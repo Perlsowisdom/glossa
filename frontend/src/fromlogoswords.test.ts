@@ -42,9 +42,9 @@ describe("labels", () => {
     expect(freeText({ source: "s", item: "i", name: "KJV", kind: "bible", confidence: "certain", installed: false })).toBe("Certain match: KJV");
     expect(freeText({ source: "s", item: "i", name: "KJV", kind: "bible", confidence: "likely", installed: false })).toBe("Likely match: KJV");
   });
-  it("shows the short name and date under the title", () => {
-    expect(subline(book({ abbreviation: "KJV", published: "1900" }))).toBe("KJV · 1900");
-    expect(subline(book({ published: "n.d." }))).toBe("");
+  it("shows the short name under the title", () => {
+    expect(subline(book({ abbreviation: "KJV", published: "1900" }))).toBe("KJV");
+    expect(subline(book())).toBe("");
   });
 });
 
