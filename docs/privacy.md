@@ -128,8 +128,9 @@ contacts it.
 | --- | --- |
 | `key.json`: the encryption settings and a random salt (never your password) | Anyone with the folder; it holds nothing about your data |
 | Per-device change files and snapshots: your notes, highlights, lists, plans, folders, tags, sermons and settings | Only people who know your sync password. They are encrypted on your computer (XChaCha20-Poly1305, key from your password with Argon2id) before they are written |
+| `blobs/`: your books and installed Bibles, commentaries and dictionaries (so each device has them), in pieces | Only people who know your sync password. Each piece is compressed and encrypted on your computer before it is written. Each file keeps its licence, and a book whose licence does not allow a stored copy is not sent |
 
-Your sync service can see that the files exist, their names, sizes and times, and which of your devices wrote
+Your sync service can see that the files exist, their names, sizes and times (for books, only the hash, the number of pieces and their sizes, not the titles), and which of your devices wrote
 them (device IDs and file numbers are not encrypted). It cannot read them, and Glossa refuses any file that has
 been altered. A lost password cannot be recovered: the synced copy cannot be read, though the data on each
 device is fine. The password is kept in memory while Glossa runs, and saved in your computer's credential store

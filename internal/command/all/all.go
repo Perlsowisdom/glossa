@@ -53,7 +53,8 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	ccel.Register(r, filepath.Join(dataDir, "ccel"))
 	logosimport.Register(r)
 	assistant.Register(r, s)
-	foldersync.Register(r, s)
+	foldersync.Register(r, s, foldersync.Locations{BooksDir: filepath.Join(dataDir, "synced-books"),
+		ModulesDir: filepath.Join(dataDir, "modules"), ReleaseModule: bibles.Release})
 	update.Register(r) // nothing in the Store build
 	return r
 }

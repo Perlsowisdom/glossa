@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
 	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
@@ -615,5 +616,64 @@ func TestStatusAndDevicesReportBlobSpace(t *testing.T) {
 	u, err := a.eng.Devices(context.Background())
 	if err != nil || u.BlobBytes < 150_000 || u.Bytes < u.BlobBytes {
 		t.Fatalf("usage = %+v, %v", u, err)
+	}
+}
+
+func TestBooksThroughCommands(t *testing.T) {
+	setupKDF = fastKDF
+	defer func() { setupKDF = DefaultKDF }()
+	folder := folderOf(t)
+	a, b := newLibDev(t, "Laptop"), newLibDev(t, "Desktop")
+	for _, l := range []*libDev{a, b} {
+		Register(l.reg, secrets.NewMemory(), Locations{BooksDir: l.synced, ModulesDir: l.modules, ReleaseModule: l.bib.Release})
+		l.must("sync.setup", SetupParams{Folder: folder, Password: password}, nil)
+	}
+	id, sha := a.addBook("Via Commands", 90_000)
+	a.installModule("cmd-bible", usfmMal)
+	var res Result
+	a.must("sync.now", nil, &res)
+	if res.Blobs.Uploaded != 2 {
+		t.Fatalf("A: %+v", res.Blobs)
+	}
+
+	var bs FileStats
+	b.must("sync.books", BooksParams{Mode: "opened"}, &bs)
+	if bs.Mode != "opened" {
+		t.Fatalf("mode = %+v", bs)
+	}
+	if err := b.run("sync.books", BooksParams{Mode: "weekly"}, nil); code(err) != "bad_params" {
+		t.Fatalf("bad mode: %v", err)
+	}
+	b.must("sync.now", nil, &res)
+	if res.Blobs.Downloaded != 1 || res.Blobs.OnDemand != 1 {
+		t.Fatalf("B: %+v", res.Blobs)
+	}
+	var st Status
+	b.must("sync.status", nil, &st)
+	if st.Books == nil || st.Books.RemoteOnly != 1 || st.Books.OnDevice != 1 || st.Progress == nil || st.Progress.Active {
+		t.Fatalf("status: %+v %+v", st.Books, st.Progress)
+	}
+	var fr FetchResult
+	if err := b.run("sync.fetch", FetchParams{}, nil); code(err) != "bad_params" {
+		t.Fatalf("empty fetch: %v", err)
+	}
+	if err := b.run("sync.fetch", FetchParams{ItemID: "nothing"}, nil); code(err) != "not_found" {
+		t.Fatalf("unknown book: %v", err)
+	}
+	b.must("sync.fetch", FetchParams{ItemID: id}, &fr)
+	if fr.Book == nil || fr.Book.Downloaded != 1 || !b.opens(id, sha) {
+		t.Fatalf("fetch: %+v", fr)
+	}
+	var pr BlobProgress
+	b.must("sync.progress", nil, &pr)
+	if pr.Active || pr.BytesTotal == 0 || pr.BytesDone != pr.BytesTotal {
+		t.Fatalf("the last transfer's progress = %+v", pr)
+	}
+	if b.readModule("cmd-bible") == "" {
+		t.Fatal("module not usable on B")
+	}
+	b.must("sync.fetch", FetchParams{All: true}, &fr)
+	if fr.All == nil || fr.All.Downloaded != 0 {
+		t.Fatalf("fetch all with nothing to do: %+v", fr.All)
 	}
 }
