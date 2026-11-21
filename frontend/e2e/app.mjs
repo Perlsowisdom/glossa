@@ -318,6 +318,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     library: lib,
     log: () => log,
     forget: () => { seen.length = 0; },
+    // resize pins the page to w x h (the harness default is 1480 x 950).
+    resize: (w, h) => cur.cdp.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false }),
     // The settings that checks change through commands, as the run found them (see rememberSettings).
     baseline: null,
     // rememberSettings notes the settings the checks may change, so restoreSettings can put them back.
