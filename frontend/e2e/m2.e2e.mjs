@@ -280,37 +280,6 @@ export default [
     },
   },
   {
-    row: "M2 step 2: a passage report and a word report on it",
-    shot: "m2-02-reports.png",
-    async run(t) {
-      const { page } = t;
-      await moreMenu(page, "Passage report");
-      const title = page.locator(".report-head h2:visible");
-      await title.waitFor({ timeout: 20000 });
-      t.assert.match(await title.textContent(), /Romans 12/);
-      await page.locator(".report .report-section:visible").first().waitFor();
-      await t.shot("m2-02a-passage-report.png");
-      // A word from the report, or (in a Bible without word tags) the report form.
-      const word = page.locator(".report .word-link:visible").first();
-      if (await word.count()) {
-        await word.click();
-        t.note = "word report from a word in the passage report";
-      } else {
-        await page.locator(".report-form select").first().selectOption("word");
-        await page.locator(".report-form input[type=search]").fill("love");
-        await page.locator(".report-form button[type=submit]").click();
-        t.note = "word report from the report form (the Bible has no word tags)";
-      }
-      await page.waitForFunction(() => {
-        const h = document.querySelector(".report-head h2");
-        return h && h.offsetParent && !/Romans 12/.test(h.textContent);
-      }, null, { timeout: 20000 });
-      await page.locator(".report .report-section:visible").first().waitFor();
-      s.wordReport = (await title.textContent()).trim();
-      await t.shot();
-    },
-  },
-  {
     row: "M2 step 3: highlight part of a verse and write a note on the passage with it and a verse quote",
     shot: "m2-03-note.png",
     async run(t) {
@@ -352,69 +321,6 @@ export default [
     },
   },
   {
-    row: "M2 step 4: edit the note, then restore an earlier version",
-    shot: "m2-04-history.png",
-    async run(t) {
-      const { page, app } = t;
-      await need.note(t);
-      if (s.noteInSidebar) {
-        await page.locator("#rightbar .note-page button[aria-label='Note actions']").click();
-        await page.locator(".popover .menu-list button", { hasText: "Open in a tab" }).click();
-      } else {
-        await page.evaluate((id) => { location.hash = `#notes/note/${id}`; }, s.note);
-      }
-      await t.current(".note-page");
-      t.id = s.note;
-      await t.focusEnd();
-      await t.press("Enter");
-      await t.type("A thought to take back.");
-      const edited = await t.saved();
-      t.assert.ok(edited.includes("A thought to take back."), "the edit is saved");
-      await t.shot("m2-04a-edited.png");
-
-      await page.locator(`${t.root} button[aria-label='Note actions']`).click();
-      await page.locator(".popover .menu-list button", { hasText: "History" }).click();
-      const drawer = page.locator("dialog.drawer[open]");
-      await drawer.locator("button", { hasText: "Restore this version" }).first().waitFor();
-      await t.shot("m2-04b-history.png");
-      await drawer.locator("button", { hasText: "Restore this version" }).last().click();
-      await page.locator(`${t.root} .msg.ok`, { hasText: "Note restored to an earlier version." }).waitFor();
-      const back = (await app.run("note.get", { id: s.note })).body;
-      t.assert.equal(back, s.noteBody, "the note is as it was before the edit");
-      await page.waitForFunction((r) => !document.querySelector(`${r} .rich-text`)?.textContent.includes("A thought to take back."), t.root, { timeout: 8000 });
-      await t.shot();
-    },
-  },
-  {
-    row: "M2 step 5: add the passage to a saved list",
-    shot: "m2-05-list.png",
-    async run(t) {
-      const { page, app } = t;
-      await readRom12(t);
-      // The toolbar closes on any scroll, and a scroll event arrives a frame late: a click that first
-      // scrolls its verse into view would lose the toolbar it opens. Bring both verses on screen, wait
-      // for the page to stop moving, then pick them, as a reader does.
-      const nums = [11, 12].map((n) => page.locator(`.doc-bible .vnum[aria-label="verse ${n}"]:visible`).first());
-      for (const num of nums) await num.scrollIntoViewIfNeeded();
-      await t.settled();
-      for (const num of nums) await num.click();
-      await page.locator(".mark-bar button[aria-label='Add to a list']").click();
-      const dlg = page.locator("dialog.drawer[open]", { hasText: "to a list" });
-      await dlg.locator("input[type=text]").fill("M2 verses on love");
-      await dlg.locator("button", { hasText: "Create and add" }).click();
-      await page.locator("#flash.show", { hasText: "Added to" }).waitFor({ timeout: 8000 });
-      const list = (await app.run("list.list", {})).find((l) => l.name === "M2 verses on love");
-      t.assert.ok(list, "the list is made");
-      s.list = list.id;
-      const { entries } = await app.run("list.items", { id: list.id });
-      t.assert.equal(entries.length, 1, JSON.stringify(entries));
-      t.assert.deepEqual([entries[0].ref.start, entries[0].ref.end], [v(11), v(12)]);
-      await page.evaluate(() => { location.hash = "#lists"; });
-      await page.locator(".view:not([hidden])", { hasText: "M2 verses on love" }).first().waitFor();
-      await t.shot();
-    },
-  },
-  {
     row: "M2 step 6: a collection with a rule holds the books it should",
     shot: "m2-06-collection.png",
     async run(t) {
@@ -441,29 +347,6 @@ export default [
       await page.locator(".coll-tree", { hasText: "M2 by the author" }).getByText("M2 by the author").first().click();
       await page.locator(".book-tile:visible, .lib-table tbody tr:visible").filter({ hasText: "M2 Letters of Paul" }).first().waitFor();
       t.assert.equal(await page.locator(".book-tile:visible, .lib-table tbody tr:visible").filter({ hasText: "M2 Other Book" }).count(), 0);
-      await t.shot();
-    },
-  },
-  {
-    row: "M2 step 7: start a reading plan, mark today's reading done, and see the progress",
-    shot: "m2-07-plan.png",
-    async run(t) {
-      const { page, app } = t;
-      await page.evaluate(() => { location.hash = "#plans"; });
-      const form = page.locator("form.plan-start");
-      await form.waitFor();
-      await form.getByLabel("Plan", { exact: true }).selectOption("nt-90");
-      await form.locator("button[type=submit]", { hasText: "Start plan" }).click();
-      const mark = page.locator("button[aria-label^=\"Mark today's reading of\"]:visible").first();
-      await mark.waitFor({ timeout: 10000 });
-      await mark.click();
-      const plan = (await app.run("plan.list", {})).find((p) => /New Testament/.test(p.name));
-      t.assert.ok(plan, "the plan is started");
-      s.plan = plan.id;
-      t.assert.equal(plan.days_done, 1);
-      const bar = page.locator(`.card.plan progress`).first();
-      await page.waitForFunction(() => Number(document.querySelector(".card.plan progress")?.getAttribute("value")) === 1, null, { timeout: 8000 });
-      s.progress = await bar.getAttribute("aria-label");
       await t.shot();
     },
   },

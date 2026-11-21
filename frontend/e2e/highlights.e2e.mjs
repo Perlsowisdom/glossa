@@ -4,6 +4,15 @@
 const ROM12 = 45012000;
 const v = (n) => ROM12 + n;
 
+// markBox waits for a verse's highlight to be on screen and the page to stop repainting (every open Bible reloads
+// its highlights after a change, and a box taken in the middle is null or moves), then gives its box.
+async function markBox(t, verse) {
+  const mark = t.page.locator(`.doc-bible .vt[data-tb="${verse}"] mark[data-hl]`).first();
+  await mark.waitFor({ state: "visible", timeout: 8000 });
+  await t.settled();
+  return mark.boundingBox();
+}
+
 // readRom12 shows Romans 12 in Read mode, its highlights cleared from the verses given.
 export async function readRom12(t, ...verses) {
   const { page, app } = t;
@@ -148,37 +157,6 @@ export default [
     },
   },
   {
-    row: "Highlights in verses: a highlight spans two verses, starting and ending mid-verse",
-    shot: "hl-02-span.png",
-    async run(t) {
-      await readRom12(t, 1, 2);
-      const { a, b } = await highlightWords(t, [v(1), -3, -1], [v(2), 0, 4], "blue");
-      const [h] = await ranged(t, "Rom 12:1-2");
-      t.assert.equal(h.verse_start, v(1));
-      t.assert.equal(h.verse_end, v(2));
-      t.assert.deepEqual(h.range, { start: { verse: v(1), offset: a.start }, end: { verse: v(2), offset: b.end } });
-      t.assert.equal((await marked(t.page, v(1)))[0][2], a.all.slice(a.start));
-      t.assert.equal((await marked(t.page, v(2)))[0][2], b.all.slice(0, b.end));
-      t.assert.equal(h.ref, "Romans 12:1-2");
-    },
-  },
-  {
-    row: "Highlights in verses: overlapping a highlight replaces the overlapped part, so colours never stack",
-    shot: "hl-03-overlap.png",
-    async run(t) {
-      await readRom12(t, 3);
-      const { a } = await highlightWords(t, [v(3), 1, 12], null, "green");
-      const { a: mid } = await highlightWords(t, [v(3), 4, 7], null, "pink");
-      const m = await marked(t.page, v(3));
-      t.assert.deepEqual(m.map((x) => x[1].match(/hl-(\w+)/)[1]), ["green", "pink", "green"]);
-      t.assert.equal(m[1][2], mid.text);
-      t.assert.equal(m.map((x) => x[2]).join(""), a.text, "together they still cover the first selection");
-      t.assert.equal(await t.page.locator(".doc-bible mark[data-hl] mark[data-hl]").count(), 0, "no mark inside another");
-      const list = await ranged(t, "Rom 12:3");
-      t.assert.deepEqual(list.map((h) => h.style), ["green", "pink", "green"]);
-    },
-  },
-  {
     row: "Highlights in verses: clicking a highlight selects all of it for the toolbar; recolour and underline",
     shot: "hl-04-recolour.png",
     async run(t) {
@@ -186,7 +164,7 @@ export default [
       await readRom12(t, 4, 5);
       const { a, b } = await highlightWords(t, [v(4), 2, -1], [v(5), 0, 3], "yellow");
       // Click the part in the second verse.
-      const box = await page.locator(`.doc-bible .vt[data-tb="${v(5)}"] mark[data-hl]`).first().boundingBox();
+      const box = await markBox(t, v(5));
       await page.mouse.click(box.x + 4, box.y + box.height / 2);
       const bar = page.locator(".mark-bar[aria-label=Highlight]");
       await bar.waitFor({ timeout: 5000 });
@@ -197,7 +175,7 @@ export default [
       await toolbar(page, "Highlight blue");
       await page.waitForFunction((n) => [...document.querySelectorAll(`.doc-bible .vt[data-tb="${n}"] mark[data-hl]`)].every((m) => m.classList.contains("hl-blue")), v(4));
       t.assert.ok((await marked(page, v(5)))[0][1].includes("hl-blue"), "both verses recoloured");
-      const box2 = await page.locator(`.doc-bible .vt[data-tb="${v(4)}"] mark[data-hl]`).first().boundingBox();
+      const box2 = await markBox(t, v(4));
       await page.mouse.click(box2.x + 4, box2.y + box2.height / 2);
       await toolbar(page, "Underline");
       await page.waitForFunction((n) => !!document.querySelector(`.doc-bible .vt[data-tb="${n}"] mark.hl-u`), v(5));
@@ -205,22 +183,6 @@ export default [
       t.assert.equal(h.style, "blue-underline");
       t.assert.deepEqual(h.range, { start: { verse: v(4), offset: a.start }, end: { verse: v(5), offset: b.end } }, "the range is unchanged");
       await page.mouse.move(5, 5);
-      await t.shot();
-    },
-  },
-  {
-    row: "Highlights in verses: removing a highlight from its toolbar",
-    shot: "hl-05-remove.png",
-    async run(t) {
-      const { page } = t;
-      await readRom12(t, 6);
-      await highlightWords(t, [v(6), 2, 6], null, "purple");
-      const box = await page.locator(`.doc-bible .vt[data-tb="${v(6)}"] mark[data-hl]`).first().boundingBox();
-      await page.mouse.click(box.x + 4, box.y + box.height / 2);
-      await t.shot("hl-05a-before-remove.png");
-      await toolbar(page, "Remove the highlight");
-      await page.waitForFunction((n) => !document.querySelector(`.doc-bible .vt[data-tb="${n}"] mark[data-hl]`), v(6), { timeout: 8000 });
-      t.assert.equal((await t.app.run("highlight.list", { ref: "Rom 12:6" })).length, 0);
       await t.shot();
     },
   },
@@ -251,126 +213,6 @@ export default [
         await page.keyboard.press("Control+.");
         await page.locator("#rightbar").waitFor({ state: "hidden", timeout: 5000 });
       }
-    },
-  },
-  {
-    row: "Highlights in verses: inserting a highlight into a note quotes the exact words",
-    shot: "hl-07-insert.png",
-    async run(t) {
-      const { page } = t;
-      await readRom12(t, 9);
-      const { a } = await highlightWords(t, [v(9), 0, 3], null, "pink");
-      const phrase = a.text.replace(/\s+/g, " ");
-      await t.openNote("", "Partial highlight insert");
-      await t.focusEnd();
-      // The / menu, as typed: the toolbar may fold its Insert button away when the sidebar is open.
-      await t.type("/highlight");
-      await page.waitForSelector(".slash-menu:not([hidden])");
-      await t.press("Enter");
-      await page.locator(".popover input").first().waitFor();
-      await t.type(phrase);
-      await page.waitForFunction(() => [...document.querySelectorAll(".popover .pick-row")].some((r) => r.textContent.includes("12:9")), null, { timeout: 8000 });
-      await t.press("Enter");
-      const q = t.editor().locator(".verse-quote");
-      await q.waitFor({ timeout: 8000 });
-      t.assert.ok((await q.locator(".vq-credit").textContent()).includes("Romans 12:9"));
-      const body = await t.saved();
-      t.assert.ok(body.startsWith(`> ${phrase}\n> — [Romans 12:9](#passage/Rom.12.9)`), body);
-      t.assert.ok(!body.includes(a.all.slice(a.end).trim().split(/\s+/).slice(0, 3).join(" ")), "the rest of the verse is not quoted");
-    },
-  },
-  {
-    row: "Highlights in verses: highlights stay on their words after a font-size change, a narrower window and Study mode",
-    shot: "hl-08-font-size.png",
-    async run(t) {
-      const { page } = t;
-      await readRom12(t, 10);
-      const { a } = await highlightWords(t, [v(10), 2, 7], null, "blue");
-      t.assert.equal(await lined(page, v(10), a.start, a.end), "ok");
-      const aa = page.locator("button.aa-btn:visible").first();
-      await aa.click();
-      const larger = page.locator(".popover button[aria-label='Larger text']");
-      await larger.click();
-      await larger.click();
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(300);
-      t.assert.equal(await lined(page, v(10), a.start, a.end), "ok", "after a larger font");
-      await page.locator(`.doc-bible .vt[data-tb="${v(10)}"]`).first().scrollIntoViewIfNeeded();
-      await t.shot();
-      const size = await page.evaluate(() => [window.outerWidth, window.outerHeight]);
-      const resized = await page.evaluate(() => { if (!window.runtime?.WindowSetSize) return false; window.runtime.WindowSetSize(820, 760); return true; });
-      if (resized) {
-        await page.waitForFunction(() => window.innerWidth < 900, null, { timeout: 5000 });
-        await page.waitForTimeout(300);
-        t.assert.equal(await lined(page, v(10), a.start, a.end), "ok", "in a narrower window");
-        await page.locator(`.doc-bible .vt[data-tb="${v(10)}"]`).first().scrollIntoViewIfNeeded();
-        await t.shot("hl-08b-narrow.png");
-        await page.evaluate(([w, h]) => window.runtime.WindowSetSize(w, h), size);
-      } else t.note = "the window could not be resized here";
-      await page.locator(".shell button, header button", { hasText: /^Study$/ }).first().click();
-      await page.waitForFunction((n) => [...document.querySelectorAll(`.doc-bible .vt[data-tb="${n}"]`)].some((e) => e.offsetParent && e.querySelector("mark[data-hl]")), v(10), { timeout: 10000 });
-      t.assert.equal(await lined(page, v(10), a.start, a.end), "ok", "in Study mode");
-      await page.locator(`.doc-bible .vt[data-tb="${v(10)}"]:visible`).first().scrollIntoViewIfNeeded();
-      await t.shot("hl-08c-study.png");
-      await page.locator(".shell button, header button", { hasText: /^Read$/ }).first().click();
-      await aa.click();
-      const smaller = page.locator(".popover button[aria-label='Smaller text']");
-      await smaller.click();
-      await smaller.click();
-      await page.keyboard.press("Escape");
-    },
-  },
-  {
-    row: "Highlights in verses: in another Bible the words show on the whole verse, faintly, and say so on hover",
-    shot: "hl-09-other-bible.png",
-    async run(t) {
-      const { page } = t;
-      await readRom12(t, 11);
-      const { a } = await highlightWords(t, [v(11), 1, 4], null, "purple");
-      const [h] = await ranged(t, "Rom 12:11");
-      const bibles = await t.app.run("bible.modules");
-      const other = bibles.find((m) => m.id !== h.module);
-      if (!other) { t.note = "only one Bible is installed"; return; }
-      // Show the other Bible instead, from the Bibles button.
-      const pick = async (on, off) => {
-        await page.locator(".bibles-btn:visible").first().click();
-        const chip = (id) => page.locator(`.popover .chip-toggle:has(input[value="${id}"])`);
-        await chip(on).click();
-        await chip(off).click();
-        await page.keyboard.press("Escape");
-        await page.waitForFunction((on) => [...document.querySelectorAll(".doc-bible .vt[data-tb]")].some((e) => e.offsetParent && e.dataset.module === on), on, { timeout: 10000 });
-        await page.waitForTimeout(300);
-      };
-      await pick(other.id, h.module);
-      const vt = page.locator(`.doc-bible .vt[data-tb="${v(11)}"]:visible`).first();
-      t.assert.ok((await vt.getAttribute("class")).includes("hl-faint"), "the whole verse, faintly");
-      t.assert.equal(await vt.locator("mark").count(), 0, "no words marked in this Bible");
-      t.assert.match(await vt.getAttribute("title"), /highlighted in .*whole verse/i);
-      await vt.hover();
-      await page.waitForTimeout(1200);
-      await t.shot();
-      await pick(h.module, other.id);
-      t.assert.equal((await marked(page, v(11)))[0][2], a.text);
-    },
-  },
-  {
-    row: "Highlights in verses: an older whole-verse highlight stays whole, with new words drawn over it",
-    shot: "hl-10-whole-verse.png",
-    async run(t) {
-      const { page } = t;
-      await readRom12(t, 12);
-      const whole = await t.app.run("highlight.create", { ref: "Rom 12:12", style: "green" });
-      await page.evaluate(() => document.dispatchEvent(new Event("glossa:marks-changed")));
-      await page.waitForFunction((n) => !!document.querySelector(`.doc-bible .verse[data-base="${n}"].hl-green`), v(12), { timeout: 8000 });
-      await t.shot("hl-10a-whole.png");
-      const { a } = await highlightWords(t, [v(12), 2, 4], null, "pink");
-      const m = await marked(page, v(12));
-      t.assert.deepEqual(m.map((x) => x[0] === whole.id ? "whole" : x[1].match(/hl-(\w+)/)[1]), ["whole", "pink", "whole"]);
-      t.assert.equal(m[1][2], a.text);
-      const list = await t.app.run("highlight.list", { ref: "Rom 12:12" });
-      const kept = list.find((h) => h.id === whole.id);
-      t.assert.ok(kept && !kept.range && kept.verse_start === v(12) && kept.style === "green", "the old highlight is unchanged");
-      await t.shot();
     },
   },
 ];

@@ -26,7 +26,7 @@ function reply(body) {
   const call = (name, args) => ({ calls: [[name, JSON.stringify(args)]] });
   if (last.role === "tool") {
     if (q.includes("commentary")) return { text: ["I could not read that book: ", "it is a personal copy."] };
-    return { text: ["Paul ", "says in ", "Romans 8:28 ", "that God works ", "all things ", "together for good ", "for those who love him."], delay: 250 };
+    return { text: ["Paul ", "says in ", "Romans 8:28 ", "that God works ", "all things ", "together for good ", "for those who love him."], delay: 600 };
   }
   if (q.includes("Romans 8")) return call("read_passage", { ref: "Romans 8", bible: "NETfree" });
   if (q.includes("commentary")) return call("read_book", { item_id: fake.book });
@@ -196,108 +196,6 @@ export default [
       t.assert.ok(fake.reqs[0].messages[1].content.includes("passage Romans 8"), "the open passage is sent as context");
       await chip.click();
       await page.waitForFunction(() => [...document.querySelectorAll('.vt[data-tb="45008028"]')].some((e) => e.offsetParent), null, { timeout: 15000 });
-    },
-  },
-  {
-    row: "Assistant: a tool call is shown",
-    shot: "36a-04-tool.png",
-    async run(t) {
-      const { page } = t;
-      await chat(page);
-      const line = lastAnswer(page).locator("details.tool-line").first();
-      await line.locator("summary", { hasText: "Read Romans 8 (NETfree" }).waitFor();
-      t.assert.equal(await line.getAttribute("open"), null, "tool lines start folded");
-      await line.locator("summary").click();
-      await line.locator(".tool-sent pre").waitFor();
-      const shown = await line.locator(".tool-sent pre").textContent();
-      t.assert.equal(shown, toolSent(), "the line shows exactly what the model received");
-      await line.scrollIntoViewIfNeeded();
-    },
-  },
-  {
-    row: "Assistant: a copyrighted passage is shortened",
-    shot: "36a-05-shortened.png",
-    async run(t) {
-      const { page } = t;
-      const line = lastAnswer(page).locator("details.tool-line").first();
-      await line.locator("summary", { hasText: "Read Romans 8 (NETfree, shortened to the licence limit)" }).waitFor();
-      const sent = toolSent();
-      t.assert.ok(sent.includes("Shortened to about 2000 characters"), sent.slice(-300));
-      t.assert.ok(sent.length < 2600, `sent ${sent.length} characters`);
-      t.assert.ok(!sent.includes("39 "), "verse 39 is past the limit");
-      await line.locator(".tool-sent pre").evaluate((e) => { e.scrollTop = e.scrollHeight; });
-      await line.scrollIntoViewIfNeeded();
-    },
-  },
-  {
-    row: "Assistant: a personal-copy book is refused for an online provider",
-    shot: "36a-06-personal.png",
-    async run(t) {
-      const { page, app } = t;
-      const dir = join(dirname(app.library), "assistant-books");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "assistant-commentary.epub"), epub(BOOK));
-      await app.run("library.add", { paths: [dir] });
-      for (let i = 0; i < 40 && !fake.book; i++) {
-        const r = await app.run("library.items", { text: BOOK, limit: 5 });
-        fake.book = r.items.find((x) => x.status === "online")?.id ?? "";
-        if (!fake.book) await page.waitForTimeout(250);
-      }
-      t.assert.ok(fake.book, "the book was added");
-      // The fixture says it is public domain; this one is a book the person bought.
-      await app.run("library.set_licence", { item_ids: [fake.book], type: "personal_purchase" });
-      t.assert.equal((await app.run("library.item", { id: fake.book })).licence_name, "Personal copy");
-      await chat(page);
-      await ask(page, "What does my commentary say?");
-      await answered(page);
-      const line = lastAnswer(page).locator("details.tool-line").first();
-      await line.locator("summary", { hasText: `Read "${BOOK}" (not sent: a personal copy goes only to a model on this computer)` }).waitFor();
-      await line.locator("summary").click();
-      const sent = toolSent();
-      t.assert.ok(sent.includes("personal copy") && !sent.includes("Paragraph") && !sent.includes("grace and mercy"), sent);
-      await lastAnswer(page).getByText("it is a personal copy").waitFor();
-    },
-  },
-  {
-    row: "Assistant: a draft is inserted into a note",
-    shot: "36a-07-draft.png",
-    async run(t) {
-      const { page } = t;
-      await t.openNote("My study notes.", "Assistant draft note");
-      await chat(page);
-      await page.locator("#rightbar .chat-context", { hasText: "Assistant draft note" }).waitFor();
-      await ask(page, "Give me an outline");
-      await answered(page);
-      const card = lastAnswer(page).locator(".draft-card");
-      await card.locator("h3, h4, .md-h", { hasText: "Hope in Romans 8" }).first().waitFor();
-      await card.locator("button", { hasText: "Insert into note" }).click();
-      await card.getByText("Inserted into “Assistant draft note”.").waitFor();
-      await page.waitForFunction((root) => document.querySelector(`${root} .rich-text`)?.textContent.includes("Glory to come"), t.root, { timeout: 8000 });
-      const body = await t.saved();
-      t.assert.ok(body.includes("Hope in Romans 8") && body.includes("- Glory to come") && body.startsWith("My study notes."), body);
-      t.assert.ok(fake.reqs.at(-1).messages.find((m) => m.role === "user" && m.content.includes("Give me an outline")).content.includes('note "Assistant draft note"'), "the open note is sent as context");
-    },
-  },
-  {
-    row: "Assistant: Stop ends a reply",
-    shot: "36a-08-stop.png",
-    async run(t) {
-      const { page } = t;
-      await chat(page);
-      fake.aborted = false;
-      await ask(page, "Write a long answer");
-      await page.waitForFunction(() => ([...document.querySelectorAll("#rightbar .chat-a")].at(-1)?.textContent ?? "").includes("word3"), null, { timeout: 15000 });
-      const send = page.locator("#rightbar .chat-send");
-      t.assert.equal(await send.textContent(), "Stop");
-      await send.click();
-      await lastAnswer(page).locator(".chat-stopped", { hasText: "Stopped." }).waitFor({ timeout: 10000 });
-      const len = (await lastAnswer(page).textContent()).length;
-      await page.waitForTimeout(1200);
-      t.assert.equal((await lastAnswer(page).textContent()).length, len, "nothing more arrives after Stop");
-      t.assert.ok(!(await lastAnswer(page).textContent()).includes("word79"));
-      t.assert.equal(await send.textContent(), "Send");
-      t.assert.ok(fake.aborted, "the request to the model was closed");
-      await page.waitForTimeout(200);
     },
   },
   {

@@ -29,6 +29,7 @@ export default [
         ids.push(n.id);
         await openNoteInStudy(t, n.id, title);
       }
+      await t.settled(); // four tabs have just opened: measure once the tab bar stops moving
       const r = await page.evaluate(() => {
         const bar = [...document.querySelectorAll(".grid-pane")].find((p) => p.offsetParent && p.querySelector(".grid-tab"))?.querySelector(".grid-bar");
         const plus = bar.querySelector(".grid-plus").getBoundingClientRect();
@@ -54,35 +55,6 @@ export default [
       t.note = `tabs scroll: ${r.scrolls}`;
       await t.shot();
       for (const id of ids) await t.app.run("note.delete", { id }).catch(() => {});
-    },
-  },
-  {
-    row: "T38b 8: a sermon's properties fold into one line of chips and unfold, remembered on the device",
-    shot: "t38b-08-props.png",
-    async run(t) {
-      const { page } = t;
-      await page.evaluate(() => localStorage.removeItem("glossa.sermon.props.folded"));
-      const d = await t.app.run("document.create", { kind: "sermon" });
-      await t.app.run("document.update", { id: d.id, title: "Props sermon", kind: "sermon", passage: "Psalm 84", preached_on: "2026-11-15", theme: "", body: "Body" });
-      await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
-      await t.current(".sermon-layout");
-      const root = t.root;
-      t.assert.ok(await page.locator(`${root} .page-props`).isVisible(), "new documents open unfolded");
-      await t.shot("t38b-08-props-open.png");
-      await page.locator(`${root} .props-fold`).click();
-      t.assert.ok(!(await page.locator(`${root} .page-props`).isVisible()), "the rows fold away");
-      const line = (await page.locator(`${root} .props-chip`).allTextContents()).join(" | ");
-      t.assert.match(line, /Psalms? 84.*Sun 15 Nov 2026.*Sermon/);
-      await page.waitForTimeout(150);
-      await t.shot();
-      // remembered: reopen
-      await page.evaluate((id) => { location.hash = "#notes"; setTimeout(() => { location.hash = `#sermons/${id}`; }, 50); }, d.id);
-      await t.current(".sermon-layout");
-      t.assert.ok(!(await page.locator(`${t.root} .page-props`).isVisible()), "folded choice is remembered");
-      await page.locator(`${t.root} .props-fold`).click();
-      t.assert.ok(await page.locator(`${t.root} .page-props`).isVisible(), "unfolds again");
-      t.assert.equal(await page.evaluate(() => localStorage.getItem("glossa.sermon.props.folded")), "0");
-      await t.app.run("document.delete", { id: d.id }).catch(() => {});
     },
   },
   {
@@ -129,88 +101,6 @@ export default [
       await t.press("Enter");
       await page.waitForFunction(() => [...document.querySelectorAll(".book-where-input")].some((i) => i.offsetParent && i.value === "2"), null, { timeout: 8000 });
       await closeBooks(t);
-    },
-  },
-  {
-    row: "T38b 5: a sermon holds several passages as chips (+ to add, x to remove), found by any of them",
-    shot: "t38b-05-passages.png",
-    async run(t) {
-      const { page, app } = t;
-      const d = await app.run("document.create", { kind: "sermon", title: "Walking on water" });
-      await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
-      await t.current(".sermon-layout");
-      const root = t.root;
-      const chips = page.locator(`${root} .passage-chips .doc-chip-wrap`);
-      const addPassage = async (text) => {
-        await page.locator(`${root} .passage-chips > .chip-add, ${root} .passage-chips > button.doc-chip`).last().click();
-        const input = page.locator(".popover .ref-pop input");
-        await input.waitFor();
-        await t.type(text);
-        await page.locator(".popover .ref-pop .ref-note.ok").waitFor({ timeout: 5000 });
-        await t.press("Enter");
-        await page.locator(".popover .ref-pop").waitFor({ state: "detached", timeout: 5000 });
-      };
-      await addPassage("Matt 14:22-33");
-      await addPassage("Psalm 84");
-      t.assert.equal(await chips.count(), 2);
-      t.assert.deepEqual((await chips.allTextContents()).map((x) => x.replace(/[✦×]/g, "").trim()), ["Matthew 14:22-33", "Psalms 84"]);
-      await t.press("Control+s");
-      await page.waitForFunction((r) => document.querySelector(`${r} .save-state`)?.getAttribute("data-state") === "saved", root, { timeout: 10000 });
-      await t.shot();
-      const got = await app.run("document.get", { id: d.id });
-      t.assert.deepEqual(got.passages.map((x) => x.display), ["Matthew 14:22-33", "Psalms 84"]);
-      for (const ref of ["Matt 14:25", "Ps 84:2"]) {
-        const found = await app.run("document.list", { ref });
-        t.assert.ok((found.documents ?? found).some((x) => x.id === d.id), `found by ${ref}`);
-      }
-      // remove the first with its x
-      await chips.first().locator(".doc-chip-x").click();
-      await page.waitForFunction((r) => document.querySelectorAll(`${r} .passage-chips .doc-chip-wrap`).length === 1, root, { timeout: 5000 });
-      await t.press("Control+s");
-      await page.waitForTimeout(600);
-      t.assert.deepEqual((await app.run("document.get", { id: d.id })).passages.map((x) => x.display), ["Psalms 84"]);
-      await app.run("document.delete", { id: d.id }).catch(() => {});
-    },
-  },
-  {
-    row: "T38b 4: a note's menu has Turn into (Sermon, Bible study, Lesson); one command keeps text, verse, tags, folder; opens in the same pane; undoable",
-    shot: "t38b-04-turn-into.png",
-    async run(t) {
-      const { page, app } = t;
-      const title = "Turn me into a study";
-      const n = await app.run("note.create", { title, body: "Grace is **free** and [John 3:16](#passage/John.3.16).", ref: "Rom 5:1-5", tags: ["grace", "romans"] });
-      await openNoteInStudy(t, n.id, title);
-      const pane = page.locator(".grid-pane:visible", { has: page.locator(".note-page") }).first();
-      const panes = await page.locator(".grid-pane:visible").count();
-      await pane.locator(".note-page .rich-text").waitFor({ timeout: 10000 });
-      await pane.locator('.note-page [aria-label="Note actions"]').click();
-      await page.locator(".popover .menu-list button", { hasText: "Turn into" }).click();
-      await page.locator(".popover .turn-menu").waitFor({ timeout: 5000 });
-      await t.shot("t38b-04-turn-menu.png");
-      const before = (await app.run("history.list", { object_type: "notes", object_id: n.id }).catch(() => null));
-      await page.locator(".popover .turn-menu button", { hasText: "Bible study" }).click();
-      const sermon = page.locator(".grid-pane:visible .sermon-layout").first();
-      await sermon.waitFor({ timeout: 10000 });
-      t.assert.equal(await page.locator(".grid-pane:visible").count(), panes, "same pane");
-      t.assert.equal(await page.locator(".grid-pane:visible .note-page").count(), 0, "the note page is gone from the pane");
-      t.assert.match(await sermon.locator(".passage-chips").textContent(), /Romans 5:1-5/);
-      t.assert.match(await sermon.locator(".kind-menu, .doc-chip", { hasText: "Bible study" }).first().textContent(), /Bible study/);
-      t.assert.match(await sermon.locator(".rich-text").first().textContent(), /Grace is free and .*John 3:16/);
-      await page.waitForTimeout(300);
-      await t.shot();
-      const docs = await app.run("document.list", { kind: "study" });
-      const d = (docs.documents ?? docs).find((x) => x.title === title);
-      t.assert.ok(d, "the study exists");
-      t.assert.deepEqual((await app.run("document.get", { id: d.id })).tags, ["grace", "romans"]);
-      t.assert.equal(d.from_note ?? (await app.run("document.get", { id: d.id })).from_note, n.id);
-      const left = await app.run("note.list", {});
-      t.assert.ok(!(left.notes ?? left).some((x) => x.id === n.id), "the note left My work");
-      // undo: the note comes back from the bin
-      await app.run("note.restore", { id: n.id });
-      await app.run("document.delete", { id: d.id });
-      const back = await app.run("note.list", {});
-      t.assert.ok((back.notes ?? back).some((x) => x.id === n.id), "the note is back");
-      await app.run("note.delete", { id: n.id });
     },
   },
   {

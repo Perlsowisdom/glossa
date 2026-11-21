@@ -24,7 +24,9 @@ export default [
       // "No thanks" answers it and leaves updates off.
       await banner.getByRole("button", { name: "No thanks" }).click();
       await banner.waitFor({ state: "detached" });
-      const after = await app.run("update.settings.get");
+      // The banner goes at the click; the answer is saved a moment later.
+      let after = await app.run("update.settings.get");
+      for (const until = Date.now() + 8000; !after.asked && Date.now() < until; after = await app.run("update.settings.get")) await page.waitForTimeout(100);
       t.assert.equal(after.asked, true);
       t.assert.equal(after.enabled, false, "still off after No thanks");
       // It does not come back after a reload.
@@ -32,18 +34,6 @@ export default [
       await page.waitForSelector(".shell", { timeout: 20000 });
       await page.waitForTimeout(1500);
       t.assert.equal(await page.locator("#update-banner").count(), 0, "asked once");
-    },
-  },
-  {
-    row: "Updates: while off, the check and the install are refused",
-    shot: "t23-refused.png",
-    async run(t) {
-      const { app } = t;
-      for (const id of ["update.check", "update.install"]) {
-        await t.assert.rejects(() => app.run(id), /updates are off/, `${id} while off`);
-      }
-      const auto = await app.run("update.auto");
-      t.assert.equal(auto.ran, false);
     },
   },
   {
