@@ -25,6 +25,7 @@ import { follow, reportView } from "./views/report";
 import { highlightsView } from "./highlightspanel";
 import { searchFor, searchView } from "./views/search";
 import { sermonsView } from "./views/sermons";
+import { startSync } from "./syncstate";
 import { startUpdates } from "./updates";
 import { settingsView } from "./views/settings";
 import { sidebar } from "./views/sidebar";
@@ -215,6 +216,7 @@ function boot(tries = 10) {
   // A Bible installed from the command line or another window shows when you come back.
   window.addEventListener("focus", () => void biblesChanged());
   void startUpdates();
+  void startSync();
   const start = location.hash.slice(1);
   if (!follow(location.hash)) show(start && isView(start.split("/")[0]) ? start : "reader");
 }

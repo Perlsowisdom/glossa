@@ -49,6 +49,7 @@ const PATHS: Record<string, string> = {
   redo: '<path d="M15 7l4.5 4.5L15 16"/><path d="M19 11.5h-9a5 5 0 0 0 0 10h3" transform="translate(0 -5)"/>',
   contents: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   drag: '<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="2.6"/>',
+  sync: '<path d="M19.5 12a7.5 7.5 0 0 0-13-5.1L4.5 9"/><path d="M4.5 4.5V9H9"/><path d="M4.5 12a7.5 7.5 0 0 0 13 5.1l2-2.1"/><path d="M19.5 19.5V15H15"/>',
   unlink:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/><path d="M4 4l16 16"/>',
 };
 

@@ -13,6 +13,8 @@ import {
   HIDEABLE, PLACES, PlaceId, RAIL_PLACES, ReaderMode, addRecent, gridButtonPlace, railPlaces, toggleHidden,
 } from "../shellwords";
 import { loadPref, onPrefs, prefs, savePref, setPrefs } from "../state";
+import { onSync, syncNow } from "../syncstate";
+import { indicator } from "../syncwords";
 
 export interface RailHooks {
   go(place: PlaceId): void;
@@ -60,9 +62,26 @@ export function rail(shell: HTMLElement, hooks: RailHooks) {
   const helpBtn = item("button", "help", "Help", { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" });
   helpBtn.addEventListener("click", () => togglePopover(helpBtn, () => helpContent(hooks), { label: "Help", side: side(), onClose: afterPopover }));
 
+  // The small sync status: only there once sync is set up. It says how things stand and opens Settings → Sync.
+  const syncBtn = item("a", "sync", "Sync", { href: "#settings/sync", class: "rail-item rail-sync", hidden: true });
+  syncBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    hooks.settings("sync");
+  });
+  const paintSync = () => {
+    const i = indicator(syncNow.status);
+    syncBtn.hidden = !i;
+    if (!i) return;
+    syncBtn.dataset.state = i.state;
+    syncBtn.title = i.label;
+    syncBtn.setAttribute("aria-label", i.label);
+    syncBtn.querySelector(".rail-label")!.textContent = i.short;
+  };
+  onSync(paintSync);
+
   const nav = h("nav", { class: "rail", "aria-label": "Places" },
     h("div", { class: "rail-top" }, [...links.values()], grid),
-    h("div", { class: "rail-bottom" }, settingsBtn, helpBtn));
+    h("div", { class: "rail-bottom" }, syncBtn, settingsBtn, helpBtn));
   const edge = h("div", { class: "rail-edge", "aria-hidden": "true" });
   const reveal = h("button", { type: "button", class: "rail-reveal", "aria-label": "Show the rail", title: "Show the rail (Alt+0)" }, icon("rail"));
 
