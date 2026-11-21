@@ -10,7 +10,7 @@ import (
 
 func openFixture(t *testing.T, dir, rel string) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", "file:/"+filepath.ToSlash(filepath.Join(dir, filepath.FromSlash(rel))))
+	db, err := sql.Open("sqlite", fileURI(filepath.Join(dir, filepath.FromSlash(rel))))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -48,7 +48,7 @@ func makeDB(t *testing.T, dir, rel, schema string, stmts ...string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	db, err := sql.Open("sqlite", "file:/"+filepath.ToSlash(path))
+	db, err := sql.Open("sqlite", fileURI(path))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func readFixture(t *testing.T, src Source) *Result {
 func makeFacets(t *testing.T, docs string, noteID int, refs ...string) {
 	t.Helper()
 	path := filepath.Join(docs, filepath.FromSlash(fileNotes))
-	db, err := sql.Open("sqlite", "file:/"+filepath.ToSlash(path))
+	db, err := sql.Open("sqlite", fileURI(path))
 	if err != nil {
 		t.Fatal(err)
 	}

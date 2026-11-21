@@ -20,12 +20,16 @@ import (
 // "file:/var/…" is read as having an authority "var" on macOS and Linux, so the three slashes
 // matter.
 func readOnlyURI(path string) string {
+	return fileURI(path) + "?_pragma=query_only(1)&_pragma=busy_timeout(3000)"
+}
+
+// fileURI is the plain file:/// URI for path, for SQLite (tests open their fixtures with it).
+func fileURI(path string) string {
 	p := filepath.ToSlash(path)
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
 	}
-	u := url.URL{Scheme: "file", Path: p, RawQuery: "_pragma=query_only(1)&_pragma=busy_timeout(3000)"}
-	return u.String()
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
 // The user's own data files, relative to the user's folder under Documents or Data. These and the

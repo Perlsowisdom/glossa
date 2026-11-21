@@ -40,7 +40,7 @@ func TestClippings(t *testing.T) {
 		`INSERT INTO ClippingsDocuments (DocumentId, Title, IsDeleted) VALUES (x'0304', 'Old', 1)`,
 	)
 	path := filepath.Join(docs, filepath.FromSlash(fileClippings))
-	db, err := sql.Open("sqlite", "file:/"+filepath.ToSlash(path))
+	db, err := sql.Open("sqlite", fileURI(path))
 	if err != nil {
 		t.Fatal(err)
 	}
