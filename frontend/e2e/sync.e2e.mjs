@@ -161,6 +161,30 @@ export default [
     },
   },
   {
+    row: "A wrong password on B is refused and changes nothing",
+    shot: "sync-05-wrong-password.png",
+    timeout: 120000,
+    async run(t) {
+      const b = S.b;
+      await goSync(b);
+      // The folder is chosen with the Choose button; the system dialog is replaced by this answer.
+      await b.page.evaluate((p) => { window.go.main.App.PickFolder = async () => p; }, S.folder);
+      await b.page.getByRole("button", { name: "Choose…" }).click();
+      t.assert.equal(await b.page.getByLabel("Sync folder").inputValue(), S.folder);
+      await fillSetup(b, { password: "not the right password", name: "Office desk" });
+      await b.page.getByRole("button", { name: "Continue" }).click();
+      const err = sync(b).locator(".msg.error");
+      await err.waitFor();
+      const text = await err.innerText();
+      t.assert.match(text, /doesn't match/);
+      t.assert.match(text, /Nothing was changed/);
+      t.assert.ok(!text.includes("not the right password"), "the password is never shown back");
+      t.assert.equal((await b.run("sync.status")).configured, false);
+      await b.shot("sync-05-wrong-password.png");
+      t.shotTaken = true;
+    },
+  },
+  {
     row: "B joins with the password and the note from A appears",
     shot: "sync-06-join-preview.png",
     timeout: 180000,

@@ -44,7 +44,7 @@ kept check goes through the same path; **minor** = a detail of a control another
 | Markdown: `##`, `###`, italic, underline, code, numbered list, quote, checkbox, divider, Backspace, paste | vitest (the Markdown rules); `# `, bold and bullet kept as the typing journey |
 | PDF ink: alignment at every zoom; Scroll mode; Study pane; Print or export | dup of the first PDF ink check; Go (ink export golden file) |
 | Structure: folding in sermons; sermon outline; strip; folded heading edited | dup of the note fold check; layout-sanity |
-| Sync: wrong password; a book added on A; All chosen; a note edited on both devices | Go (`internal/sync`) |
+| Sync: a book added on A; All chosen; a note edited on both devices | Go (`internal/sync`) |
 | Tables: `/table` sizes; right-click menu; column resize; minimum width | vitest / Go (table model) |
 | Toolbar file (sticky toolbar jump, strip names, popovers): all three | layout-sanity (toolbar and popovers in a short window are audited); scroll logic is vitest |
 | Top bar: another pane swaps controls; section number; reference field; narrow bar | layout-sanity (top bar audited narrow); dup |
