@@ -1,5 +1,7 @@
 # 0012: CCEL as an opt-in source of free books
 
+Status: Accepted (approved by the user, 21 November 2026: "Yes, add CCEL"). Extends 0009.
+
 ## Decision
 
 - Glossa may fetch public-domain books from the Christian Classics Ethereal Library (ccel.org). This adds
