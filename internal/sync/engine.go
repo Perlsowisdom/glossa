@@ -394,6 +394,9 @@ func (e *Engine) pull(ctx context.Context, dryRun bool) (pullInfo, error) {
 				if err := r.EnsureDevice(c.Device, c.Device); err != nil {
 					return err
 				}
+				if store.PerDevice(c.ObjectType, c.ObjectID) {
+					continue // another device's paths and settings are not ours to apply
+				}
 				key := c.ObjectType + "\x00" + c.ObjectID
 				switch {
 				case c.Op == "create":
