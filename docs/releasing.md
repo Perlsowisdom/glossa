@@ -1,11 +1,12 @@
 # Releasing Glossa
 
-How a version gets to people. Windows only for now. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are two channels:
+How a version gets to people: Windows and macOS, released together. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are three channels:
 
 | Channel | File | Who signs it | How people update |
 | --- | --- | --- | --- |
 | **Microsoft Store** | `Glossa-<version>-windows-x64.msix` (built with the `store` tag: no updater) | The Store, at certification | The Store |
 | **Direct download** | `Glossa-<version>-windows-x64-setup.exe` (NSIS, not code-signed) | Our own Ed25519 signature in `latest.json` | The app's own update (off until the user turns it on) |
+| **Direct download (macOS)** | `Glossa-<version>-macos-universal.dmg` (arm64 + Intel; ad-hoc signed only, not Apple-signed or notarised) | Our own Ed25519 signature in `latest.json` (`mac` entry) | A download the app opens in the browser (the app cannot replace itself); off until the user turns update checks on |
 
 The version comes from the git tag. There is no version file to edit: a tag `v1.2.3` builds version
 `1.2.3`, and a build with no tag says `0.0.0-dev+<commit>`. `glossa version` and Settings → About show it.
@@ -21,8 +22,8 @@ No terminal needed. In the repository on github.com:
      optional `-suffix`. The run stops at once if it is not, or if the tag `v<version>` already exists.
    - **kind**: `auto` (default: a pre-release when the version has a `-` suffix, otherwise a draft),
      `draft`, `prerelease` or `release` (published at once; refused for a version with a `-` suffix).
-3. **Run workflow.** It builds, tests and packages exactly as the tag-triggered run does, then creates the
-   tag `v<version>` on that commit and the GitHub release of the chosen kind, with the setup, the MSIX,
+3. **Run workflow.** It builds, tests and packages exactly as the tag-triggered run does (Windows and macOS in parallel; if either fails there is no tag and no release), then creates the
+   tag `v<version>` on that commit and the GitHub release of the chosen kind, with the setup, the MSIX, the DMG,
    `SHA256SUMS` and (when signed) `latest.json`. If the release cannot be created, the tag it just made
    is removed again. The workflow's own tag push does not start a second run.
 
@@ -38,6 +39,27 @@ The version reaches each packager in the form it needs (`tools/relver`, with tes
 `0.4.0-alpha`; the setup's file properties and the MSIX use `0.4.0.0` (four numbers, the suffix dropped).
 Pushing a tag (`git tag v1.2.3 && git push origin v1.2.3`) still works and makes a draft, as in "Each
 release" below.
+
+## macOS notes
+
+The `macos` job (macos-latest) runs the Go and frontend tests, then `scripts/package-macos.sh`: an arm64 and an
+x86_64 build of the app (cgo, as Wails' own build does: `-mmacosx-version-min=11.0`, the
+UniformTypeIdentifiers framework), joined with `lipo` into one `Glossa.app` (icon from `build/darwin/icon.icns`,
+`Info.plist` from `build/darwin/Info.plist.template`, bundle id `org.glossa.app`, version from the tag with the
+suffix dropped: 0.5.0-alpha is 0.5.0), `codesign --sign -` (ad-hoc; Apple Silicon will not run unsigned code), and a
+`.dmg` made with `hdiutil`. `scripts/check-macos.sh` then mounts the DMG and checks its contents, both
+architectures, the signature, the version and that the app's binary starts. CI runs the same two scripts on every push.
+
+There is **no Apple Developer signature or notarisation** yet, so the first open needs the steps in the README
+(right-click, Open; or System Settings, Privacy & Security, Open Anyway; `xattr -dr com.apple.quarantine` as the
+last resort). Say so in the release notes. Moving to a Developer ID certificate later means adding
+`codesign --options runtime` with the certificate, then `xcrun notarytool` and `stapler`, in `package-macos.sh`;
+in-place updates (as on Windows) then become possible. The bundle id must stay the same.
+
+The DMG is signed with the same update key as the setup (a `mac` entry in `latest.json`: address, SHA-256 and
+signature). The Mac app never installs it: it opens the DMG address (only when the signature verifies and the
+address is under this repository's releases; otherwise the release page). To build on a Mac:
+`cd frontend; npm ci; npm run build; cd ..; scripts/package-macos.sh 0.5.0-alpha`.
 
 ## Once: make the signing key
 
@@ -99,9 +121,10 @@ release workflow warns.
    **draft** GitHub release holding:
    - `Glossa-1.2.3-windows-x64-setup.exe`
    - `Glossa-1.2.3-windows-x64.msix`
+   - `Glossa-1.2.3-macos-universal.dmg`
    - `latest.json` (what the updater reads; missing if no key was available)
    - `SHA256SUMS`
-5. **Check the draft** (Releases → the draft): all four files are there; download the setup on a clean
+5. **Check the draft** (Releases → the draft): all five files are there; download the setup on a clean
    Windows PC or VM, install it, open it, check Help → About shows `1.2.3`, then uninstall and confirm the
    library is kept (and removed only with "Also remove my library" ticked).
 6. **Publish the release** (Edit → paste the notes → Publish release). Publishing is what makes the update
@@ -155,7 +178,8 @@ newer release. `latest.json` looks like:
 
 ```json
 { "version": "1.2.3", "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-windows-x64-setup.exe",
-  "sha256": "...", "signature": "...", "notes": "" }
+  "sha256": "...", "signature": "...", "notes": "",
+  "mac": { "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-macos-universal.dmg", "sha256": "...", "signature": "..." } }
 ```
 
 ## Rotating the key
