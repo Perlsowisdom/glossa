@@ -347,18 +347,18 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     },
     // run calls a command the way the interface does.
     run: (id, params = {}) => within(app.page.evaluate(async ([id, p]) => JSON.parse((await window.go.main.App.Run(id, JSON.stringify(p))) || "null"), [id, params]), 30000, `the command ${id}`),
-    // shot saves a screenshot. It first waits for fonts for a moment, asking the page to the front; if
-    // Playwright's own screenshot still stalls (it waits on document.fonts.ready), the page is captured
-    // straight through DevTools, which does not.
+    // shot saves a screenshot straight through DevTools. Playwright's own screenshot first waits for
+    // document.fonts.ready, which in this app can stay pending for a long time (8 s and more on some runs,
+    // see the unfinished faces noted below) and made every screenshot wait or time out; the DevTools
+    // capture draws what is on screen and does not wait. Playwright's is the fallback.
     async shot(name) {
       const path = join(shots, name);
-      await within(app.page.evaluate(() => document.fonts.ready.then(() => true)), 3000, "fonts").catch(() => {});
       try {
-        await app.page.screenshot({ path, timeout: 8000, animations: "disabled", caret: "hide" });
-      } catch (e) {
         const { data } = await within(cur.cdp.send("Page.captureScreenshot", { format: "png" }), 10000, "a screenshot through DevTools");
         writeFileSync(path, Buffer.from(data, "base64"));
-        remember(`screenshot ${name}: Playwright stalled (${String(e.message).split("\n")[0]}); saved through DevTools`);
+      } catch (e) {
+        remember(`screenshot ${name}: DevTools capture failed (${String(e.message).split("\n")[0]}); using Playwright`);
+        await app.page.screenshot({ path, timeout: 15000, animations: "disabled", caret: "hide" });
       }
     },
     // dump says what the page is in, as a few lines for a failed check: the view, visibility, open

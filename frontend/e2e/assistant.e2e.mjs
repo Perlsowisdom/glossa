@@ -26,7 +26,7 @@ function reply(body) {
   const call = (name, args) => ({ calls: [[name, JSON.stringify(args)]] });
   if (last.role === "tool") {
     if (q.includes("commentary")) return { text: ["I could not read that book: ", "it is a personal copy."] };
-    return { text: ["Paul ", "says in ", "Romans 8:28 ", "that God works ", "all things ", "together for good ", "for those who love him."], delay: 250 };
+    return { text: ["Paul ", "says in ", "Romans 8:28 ", "that God works ", "all things ", "together for good ", "for those who love him."], delay: 600 };
   }
   if (q.includes("Romans 8")) return call("read_passage", { ref: "Romans 8", bible: "NETfree" });
   if (q.includes("commentary")) return call("read_book", { item_id: fake.book });
