@@ -1,4 +1,4 @@
-// CCEL as a free source, in the real app: off until the user turns it on; then public-domain books in
+// CCEL as a free source (the file name sorts it last, after From Logos, which reads its own list first), in the real app: off until the user turns it on; then public-domain books in
 // From Logos match CCEL books, and Get free copy asks first, downloads an EPUB and adds it to the
 // library. ccel.org is a small fake on a local server (never the real network); the fake Logos
 // folder holds only a library catalogue. The app is pointed at the fake through the file ccel.json in
@@ -71,7 +71,10 @@ export default [
         await page.locator(".fromlogos-view").waitFor({ timeout: 15000 });
         await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
         await page.locator("#fromlogos-folder").fill(root);
-        await page.locator("#fromlogos-read").click();
+        // The list may have been read by an earlier check (From Logos): then it is refreshed, and
+        // the books of that check go.
+        if (await page.locator("#fromlogos-read").isVisible()) await page.locator("#fromlogos-read").click();
+        else await page.locator("#fromlogos-refresh").click();
         await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
         t.assert.match(await page.locator("#fromlogos-status").innerText(), /4 books · 3 public domain/);
         { const tt = await page.locator("table.fromlogos-table").innerText(); t.assert.ok(!/Get free copy/.test(tt), `no free copy while CCEL is off: ${JSON.stringify(tt)}`); }
@@ -153,6 +156,10 @@ export default [
         t.assert.equal(hits.length, before);
       } finally {
         if (cataloguesWere) await t.app.run("bible.sources", { enable: true }).catch(() => {});
+        // Leave no books of this check in the list for any later check: read an empty folder.
+        const empty = makeLogosLibraryFolder([]);
+        await t.app.run("logos.library_refresh", { folder: empty }).catch(() => {});
+        rmSync(empty, { recursive: true, force: true });
         server.close();
         rmSync(dir, { recursive: true, force: true });
         rmSync(root, { recursive: true, force: true });
