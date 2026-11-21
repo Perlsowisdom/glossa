@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The macOS app bundle's Info.plist. scripts/package-macos.sh fills in:
+    {{VERSION}}   three numbers from the release version (0.5.0-alpha gives 0.5.0; tools/relver)
+  The bundle id is org.glossa.app. Changing it later makes macOS treat the app as a new one (saved
+  window and WebKit settings do not carry over), so choose once.
+-->
+<plist version="1.0">
+  <dict>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleName</key>
+    <string>Glossa</string>
+    <key>CFBundleDisplayName</key>
+    <string>Glossa</string>
+    <key>CFBundleExecutable</key>
+    <string>Glossa</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.glossa.app</string>
+    <key>CFBundleVersion</key>
+    <string>{{VERSION}}</string>
+    <key>CFBundleShortVersionString</key>
+    <string>{{VERSION}}</string>
+    <key>CFBundleIconFile</key>
+    <string>icon</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.reference</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Glossa is free software, MIT OR Apache-2.0.</string>
+  </dict>
+</plist>

@@ -33,3 +33,14 @@ func TestInvalid(t *testing.T) {
 		t.Error("valid versions rejected")
 	}
 }
+
+func TestMac(t *testing.T) {
+	for in, want := range map[string]string{"0.5.0-alpha": "0.5.0", "1.2.3": "1.2.3", "0.0.0-dev+abc1234": "0.0.0", "10.20.30-beta.1": "10.20.30"} {
+		if got, err := Mac(in); err != nil || got != want {
+			t.Errorf("Mac(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	if _, err := Mac("1.2"); err == nil {
+		t.Error("Mac accepted 1.2")
+	}
+}

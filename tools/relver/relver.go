@@ -3,6 +3,7 @@
 //	go run ./versionmap validate <version>   exit 0 when it is MAJOR.MINOR.PATCH with an optional -suffix
 //	go run ./versionmap nsis <version>       four-part number for the setup's file properties: 0.4.0.0
 //	go run ./versionmap msix <version>       four-part number for the Store package: 0.4.0.0
+//	go run ./versionmap mac <version>        three-part number for the macOS app bundle: 0.4.0
 package relver
 
 import (
@@ -64,4 +65,14 @@ func MSIX(v string) (string, error) {
 		n[2] = 1
 	}
 	return fmt.Sprintf("%d.%d.%d.0", n[0], n[1], n[2]), nil
+}
+
+// Mac is the version for a macOS app bundle (CFBundleShortVersionString and CFBundleVersion): three
+// numbers, the suffix dropped. 0.5.0-alpha gives 0.5.0. A development build's 0.0.0 stays 0.0.0.
+func Mac(v string) (string, error) {
+	n, err := parts(v)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%d.%d.%d", n[0], n[1], n[2]), nil
 }

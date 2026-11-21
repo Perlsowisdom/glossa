@@ -1,5 +1,5 @@
 // Command genassets writes the app and Store icons from the approved Glossa icon in build/icon/:
-// the Windows icon (build/windows/icon.ico), build/appicon.png, the MSIX tiles in
+// the Windows icon (build/windows/icon.ico), the macOS icon (build/darwin/icon.icns), build/appicon.png, the MSIX tiles in
 // build/msix/Assets and the Store listing logos in docs/store.
 //
 // The sources in build/icon/ are the user's approved files and are never edited here. A size that
@@ -103,6 +103,13 @@ func main() {
 	}
 	write(filepath.Join(root, "build", "windows", "icon.ico"), ico)
 	write(filepath.Join(root, "build", "appicon.png"), pngBytes(s.square(512)))
+
+	// The macOS icon: the same pictures in an .icns file, sizes 16 to 1024.
+	pngs := map[int][]byte{}
+	for _, e := range icnsEntries {
+		pngs[e.size] = pngBytes(s.square(e.size))
+	}
+	write(filepath.Join(root, "build", "darwin", "icon.icns"), buildICNS(pngs))
 
 	assets := filepath.Join(root, "build", "msix", "Assets")
 	squares := []struct {
