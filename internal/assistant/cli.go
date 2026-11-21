@@ -42,7 +42,7 @@ var cliKinds = map[string]cliKind{
 func Detect(ctx context.Context, p Preset) CLIInfo {
 	k := cliKinds[p.ID]
 	info := CLIInfo{ID: p.ID, Label: p.Label, InstallURL: k.install}
-	path, err := exec.LookPath(k.exe)
+	path, err := findTool(k.exe)
 	if err != nil {
 		return info
 	}
@@ -50,6 +50,7 @@ func Detect(ctx context.Context, p Preset) CLIInfo {
 	ctx, stop := context.WithTimeout(ctx, 10*time.Second)
 	defer stop()
 	cmd := exec.CommandContext(ctx, path, "--version")
+	cmd.Env = toolEnv(path)
 	prepare(cmd)
 	if out, err := cmd.Output(); err == nil {
 		info.Version = firstLine(string(out))
@@ -153,6 +154,7 @@ func (a *CLIAgent) Run(ctx context.Context, req AgentRequest, h AgentHooks) erro
 	}
 	cmd := exec.CommandContext(ctx, a.Info.Path, a.Args(cfg, req.Model)...)
 	cmd.Dir = dir // not the app's folder, so the tool does not read whatever is there
+	cmd.Env = toolEnv(a.Info.Path)
 	cmd.Stdin = strings.NewReader(req.Prompt)
 	var stderr bytes.Buffer
 	cmd.Stderr = &limitWriter{w: &stderr, n: 4000}

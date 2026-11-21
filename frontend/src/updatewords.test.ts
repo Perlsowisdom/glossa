@@ -28,3 +28,12 @@ describe("versionLine", () => {
     expect(versionLine(info, false)).toBe("You have version 1.0.0.");
   });
 });
+
+describe("updateAction", () => {
+  it("installs on Windows and downloads on macOS", async () => {
+    const { updateAction } = await import("./updatewords");
+    expect(updateAction(false)).toBe("Restart to update");
+    expect(updateAction(undefined)).toBe("Restart to update");
+    expect(updateAction(true)).toBe("Download");
+  });
+});

@@ -67,6 +67,8 @@ verify against the public key built into the app (`internal/update/pubkey.txt`).
 code-signed, so this signature is what keeps updates safe: a file that fails either check is deleted and
 never run. The setup then installs over the old version and starts it again; your library is not touched.
 
+On macOS the app is not signed by Apple and cannot replace itself, so nothing is downloaded by Glossa: pressing Download only opens the new version's disk image (or the release page) in your web browser, and your browser fetches it. The same `latest.json` request is the only one Glossa makes.
+
 ## AI assistant (T36a)
 
 Off until you choose a provider in Settings → Assistant → Model (`assistant.config.set`). Choosing one

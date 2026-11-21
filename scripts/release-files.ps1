@@ -1,6 +1,8 @@
-# Makes the files of a release in build\release: the setup, the MSIX, SHA256SUMS and latest.json.
-#   scripts\release-files.ps1 -Version 1.2.3 -Setup <setup.exe> -Msix <x.msix>
-# latest.json (what the app's updater reads) carries the setup's SHA-256 and our Ed25519 signature.
+# Makes the files of a release in build\release: the setup, the MSIX, the macOS disk image, SHA256SUMS
+# and latest.json.
+#   scripts\release-files.ps1 -Version 1.2.3 -Setup <setup.exe> -Msix <x.msix> -Mac <x.dmg>
+# latest.json (what the app's updater reads) carries the setup's SHA-256 and our Ed25519 signature,
+# and a "mac" entry with the disk image's (offered as a download on macOS; the Mac app cannot replace itself).
 # The private key is read from the GLOSSA_UPDATE_KEY environment variable (a GitHub secret in CI).
 # Without it, signing is skipped with a warning and NO latest.json is written, so no update is
 # offered. The signature is checked against the public key committed in the app before it is used,
@@ -9,6 +11,7 @@ param(
   [Parameter(Mandatory)][string]$Version,
   [Parameter(Mandatory)][string]$Setup,
   [string]$Msix = '',
+  [string]$Mac = '',
   [string]$OutDir = '',
   [string]$Repo = $(if ($env:GITHUB_REPOSITORY) { $env:GITHUB_REPOSITORY } else { 'Perlsowisdom/glossa' }),
   [string]$PubKeyFile = '',
@@ -21,6 +24,7 @@ if (-not $PubKeyFile) { $PubKeyFile = "$root\internal\update\pubkey.txt" }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $files = @(Copy-Item $Setup $OutDir -PassThru)
 if ($Msix) { $files += Copy-Item $Msix $OutDir -PassThru }
+if ($Mac) { $files += Copy-Item $Mac $OutDir -PassThru }
 
 $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower(), $f.Name }
 [IO.File]::WriteAllText("$OutDir\SHA256SUMS", (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
@@ -50,6 +54,17 @@ if ($LASTEXITCODE) { throw 'signing failed' }
 & $tool verify -version $Version -pub $PubKeyFile $setupFile.FullName $sig
 if ($LASTEXITCODE) { throw "The signature does not verify against $PubKeyFile. GLOSSA_UPDATE_KEY is not the key whose public half is committed there (docs/releasing.md)." }
 
+$macEntry = $null
+if ($Mac) {
+  $macFile = $files | Where-Object { $_.Name -eq (Split-Path $Mac -Leaf) } | Select-Object -First 1
+  $macSha = (& $tool hash $macFile.FullName).Trim()
+  $macSig = (& $tool sign -version $Version $macFile.FullName).Trim()
+  if ($LASTEXITCODE) { throw 'signing the disk image failed' }
+  & $tool verify -version $Version -pub $PubKeyFile $macFile.FullName $macSig
+  if ($LASTEXITCODE) { throw "The disk image's signature does not verify against $PubKeyFile." }
+  $macEntry = [ordered]@{ url = "https://github.com/$Repo/releases/download/v$Version/$($macFile.Name)"; sha256 = $macSha; signature = $macSig }
+}
+
 $manifest = [ordered]@{
   version   = $Version
   url       = "https://github.com/$Repo/releases/download/v$Version/$($setupFile.Name)"
@@ -57,5 +72,6 @@ $manifest = [ordered]@{
   signature = $sig
   notes     = if ($Notes) { $Notes } else { '' }
 }
+if ($macEntry) { $manifest['mac'] = $macEntry }
 [IO.File]::WriteAllText("$OutDir\latest.json", (($manifest | ConvertTo-Json) + "`n"), (New-Object Text.UTF8Encoding $false))
 Write-Host "Wrote $OutDir\latest.json for $Version"
