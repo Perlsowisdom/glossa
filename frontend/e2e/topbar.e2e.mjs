@@ -241,6 +241,14 @@ export default [
         t.assert.ok(s.controlsShown && !s.fieldHidden && /^\d+$/.test(s.fieldValue), JSON.stringify(s));
         t.assert.equal(await page.locator(".grid-bar:visible").count(), 0, "no pane header row in Read mode");
         t.assert.equal(await page.locator(".grid-pane:visible .book-nav:visible").count(), 0, "no navigation row inside the page");
+        // The page fills the window, not the half its pane had in Study (a lone flex item with a
+        // grow factor of 0.5 takes only half the space).
+        const w = await page.evaluate(() => {
+          const grid = document.querySelector(".study-grid")?.getBoundingClientRect().width ?? 0;
+          const pane = document.querySelector(".study-grid .grid-pane")?.getBoundingClientRect().width ?? 0;
+          return { grid, pane };
+        });
+        t.assert.ok(w.grid > 0 && w.pane >= w.grid - 2, `Read mode page fills the width: ${JSON.stringify(w)}`);
         await t.shot("topbar-05-read.png");
       } finally {
         await page.locator(".topbar button", { hasText: /^Study$/ }).first().click().catch(() => {});

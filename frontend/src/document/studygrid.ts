@@ -191,7 +191,12 @@ export function studyGrid(o: StudyGridOptions) {
       setChildren(se, kids);
       return se;
     };
-    setChildren(el, [read ? drawPane(sel, true) : nodeEl(g.root!)]);
+    // A pane's size is its share of a split (0.5 for half). Alone in Read mode it must fill the
+    // window: a lone flex item with flex-grow below 1 takes only that fraction of the free space.
+    // The same goes for a lone pane left at the root of Study mode after the others are closed.
+    const top = read ? drawPane(sel, true) : nodeEl(g.root!);
+    top.style.flexGrow = "1";
+    setChildren(el, [top]);
     for (const id of [...splitEls.keys()]) if (!used.has(id)) splitEls.delete(id);
     for (const m of mounted.values()) {
       const p = findPane(g, m.paneId)?.pane;
