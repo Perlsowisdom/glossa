@@ -191,17 +191,37 @@ function markUpdateQuestionAsked(db) {
   }
 }
 
-export async function startApp({ build: doBuild = true, port } = {}) {
+// newDevice makes the copy start as a new device: the app gives it an ID of its own at start.
+function newDevice(db) {
+  const d = new DatabaseSync(db);
+  try {
+    d.prepare("DELETE FROM settings WHERE key = 'device_id'").run();
+  } finally {
+    d.close();
+  }
+}
+
+// More than one app can run at once (the sync checks start two, each on its own library copy):
+// pass sweep: false so starting the second does not close the first, keyring: a name of its own
+// so their saved keys do not meet, and name: a label for its run folder. lite: true copies only
+// library.db (not the Bible modules) and gives the copy a device of its own, as a second computer has.
+export async function startApp({ build: doBuild = true, port, sweep: doSweep = true, keyring = KEYRING_SERVICE, name = "", lite = false } = {}) {
   if (process.platform !== "win32") throw new Error("The interface tests drive WebView2 and run on Windows.");
   if (!existsSync(join(SOURCE, "library.db"))) throw new Error(`No library to copy at ${SOURCE}`);
-  await sweep();
+  if (doSweep) await sweep();
   if (doBuild || !existsSync(EXE)) build();
   mkdirSync(shots, { recursive: true });
   port ??= await freePort();
 
-  const run = join(WORK, `run-${Date.now()}`);
+  const run = join(WORK, `run-${Date.now()}${name ? `-${name}` : ""}`);
   const lib = join(run, "library");
-  cpSync(SOURCE, lib, { recursive: true });
+  if (lite) {
+    mkdirSync(lib, { recursive: true });
+    cpSync(join(SOURCE, "library.db"), join(lib, "library.db"));
+    newDevice(join(lib, "library.db"));
+  } else {
+    cpSync(SOURCE, lib, { recursive: true });
+  }
   markUpdateQuestionAsked(join(lib, "library.db"));
   const profile = join(run, "webview");
   mkdirSync(profile, { recursive: true });
@@ -219,7 +239,7 @@ export async function startApp({ build: doBuild = true, port } = {}) {
         GLOSSA_LIBRARY: join(lib, "library.db"),
         WEBVIEW2_USER_DATA_FOLDER: profile,
         // Keys the tests save go to their own keychain entries, never the person's.
-        GLOSSA_KEYRING_SERVICE: KEYRING_SERVICE,
+        GLOSSA_KEYRING_SERVICE: keyring,
         WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-allow-origins=*`,
       },
       stdio: ["ignore", "pipe", "pipe"],

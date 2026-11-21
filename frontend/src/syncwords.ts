@@ -113,8 +113,10 @@ export function advice(code: string | undefined): string {
   }
 }
 
-// conflictLine says what a kept second version is.
+// conflictLine says what a kept second version is. The core's note names the device whose edit
+// was replaced ("Changed on <device> too").
 export function conflictLine(c: SyncConflict): string {
-  const what = c.object_type === "document" ? "document" : c.object_type;
-  return `A ${what} was changed on ${c.device || "another device"} too. The other version is kept in its history.`;
+  const what = ({ notes: "note", documents: "document or sermon" } as Record<string, string>)[c.object_type] ?? "text";
+  const device = /^Changed on (.+) too$/.exec(c.note)?.[1] ?? "another device";
+  return `A ${what} was changed on ${device} too. The replaced text is kept in its history.`;
 }

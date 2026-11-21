@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advice, countsText, indicator, lastSyncText, percent, previewSentences, progressText, sizeText } from "./syncwords";
+import { advice, conflictLine, countsText, indicator, lastSyncText, percent, previewSentences, progressText, sizeText } from "./syncwords";
 import type { SyncPreview, SyncStatus } from "./syncwords";
 
 const status = (o: Partial<SyncStatus> = {}): SyncStatus => ({
@@ -72,5 +72,12 @@ describe("advice", () => {
   it("is given for known problems only", () => {
     expect(advice("folder_missing")).toMatch(/sync service/);
     expect(advice("whatever")).toBe("");
+  });
+});
+
+describe("conflictLine", () => {
+  it("names the item and the other device", () => {
+    const c = { id: "1", object_type: "notes", object_id: "n", field: "body", change_id: "c", device: "d2", text: "", note: "Changed on Office desk too", created_at: 0 };
+    expect(conflictLine(c)).toBe("A note was changed on Office desk too. The replaced text is kept in its history.");
   });
 });

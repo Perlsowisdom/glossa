@@ -14,7 +14,10 @@ export interface Schema {
   enum?: string[];
 }
 
-const KNOWN_CODES = ["bad_params", "not_found", "unknown_command", "unavailable", "failed", "bad_request", "not_allowed"];
+const KNOWN_CODES = ["bad_params", "not_found", "unknown_command", "unavailable", "failed", "bad_request", "not_allowed",
+  // Sync (internal/sync): shown in plain words by Settings → Sync.
+  "wrong_password", "folder_missing", "locked", "corrupt", "missing_file", "newer_version", "clock_skew", "disk_full", "forgotten",
+  "weak_password", "not_initialised", "already_exists", "not_configured", "cancelled"];
 
 // parseError turns whatever a rejected App.Run gives ("code: message", an Error, or an object)
 // into a code and message.

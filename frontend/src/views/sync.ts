@@ -24,6 +24,8 @@ function hasData(counts: Record<string, number>): boolean {
 export function syncSection(): { el: HTMLElement; show: () => void; focus: () => void } {
   const body = h("div", { class: "sync-page" });
   let busy = false;
+  // notice is what to say once the page has been redrawn after an action.
+  let notice = "";
 
   async function show() {
     const s = await refreshSync();
@@ -37,7 +39,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
 
   function setup(s: SyncStatus, keep?: { folder: string; name: string }) {
     const msg = new Message();
-    const folder = h("input", { type: "text", spellcheck: "false", autocomplete: "off", placeholder: "For example D:\\OneDrive\\Glossa", value: keep?.folder ?? "" }) as HTMLInputElement;
+    const folder = h("input", { type: "text", spellcheck: "false", autocomplete: "off", placeholder: "For example D:\\OneDrive\\Glossa", id: "sync-folder", value: keep?.folder ?? "" }) as HTMLInputElement;
     const choose = button("Choose…", async () => {
       const dir = await msg.attempt(() => pick("folder", "Choose the folder your sync service already copies"));
       if (dir) folder.value = dir;
@@ -62,7 +64,10 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
 
     const go = h("button", { type: "submit", class: "primary" }, "Continue");
     const form = h("form", { class: "sync-setup", "aria-label": "Set up sync" },
-      field("Sync folder", h("div", { class: "row" }, folder, choose), "Pick a folder that OneDrive, Dropbox, Google Drive, iCloud or Syncthing already copies between your devices. Glossa makes a \"Glossa Sync\" folder inside it and sends nothing over the internet itself."),
+      h("div", { class: "field" },
+        h("label", { for: "sync-folder" }, "Sync folder"),
+        h("div", { class: "row" }, folder, choose),
+        h("small", { class: "hint" }, "Pick a folder that OneDrive, Dropbox, Google Drive, iCloud or Syncthing already copies between your devices. Glossa makes a \"Glossa Sync\" folder inside it and sends nothing over the internet itself.")),
       field("Password", pw, "At least 10 characters. Everything in the folder is encrypted with it, so the sync service never sees your notes or books."),
       strength,
       againField,
@@ -206,6 +211,8 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
 
   function manage(s: SyncStatus) {
     const msg = new Message();
+    if (notice) msg.ok(notice);
+    notice = "";
     const bar = h("progress", { class: "sync-bar", max: "100", value: "0", "aria-label": "Sync progress" }) as HTMLProgressElement;
     const barText = h("span", { class: "sync-bar-text" });
     const progress = h("div", { class: "sync-progress", hidden: true, role: "status" }, bar, barText);
@@ -230,7 +237,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       msg.info("Syncing…");
       try {
         const r = await run<SyncResult>("sync.now");
-        msg.ok(resultText(r));
+        notice = resultText(r);
         syncNow.progress = null;
         await show();
       } catch (e) {
@@ -272,6 +279,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
         if (!confirm(`Forget ${d.name || "this device"}? Its files are removed from the folder, and it must be set up again to rejoin. Changes it already sent stay.`)) return;
         try {
           await run("sync.forget_device", { device_id: d.id });
+          notice = `${d.name || "The device"} was removed from the folder.`;
           await show();
         } catch (e) {
           failed(msg, e);
@@ -314,7 +322,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       try {
         const r = await run<{ all?: { downloaded: number; linked: number; failed?: unknown[]; waiting: number } }>("sync.fetch", { all: true });
         const n = (r.all?.downloaded ?? 0) + (r.all?.linked ?? 0);
-        msg.ok(`${n} book${n === 1 ? "" : "s"} and module${n === 1 ? "" : "s"} now on this device.${r.all?.waiting ? ` ${r.all.waiting} still on the way from your sync service.` : ""}`);
+        notice = `${n} book${n === 1 ? "" : "s"} and module${n === 1 ? "" : "s"} now on this device.${r.all?.waiting ? ` ${r.all.waiting} still on the way from your sync service.` : ""}`;
         syncNow.progress = null;
         await show();
       } catch (e) {
@@ -330,7 +338,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       onChange: async (v) => {
         try {
           await run("sync.books", { mode: v });
-          msg.ok(v === "all" ? "Every book will be kept on this device." : "Books from other devices download when you open them.");
+          notice = v === "all" ? "Every book will be kept on this device." : "Books from other devices download when you open them.";
           void show();
         } catch (e) {
           failed(msg, e);
@@ -346,7 +354,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
   async function loadConflicts(host: HTMLElement, msg: Message) {
     let list: SyncConflict[] = [];
     try {
-      list = await run<SyncConflict[]>("sync.conflicts");
+      list = (await run<SyncConflict[] | null>("sync.conflicts")) ?? [];
     } catch {
       return;
     }
@@ -355,13 +363,15 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       h("h3", {}, "Changed on two devices"),
       h("p", { class: "hint" }, "These were edited on another device as well. The newer edit is shown; the other version is kept in the item's history."),
       h("ul", { class: "plain sync-conflict-list" }, list.map((c) => {
-        const to = c.object_type === "note" ? `#notes/note/${c.object_id}` : c.object_type === "document" ? `#sermons/${c.object_id}` : "";
+        const to = c.object_type === "notes" ? `#notes/note/${c.object_id}` : c.object_type === "documents" ? `#sermons/${c.object_id}` : "";
         return h("li", { class: "sync-conflict", "data-conflict": c.object_id },
           h("span", {}, conflictLine(c)), " ",
+          h("details", { class: "sync-kept" }, h("summary", {}, "Show the replaced text"), h("pre", {}, c.text)),
           to ? button("Open", () => { location.hash = to; }) : null,
           button("Dismiss", async () => {
             try {
               await run("sync.conflicts.dismiss", { id: c.id });
+              notice = "Dismissed. The other version stays in the history.";
               void show();
             } catch (e) {
               failed(msg, e);
