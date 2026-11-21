@@ -21,6 +21,9 @@ func (s *Snapshot) Read() (*Result, error) {
 	if err := s.readPrayerLists(res); err != nil {
 		return nil, err
 	}
+	if err := s.readSermons(res); err != nil {
+		return nil, err
+	}
 	if err := s.readPlans(res, cat); err != nil {
 		return nil, err
 	}

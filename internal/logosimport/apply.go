@@ -61,7 +61,7 @@ func live(ctx context.Context, env *command.Env, table, id string) bool {
 // ImportParams are logos.import's parameters.
 type ImportParams struct {
 	Folder string   `json:"folder,omitempty" desc:"A folder holding Logos's Data and Documents folders; leave out to look where Logos keeps them"`
-	Kinds  []string `json:"kinds,omitempty" desc:"Only these kinds: note, highlight, clipping, passage_list, word_list, prayer_list, reading_plan; default all"`
+	Kinds  []string `json:"kinds,omitempty" desc:"Only these kinds: note, highlight, clipping, passage_list, word_list, prayer_list, reading_plan, sermon; default all"`
 }
 
 // KindResult is what an import did with one kind.
@@ -89,6 +89,10 @@ type importRun struct {
 	kinds    map[Kind]*KindResult
 	folders  int
 	failures []string
+	// Sermons: the Bibles installed in Glossa, and what had to be said about verse quotes.
+	bibles       []bibleMod
+	biblesLoaded bool
+	notes        map[string]int
 }
 
 func (s *service) importCmd(ctx context.Context, env *command.Env, p ImportParams) (ImportResult, error) {
@@ -107,7 +111,7 @@ func (s *service) importCmd(ctx context.Context, env *command.Env, p ImportParam
 	if err != nil {
 		return ImportResult{}, err
 	}
-	r := &importRun{id: store.NewID(), kinds: map[Kind]*KindResult{}}
+	r := &importRun{id: store.NewID(), kinds: map[Kind]*KindResult{}, notes: map[string]int{}}
 	for _, k := range Kinds {
 		r.kinds[k] = &KindResult{Kind: k, Label: KindLabels[k]}
 	}
@@ -154,6 +158,9 @@ func (s *service) importCmd(ctx context.Context, env *command.Env, p ImportParam
 		}
 	}
 	for text, n := range res.Notes {
+		result.Notes = append(result.Notes, noteLine(text, n))
+	}
+	for text, n := range r.notes {
 		result.Notes = append(result.Notes, noteLine(text, n))
 	}
 	sort.Strings(result.Notes)
@@ -267,6 +274,8 @@ func (s *service) apply(ctx context.Context, env *command.Env, r *importRun, log
 		return s.applyHighlight(ctx, env, r, log, it, prev, seen)
 	case KindPassageList, KindWordList:
 		return s.applyList(ctx, env, r, log, it, prev, seen)
+	case KindSermon:
+		return s.applySermon(ctx, env, r, log, it, folderID, prev, seen)
 	case KindReadingPlan:
 		if it.Plan != nil {
 			return s.applyPlan(ctx, env, r, log, it, prev, seen)

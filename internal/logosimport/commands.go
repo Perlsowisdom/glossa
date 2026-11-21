@@ -49,7 +49,7 @@ func (s *service) find(_ context.Context, _ *command.Env, p FindParams) (FindRes
 // KindLabels are the plain names the interface shows for each kind.
 var KindLabels = map[Kind]string{
 	KindNote: "Notes", KindHighlight: "Highlights", KindClipping: "Clippings", KindPassageList: "Passage lists",
-	KindWordList: "Word lists", KindPrayerList: "Prayer lists", KindReadingPlan: "Reading plans",
+	KindWordList: "Word lists", KindPrayerList: "Prayer lists", KindReadingPlan: "Reading plans", KindSermon: "Sermons",
 }
 
 // Sample is one thing shown in the preview.
@@ -122,7 +122,36 @@ func (s *service) preview(ctx context.Context, env *command.Env, p PreviewParams
 			return PreviewResult{}, err
 		}
 	}
-	return buildPreview(res, root, log), nil
+	out := buildPreview(res, root, log)
+	// Verse quotes need the same Bible installed in Glossa; say now which are missing.
+	var mods []bibleMod
+	loaded := false
+	missing := map[string]int{}
+	for _, it := range res.Items {
+		if it.Sermon == nil {
+			continue
+		}
+		for _, b := range it.Sermon.Blocks {
+			if b.Quote == nil {
+				continue
+			}
+			if !loaded {
+				mods, loaded = s.installedBibles(ctx, env), true
+			}
+			if _, ok := matchBible(mods, *b.Quote); !ok {
+				name := b.Quote.bibleName()
+				if name == "" {
+					name = "a Bible"
+				}
+				missing[fmt.Sprintf("verse quotes that will be plain quotes with their reference, because %s is not installed in Glossa", name)]++
+			}
+		}
+	}
+	for text, n := range missing {
+		out.Notes = append(out.Notes, noteLine(text, n))
+	}
+	sort.Strings(out.Notes)
+	return out, nil
 }
 
 const sampleCount = 5
