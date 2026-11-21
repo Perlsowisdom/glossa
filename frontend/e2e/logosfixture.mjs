@@ -36,7 +36,9 @@ function db(dir, rel) {
 }
 
 // makeLogosFolder builds <tmp>/glossa-logos-fixture-*/{Data,Documents}/e2euser and returns the root.
-export function makeLogosFolder() {
+// bible is a Bible installed in the test library ({ abbreviation, name }); the fixture sermon quotes
+// it, so the import can copy that verse with its credit line.
+export function makeLogosFolder(bible = { abbreviation: "ESV", name: "English Standard Version" }) {
   const root = mkdtempSync(join(tmpdir(), "glossa-logos-fixture-"));
   const docs = join(root, "Documents", "e2euser");
   const data = join(root, "Data", "e2euser");
@@ -96,6 +98,32 @@ export function makeLogosFolder() {
       { date: "2024-02-15", readings: [[{ resourceId: "LLS:ESV", reference: "bible+nrsv.64.2" }]] },
       { date: "2024-02-16", readings: [[{ resourceId: "LLS:ESV", reference: "bible+nrsv.64.3" }]] },
     ]));
+  d.close();
+
+  d = db(docs, "Documents/Sermon/Sermon.db");
+  d.exec(`CREATE TABLE Documents (Id integer primary key autoincrement, ExternalId text, IsDeleted bool not null default 0,
+    ModifiedDate text not null, Title text, AuthorName text, ChurchTitle text, Series text, Date text, TagsJson text,
+    Notes text, Description text, SlideGroupJson text, IsTemplate bool not null default 0);
+    CREATE TABLE Blocks (Id integer primary key autoincrement, DocumentId integer not null, BlockId text not null,
+    IsDeleted bool not null default 0, Kind text not null, Indent int not null default 0, Content text, PassageJson text,
+    ClippingJson text, Rank integer not null);`);
+  const doc = d.prepare(`INSERT INTO Documents (ExternalId, ModifiedDate, Title, Series, Date, TagsJson, Notes, IsTemplate)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  doc.run("s1", "2024-03-12T10:00:00-04:00", "Nothing can separate us", "Romans 8", "2024-03-10T00:00:00",
+    JSON.stringify({ referenceTags: [{ raw: "bible.66.8.28-66.8.30", text: "Romans 8:28-30" }, { raw: "bible.64.3.16" }], topicTags: [] }),
+    run("Remember to slow down here"), 0);
+  doc.run("s2", "2024-04-01T00:00:00Z", "A short word on John", null, null, null, null, 0);
+  doc.run("s3", "2024-04-02T00:00:00Z", "Sermon template", null, null, null, null, 1);
+  const block = d.prepare(`INSERT INTO Blocks (DocumentId, BlockId, Kind, Indent, Content, PassageJson, Rank) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const passage = (raw, text, title, abbr) => JSON.stringify({ reference: { raw, text }, resource: { id: "LLS:X", title, abbreviatedTitle: abbr } });
+  block.run(1, "b1", "heading1", 0, run("God works for good"), null, 1);
+  block.run(1, "b2", "normal", 0, run("Paul says it plainly.", 'FontBold="True"'), null, 2);
+  block.run(1, "b3", "passage", 0, null, passage("bible+x.66.8.28", "Romans 8:28", bible.name, bible.abbreviation), 3);
+  block.run(1, "b4", "heading2", 0, run("Called"), null, 4);
+  block.run(1, "b5", "bullet", 0, run("first"), null, 5);
+  block.run(1, "b6", "bullet", 0, run("second"), null, 6);
+  block.run(1, "b7", "passage", 0, null, passage("bible+esv.66.8.30", "Romans 8:30", "English Standard Version", "ESV"), 7);
+  block.run(2, "b1", "normal", 0, run("God so loved the world."), null, 1);
   d.close();
   return root;
 }

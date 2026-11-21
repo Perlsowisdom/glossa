@@ -266,7 +266,7 @@ func TestImportOnlySomeKinds(t *testing.T) {
 	if h.count(`SELECT COUNT(*) FROM notes`) != 0 || h.count(`SELECT COUNT(*) FROM highlights`) != 1 {
 		t.Errorf("kinds filter ignored: %+v", rep.Kinds)
 	}
-	if err := h.run("logos.import", map[string]any{"folder": h.src.Root, "kinds": []string{"sermon"}}, nil); err == nil {
+	if err := h.run("logos.import", map[string]any{"folder": h.src.Root, "kinds": []string{"bogus"}}, nil); err == nil {
 		t.Error("an unknown kind should be refused")
 	}
 	if err := h.run("logos.import", map[string]any{"folder": t.TempDir()}, nil); err == nil {

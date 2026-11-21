@@ -24,10 +24,11 @@ const (
 	KindWordList    Kind = "word_list"
 	KindPrayerList  Kind = "prayer_list"
 	KindReadingPlan Kind = "reading_plan"
+	KindSermon      Kind = "sermon"
 )
 
 // Kinds lists the kinds in the order they are shown.
-var Kinds = []Kind{KindNote, KindHighlight, KindClipping, KindPassageList, KindWordList, KindPrayerList, KindReadingPlan}
+var Kinds = []Kind{KindNote, KindHighlight, KindClipping, KindPassageList, KindWordList, KindPrayerList, KindReadingPlan, KindSermon}
 
 // FromLogosTag marks what came from a book in Logos.
 const FromLogosTag = "from-logos"
@@ -54,6 +55,7 @@ type Item struct {
 	Highlight *HighlightData
 	List      *ListData
 	Plan      *PlanData
+	Sermon    *SermonData
 }
 
 // NoteData is a note to make.

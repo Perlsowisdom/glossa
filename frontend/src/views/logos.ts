@@ -36,7 +36,7 @@ export function logosSection(): { el: HTMLElement; show: () => void } {
         k.samples.length ? h("ul", { class: "plain logos-samples" }, k.samples.map((s) => h("li", {},
           s.title || "(untitled)", s.text && s.text !== s.title ? h("span", { class: "hint" }, " — ", s.text) : null,
           sampleStatus(s) ? h("span", { class: "hint" }, ` (${sampleStatus(s)})`) : null))) : null))),
-      p.folders ? h("p", { class: "hint" }, `${p.folders} folder${p.folders === 1 ? "" : "s"} will be made for your notebooks and clippings.`) : null,
+      p.folders ? h("p", { class: "hint" }, `${p.folders} folder${p.folders === 1 ? "" : "s"} will be made for your notebooks, clippings and sermons.`) : null,
       p.unmapped.length ? h("details", { class: "more logos-unmapped" },
         h("summary", {}, `Not imported (${p.unmapped.reduce((n, g) => n + g.count, 0)})`),
         h("p", { class: "hint" }, "Glossa has no place for these, or they are not yours. They stay in Logos."),
@@ -55,6 +55,7 @@ export function logosSection(): { el: HTMLElement; show: () => void } {
     msg.ok(reportSummary(rep));
     clear(result,
       h("ul", { class: "plain logos-report" }, rep.kinds.map((k) => h("li", {}, reportLine(k)))),
+      rep.notes.length ? h("ul", { class: "plain hint logos-report-notes" }, rep.notes.map((n) => h("li", {}, n))) : null,
       rep.failures?.length ? h("ul", { class: "plain msg error" }, rep.failures.map((f) => h("li", {}, f))) : null,
       h("div", { class: "row wrap" }, button("Undo this import", () => void undo(rep.run_id), { id: "logos-undo" })));
     current = undefined;
@@ -88,7 +89,7 @@ export function logosSection(): { el: HTMLElement; show: () => void } {
 
   const el = h("section", { class: "card", id: "logos-card", "aria-labelledby": "logos-h" },
     h("h2", { id: "logos-h" }, "Import from Logos"),
-    h("p", { class: "hint" }, "Bring in your own notes, highlights, clippings, lists and reading plans. Glossa reads a copy of your Logos files, shows you what it found, and imports only after you say so. Running it again adds only what is new or changed. Logos books themselves cannot be imported."),
+    h("p", { class: "hint" }, "Bring in your own notes, highlights, clippings, lists, reading plans and sermons. Glossa reads a copy of your Logos files, shows you what it found, and imports only after you say so. Running it again adds only what is new or changed. Logos books themselves cannot be imported."),
     h("div", { class: "row wrap" },
       button("Look for my Logos data", () => void preview(), { class: "primary", id: "logos-find" })),
     h("details", { class: "more-options" }, h("summary", {}, "Use another folder"),
