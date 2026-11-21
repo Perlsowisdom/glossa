@@ -46,6 +46,24 @@ func (s *Store) DeviceName(ctx context.Context, id string) (string, error) {
 	return n, err
 }
 
+// Devices maps the ID of every device this library knows of to its name.
+func (s *Store) Devices(ctx context.Context) (map[string]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name FROM devices`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out[id] = name
+	}
+	return out, rows.Err()
+}
+
 // SyncState reads one of this device's sync bookkeeping values.
 func (s *Store) SyncState(ctx context.Context, key string) (string, bool, error) {
 	var v string
@@ -199,7 +217,7 @@ func (s *Store) CountObjects(ctx context.Context) (map[string]int, error) {
 func countObjects(_ context.Context, s *Store, run func(string) (*sql.Row, error)) (map[string]int, error) {
 	out := map[string]int{}
 	for name, tb := range s.tables {
-		if localOnlyTable(name) {
+		if localOnlyTable(name) || name == "settings" {
 			continue
 		}
 		q := "SELECT COUNT(*) FROM " + name
@@ -278,13 +296,15 @@ func (s *Store) ApplyRemote(ctx context.Context, dryRun bool, fn func(*Remote) e
 	return tx.Commit()
 }
 
-// EnsureDevice records another device (its changes refer to it) and its current name.
+// EnsureDevice records another device (its changes refer to it) and its current name. Pass the ID
+// as the name when the name is not known: a known name is kept.
 func (r *Remote) EnsureDevice(id, name string) error {
 	if id == "" {
 		return errors.New("store: device without an ID")
 	}
 	_, err := r.tx.ExecContext(r.ctx, `INSERT INTO devices (id, name, created_at) VALUES (?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET name = excluded.name`, id, name, nowMS())
+		ON CONFLICT(id) DO UPDATE SET name = CASE WHEN excluded.name = excluded.id THEN devices.name ELSE excluded.name END`,
+		id, name, nowMS())
 	return err
 }
 
@@ -512,6 +532,36 @@ func (r *Remote) materialize(ref objRef, text []string) (Merged, error) {
 				}
 			} else {
 				exists, row = false, nil
+			}
+		}
+	}
+
+	if len(isText) > 0 {
+		// Conflicts are a function of the whole history, not of the order changes arrived in: drop
+		// any recorded from an earlier, partial view of it.
+		keep := map[string]bool{}
+		for _, c := range m.Conflicts {
+			keep[c.Loser.ID+":"+c.Winner.ID] = true
+		}
+		rows, err := r.tx.QueryContext(r.ctx, `SELECT id FROM sync_conflicts WHERE object_type = ? AND object_id = ?`, ref.typ, ref.id)
+		if err != nil {
+			return m, err
+		}
+		var stale []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return m, err
+			}
+			if !keep[id] {
+				stale = append(stale, id)
+			}
+		}
+		rows.Close()
+		for _, id := range stale {
+			if _, err := r.tx.ExecContext(r.ctx, `DELETE FROM sync_conflicts WHERE id = ?`, id); err != nil {
+				return m, err
 			}
 		}
 	}
