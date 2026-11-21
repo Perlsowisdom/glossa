@@ -22,6 +22,8 @@ func Register(r *command.Registry) {
 		command.Define("logos.find", "Look for the Logos data on this computer. Nothing is read beyond the folder names.", false, s.find),
 		command.Define("logos.preview", "Count what could be imported from your own Logos data, with samples and what cannot be placed and why. Reads a temporary copy; changes nothing.", false, s.preview),
 		command.Define("logos.import", "Import your notes, highlights, clippings, lists and plans from Logos. Running it again adds only what is new or changed. Logos is never changed.", true, s.importCmd),
+		command.Define("logos.library_refresh", "Read the list of books in your Logos library (title, author, type, ID and rights fields only) from a fresh temporary copy of its catalogue, and keep it. Never opens a book. Logos is never changed.", true, s.refreshLibrary),
+		command.Define("logos.library", "List the books in your Logos library as last read, with search, sort and a filter, each with a link that opens it in Logos. Public-domain books show a free copy Glossa can get, when one is known.", false, s.library),
 		command.Define("logos.runs", "List the earlier imports from Logos, newest first.", false, s.runs),
 		command.Define("logos.undo", "Take back one import from Logos: what it added goes to the bin, and later changes you made to it are kept in its history.", true, s.undo),
 	)

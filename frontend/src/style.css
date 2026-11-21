@@ -1708,3 +1708,10 @@ button.danger-link { color: var(--bad); margin-top: 8px; display: block; }
 .update-banner { position: fixed; right: 16px; bottom: 16px; z-index: 40; max-width: 380px; padding: 12px 14px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / .22); }
 .update-banner p { margin: 0 0 8px; }
 .update-banner .row { gap: 8px; flex-wrap: wrap; }
+
+/* Library → From Logos: sortable column headers are buttons that look like the header text. */
+table.list th .th-sort { font: inherit; color: inherit; padding: 0; text-decoration: none; }
+table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descending"] .th-sort { color: var(--text, inherit); }
+.fromlogos-table .free-cell { min-width: 14rem; }
+.fromlogos-view .row select { width: auto; min-width: 12rem; }
+.fromlogos-view .row .grow { min-width: 16rem; }
