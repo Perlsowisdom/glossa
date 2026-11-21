@@ -19,6 +19,37 @@ func localOnlyTable(name string) bool {
 	return name == "changes" || name == "devices" || strings.HasPrefix(name, "sync_")
 }
 
+// perDeviceTable is a table whose rows describe one device: paths on its disks. Writes to it are
+// logged like any other, but never sent to another device, and changes for it that arrive are
+// ignored. What travels for books is shared_files instead (ADR 0013, T20b).
+func perDeviceTable(name string) bool { return name == "files" || name == "library_folders" }
+
+// perDeviceSettings are settings that only mean something on the device that made them. A name
+// ending in a dot is a prefix.
+var perDeviceSettings = []string{"device_id", "library.search_roots", "library.scanned_at.", "backup.schedule"}
+
+func perDeviceObject(typ, id string) bool {
+	if perDeviceTable(typ) {
+		return true
+	}
+	if typ == "settings" {
+		var key []string
+		if json.Unmarshal([]byte(id), &key) != nil || len(key) != 1 {
+			return false
+		}
+		for _, p := range perDeviceSettings {
+			if key[0] == p || strings.HasSuffix(p, ".") && strings.HasPrefix(key[0], p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// syncableSQL is a WHERE condition on the changes table that leaves out per-device objects.
+const syncableSQL = `object_type NOT IN ('files', 'library_folders') AND NOT (object_type = 'settings' AND
+	(object_id IN ('["device_id"]', '["library.search_roots"]', '["backup.schedule"]') OR object_id LIKE '["library.scanned\_at.%' ESCAPE '\'))`
+
 // SetNow replaces the wall clock this store's hybrid clock reads, so tests can simulate a device
 // whose clock is wrong. The function returns UTC milliseconds.
 func (s *Store) SetNow(now func() int64) {
@@ -97,7 +128,7 @@ func setState(ctx context.Context, db execer, key, value string) error {
 // Changes received from other devices are never returned, so each change travels from the device
 // that made it.
 func (s *Store) LocalChanges(ctx context.Context, after string, limit int) ([]Change, error) {
-	rows, err := s.db.QueryContext(ctx, changeSelect+` WHERE device_id = ? AND hlc > ? ORDER BY hlc LIMIT ?`,
+	rows, err := s.db.QueryContext(ctx, changeSelect+` WHERE device_id = ? AND hlc > ? AND `+syncableSQL+` ORDER BY hlc LIMIT ?`,
 		s.device, after, limit)
 	if err != nil {
 		return nil, err
@@ -108,7 +139,7 @@ func (s *Store) LocalChanges(ctx context.Context, after string, limit int) ([]Ch
 // CountLocalChanges counts this device's own changes made after the clock value after.
 func (s *Store) CountLocalChanges(ctx context.Context, after string) (int, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM changes WHERE device_id = ? AND hlc > ?`, s.device, after).Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM changes WHERE device_id = ? AND hlc > ? AND `+syncableSQL, s.device, after).Scan(&n)
 	return n, err
 }
 
@@ -143,7 +174,7 @@ func scanChanges(rows *sql.Rows) ([]Change, error) {
 // drop their "before" value, so a device that starts from the snapshot does not mistake the gap
 // for a text conflict. Values erased by a purge stay erased.
 func (s *Store) SnapshotChanges(ctx context.Context) ([]Change, error) {
-	rows, err := s.db.QueryContext(ctx, changeSelect+` ORDER BY object_type, object_id, hlc`)
+	rows, err := s.db.QueryContext(ctx, changeSelect+` WHERE `+syncableSQL+` ORDER BY object_type, object_id, hlc`)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +248,7 @@ func (s *Store) CountObjects(ctx context.Context) (map[string]int, error) {
 func countObjects(_ context.Context, s *Store, run func(string) (*sql.Row, error)) (map[string]int, error) {
 	out := map[string]int{}
 	for name, tb := range s.tables {
-		if localOnlyTable(name) || name == "settings" {
+		if localOnlyTable(name) || perDeviceTable(name) || name == "settings" {
 			continue
 		}
 		q := "SELECT COUNT(*) FROM " + name
@@ -332,6 +363,9 @@ func (r *Remote) Counts() (map[string]int, error) {
 func (r *Remote) Insert(c Change) (bool, error) {
 	if c.ID == "" || c.Device == "" || c.HLC == "" || c.ObjectType == "" || c.ObjectID == "" {
 		return false, errors.New("incomplete change record")
+	}
+	if perDeviceObject(c.ObjectType, c.ObjectID) {
+		return false, nil // paths and settings of another device mean nothing here
 	}
 	tb, ok := r.s.tables[c.ObjectType]
 	if !ok || localOnlyTable(c.ObjectType) {
@@ -725,3 +759,6 @@ func parseObjectID(tb table, id string) (Row, error) {
 	}
 	return key, nil
 }
+
+// PerDevice tells whether a change to this object stays on the device that made it.
+func PerDevice(objectType, objectID string) bool { return perDeviceObject(objectType, objectID) }

@@ -76,6 +76,21 @@ type Engine struct {
 	// CompactAfter is how many change files of this device pile up before a snapshot is made and the
 	// old files removed.
 	CompactAfter int
+
+	// Local says where books and modules from other devices are kept. Without it they are not downloaded.
+	Local Locations
+	// BlobChunk is the size of one piece of a large file in the folder (default 4 MiB); memory use
+	// while sending or receiving is about one piece.
+	BlobChunk int
+	// BlobGrace is how long a deleted book stays in the folder before it is removed, so the bin can
+	// still restore it (default 30 days).
+	BlobGrace time.Duration
+	// OnProgress, if set, is called as bytes of books and modules move. It must not block.
+	OnProgress func(BlobProgress)
+
+	fmu  gosync.Mutex // one download or removal of files at a time
+	pmu  gosync.Mutex
+	prog BlobProgress
 }
 
 // Initialize sets up an empty folder for sync: it makes the key file with a random salt, and
@@ -129,7 +144,8 @@ func Open(ctx context.Context, st *store.Store, t Transport, password string) (*
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{st: st, t: t, key: key, Now: time.Now, ChunkSize: defaultChunk, CompactAfter: defaultCompact}, nil
+	return &Engine{st: st, t: t, key: key, Now: time.Now, ChunkSize: defaultChunk, CompactAfter: defaultCompact,
+		BlobChunk: defaultBlobChunk, BlobGrace: 30 * 24 * time.Hour}, nil
 }
 
 // Summary counts what a merge did, or would do, on this device.
@@ -144,11 +160,12 @@ type Summary struct {
 
 // Result is what a sync did.
 type Result struct {
-	Pulled    Summary `json:"pulled"`
-	Pushed    int     `json:"pushed" desc:"Changes from this device written to the folder"`
-	Files     int     `json:"files" desc:"Change files written"`
-	Compacted bool    `json:"compacted"`
-	At        int64   `json:"at"`
+	Pulled    Summary    `json:"pulled"`
+	Pushed    int        `json:"pushed" desc:"Changes from this device written to the folder"`
+	Files     int        `json:"files" desc:"Change files written"`
+	Compacted bool       `json:"compacted"`
+	Blobs     BlobResult `json:"blobs" desc:"Books, Bibles and modules: what moved between this device and the folder"`
+	At        int64      `json:"at"`
 }
 
 // Preview says what the first (or next) sync would do, without doing any of it.
@@ -394,6 +411,9 @@ func (e *Engine) pull(ctx context.Context, dryRun bool) (pullInfo, error) {
 				if err := r.EnsureDevice(c.Device, c.Device); err != nil {
 					return err
 				}
+				if store.PerDevice(c.ObjectType, c.ObjectID) {
+					continue // another device's paths and settings are not ours to apply
+				}
 				key := c.ObjectType + "\x00" + c.ObjectID
 				switch {
 				case c.Op == "create":
@@ -519,9 +539,18 @@ func (e *Engine) Sync(ctx context.Context) (Result, error) {
 		return res, err
 	}
 	res.Pulled = pulled.sum
+	if err := e.indexLocal(ctx, &res.Blobs); err != nil {
+		return res, err
+	}
+	if err := e.uploadAll(ctx, &res.Blobs); err != nil {
+		return res, err
+	}
 	pushed, files, purge, err := e.push(ctx)
 	res.Pushed, res.Files = pushed, files
 	if err != nil {
+		return res, err
+	}
+	if err := e.receiveFiles(ctx, &res.Blobs); err != nil {
 		return res, err
 	}
 	if purge || pulled.sum.Purged > 0 || e.ownFileCount(ctx) > e.CompactAfter {
@@ -529,6 +558,9 @@ func (e *Engine) Sync(ctx context.Context) (Result, error) {
 			return res, err
 		}
 		res.Compacted = true
+	}
+	if err := e.collectBlobs(ctx, &res.Blobs); err != nil {
+		return res, err
 	}
 	res.At = e.Now().UnixMilli()
 	err = e.st.SetSyncState(ctx, stateLastSync, fmt.Sprint(res.At))
@@ -689,8 +721,9 @@ type DeviceInfo struct {
 
 // Usage lists the devices seen in the folder and how much space the folder uses.
 type Usage struct {
-	Devices []DeviceInfo `json:"devices"`
-	Bytes   int64        `json:"bytes" desc:"Everything in the Glossa Sync folder"`
+	Devices   []DeviceInfo `json:"devices"`
+	Bytes     int64        `json:"bytes" desc:"Everything in the Glossa Sync folder"`
+	BlobBytes int64        `json:"blob_bytes" desc:"Of which books and modules"`
 }
 
 // Devices lists the devices that have written to the folder, and the space used.
@@ -729,6 +762,7 @@ func (e *Engine) Devices(ctx context.Context) (Usage, error) {
 			sub, _ := e.t.List(ctx, "blobs")
 			for _, s := range sub {
 				u.Bytes += s.Size
+				u.BlobBytes += s.Size
 			}
 		}
 	}

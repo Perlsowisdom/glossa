@@ -25,8 +25,11 @@ var setupKDF = DefaultKDF
 // Register adds the sync commands. The password is held in memory for the session, and in the
 // operating system keychain only when the person asks to remember it; it is never written to
 // library.db, a file or a log, and never appears in an error.
-func Register(r *command.Registry, keys secrets.Store) {
+func Register(r *command.Registry, keys secrets.Store, where ...Locations) {
 	m := &manager{keys: keys}
+	if len(where) > 0 {
+		m.loc = where[0]
+	}
 	r.Add(
 		command.Define("sync.password.strength", "Rate a sync password: whether it is long enough, and a hint for choosing a better one. Sends nothing anywhere.", false, passwordStrength),
 		command.Define("sync.setup", "Choose the folder to sync through and its password. Makes a new sync folder, or joins one another device made. Does not merge anything yet: run sync.preview, then sync.now.", false, m.setup),
@@ -39,6 +42,9 @@ func Register(r *command.Registry, keys secrets.Store) {
 		command.Define("sync.compact", "Write a snapshot and remove this device's old change files, so new devices start quickly and deleted-for-good text leaves the folder.", false, m.compact),
 		command.Define("sync.conflicts", "List text edits (notes, sermons) that were replaced by a newer edit on another device. The replaced text is kept in the history.", false, m.conflicts),
 		command.Define("sync.conflicts.dismiss", "Mark a replaced edit as dealt with. The text stays in the history.", false, m.dismiss),
+		command.Define("sync.books", "Show, and with mode change, whether this device downloads every book at sync time (all) or only when a book is opened (opened). Also counts the books and modules shared and how many are on this device.", false, m.books),
+		command.Define("sync.fetch", "Download a book that came from another device and is not on this one yet (what opening it does), or with all every book and module not here yet. Reports progress through sync.progress.", false, m.fetch),
+		command.Define("sync.progress", "Show how far the current book or module transfer has got: bytes and files done and in total.", false, m.progress),
 		command.Define("sync.stop", "Turn sync off on this device. The folder and every library are left as they are; the saved password is forgotten.", false, m.stop),
 	)
 	r.OnClose(m.close)
@@ -50,6 +56,7 @@ type manager struct {
 	eng  *Engine
 	st   *store.Store // the library eng works on
 	fold string       // its folder
+	loc  Locations    // where books and modules from other devices go
 }
 
 func (m *manager) close() {
@@ -119,6 +126,7 @@ func (m *manager) engine(ctx context.Context, env *command.Env, folder, pw strin
 	if err != nil {
 		return nil, folder, err
 	}
+	e.Local = m.loc
 	m.eng, m.st, m.fold = e, env.Store, folder
 	return e, folder, nil
 }
@@ -147,18 +155,20 @@ type SetupParams struct {
 }
 
 type Status struct {
-	Configured     bool         `json:"configured"`
-	Folder         string       `json:"folder,omitempty"`
-	DeviceID       string       `json:"device_id"`
-	DeviceName     string       `json:"device_name"`
-	Unlocked       bool         `json:"unlocked" desc:"The password is available, so sync can run"`
-	PasswordSaved  bool         `json:"password_saved" desc:"The password is in the credential store"`
-	LastSync       int64        `json:"last_sync,omitempty" desc:"UTC milliseconds"`
-	PendingChanges int          `json:"pending_changes" desc:"Changes on this device not yet in the folder"`
-	Conflicts      int          `json:"conflicts" desc:"Replaced text edits not yet dismissed"`
-	FolderBytes    int64        `json:"folder_bytes,omitempty"`
-	Devices        []DeviceInfo `json:"devices,omitempty"`
-	FolderError    string       `json:"folder_error,omitempty" desc:"Why the folder could not be read, in plain words"`
+	Configured     bool          `json:"configured"`
+	Folder         string        `json:"folder,omitempty"`
+	DeviceID       string        `json:"device_id"`
+	DeviceName     string        `json:"device_name"`
+	Unlocked       bool          `json:"unlocked" desc:"The password is available, so sync can run"`
+	PasswordSaved  bool          `json:"password_saved" desc:"The password is in the credential store"`
+	LastSync       int64         `json:"last_sync,omitempty" desc:"UTC milliseconds"`
+	PendingChanges int           `json:"pending_changes" desc:"Changes on this device not yet in the folder"`
+	Conflicts      int           `json:"conflicts" desc:"Replaced text edits not yet dismissed"`
+	FolderBytes    int64         `json:"folder_bytes,omitempty"`
+	Devices        []DeviceInfo  `json:"devices,omitempty"`
+	FolderError    string        `json:"folder_error,omitempty" desc:"Why the folder could not be read, in plain words"`
+	Books          *FileStats    `json:"books,omitempty" desc:"Shared books and modules, and how many are on this device"`
+	Progress       *BlobProgress `json:"progress,omitempty" desc:"A book or module transfer under way, or the last one"`
 }
 
 func (m *manager) setup(ctx context.Context, env *command.Env, p SetupParams) (Status, error) {
@@ -199,6 +209,7 @@ func (m *manager) setup(ctx context.Context, env *command.Env, p SetupParams) (S
 		_ = m.keys.Delete(secretName)
 		_ = env.Store.SetSyncState(ctx, rememberFlag, "")
 	}
+	e.Local = m.loc
 	m.mu.Lock()
 	m.eng, m.st, m.fold = e, env.Store, p.Folder
 	m.mu.Unlock()
@@ -313,6 +324,13 @@ func (m *manager) status(ctx context.Context, env *command.Env, _ struct{}) (Sta
 		} else {
 			s.Devices, s.FolderBytes = u.Devices, u.Bytes
 		}
+		if e, _, err := m.engine(ctx, env, "", ""); err == nil {
+			if fs, err := e.Stats(ctx); err == nil {
+				s.Books = &fs
+			}
+			p := e.Progress()
+			s.Progress = &p
+		}
 	}
 	return s, nil
 }
@@ -404,4 +422,71 @@ func (m *manager) stop(ctx context.Context, env *command.Env, _ struct{}) (Done,
 		}
 	}
 	return Done{true}, nil
+}
+
+type BooksParams struct {
+	Mode string `json:"mode,omitempty" enum:"all,opened" desc:"Keep books on this device: all (download at sync time) or opened (download when opened). Leave out to just look"`
+}
+
+func (m *manager) books(ctx context.Context, env *command.Env, p BooksParams) (FileStats, error) {
+	if err := needStore(env); err != nil {
+		return FileStats{}, err
+	}
+	e, _, err := m.engine(ctx, env, "", "")
+	if err != nil {
+		return FileStats{}, fail(err)
+	}
+	if p.Mode != "" {
+		if err := e.SetBooksMode(ctx, p.Mode); err != nil {
+			return FileStats{}, command.Errorf("bad_params", "%v", err)
+		}
+	}
+	st, err := e.Stats(ctx)
+	return st, fail(err)
+}
+
+type FetchParams struct {
+	ItemID string `json:"item_id,omitempty" desc:"The book to download, from library.items"`
+	All    bool   `json:"all,omitempty" desc:"Download every book and module that is not on this device yet"`
+}
+
+type FetchResult struct {
+	Book *Fetched    `json:"book,omitempty"`
+	All  *BlobResult `json:"all,omitempty"`
+}
+
+func (m *manager) fetch(ctx context.Context, env *command.Env, p FetchParams) (FetchResult, error) {
+	var out FetchResult
+	if err := needStore(env); err != nil {
+		return out, err
+	}
+	if p.ItemID == "" && !p.All {
+		return out, command.Errorf("bad_params", "give item_id, or all")
+	}
+	e, _, err := m.engine(ctx, env, "", "")
+	if err != nil {
+		return out, fail(err)
+	}
+	if p.All {
+		r, err := e.FetchAll(ctx)
+		out.All = &r
+		return out, fail(err)
+	}
+	f, err := e.EnsureBook(ctx, p.ItemID)
+	if errors.Is(err, ErrNotShared) {
+		return out, command.Errorf("not_found", "%s", err.Error())
+	}
+	out.Book = &f
+	return out, fail(err)
+}
+
+func (m *manager) progress(ctx context.Context, env *command.Env, _ struct{}) (BlobProgress, error) {
+	m.mu.Lock()
+	e := m.eng
+	ok := e != nil && m.st == env.Store
+	m.mu.Unlock()
+	if !ok {
+		return BlobProgress{}, nil
+	}
+	return e.Progress(), nil
 }

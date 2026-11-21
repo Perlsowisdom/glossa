@@ -400,3 +400,13 @@ func readMapping(path string) ([]Mapping, error) {
 	}
 	return out, sc.Err()
 }
+
+// Release closes an open module without deleting its file, so the file can be replaced.
+func (l *Library) Release(id string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if m, ok := l.open[id]; ok {
+		m.Close()
+		delete(l.open, id)
+	}
+}
