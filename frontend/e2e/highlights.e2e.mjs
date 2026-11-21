@@ -4,6 +4,15 @@
 const ROM12 = 45012000;
 const v = (n) => ROM12 + n;
 
+// markBox waits for a verse's highlight to be on screen and the page to stop repainting (every open Bible reloads
+// its highlights after a change, and a box taken in the middle is null or moves), then gives its box.
+async function markBox(t, verse) {
+  const mark = t.page.locator(`.doc-bible .vt[data-tb="${verse}"] mark[data-hl]`).first();
+  await mark.waitFor({ state: "visible", timeout: 8000 });
+  await t.settled();
+  return mark.boundingBox();
+}
+
 // readRom12 shows Romans 12 in Read mode, its highlights cleared from the verses given.
 export async function readRom12(t, ...verses) {
   const { page, app } = t;
@@ -186,7 +195,7 @@ export default [
       await readRom12(t, 4, 5);
       const { a, b } = await highlightWords(t, [v(4), 2, -1], [v(5), 0, 3], "yellow");
       // Click the part in the second verse.
-      const box = await page.locator(`.doc-bible .vt[data-tb="${v(5)}"] mark[data-hl]`).first().boundingBox();
+      const box = await markBox(t, v(5));
       await page.mouse.click(box.x + 4, box.y + box.height / 2);
       const bar = page.locator(".mark-bar[aria-label=Highlight]");
       await bar.waitFor({ timeout: 5000 });
@@ -197,7 +206,7 @@ export default [
       await toolbar(page, "Highlight blue");
       await page.waitForFunction((n) => [...document.querySelectorAll(`.doc-bible .vt[data-tb="${n}"] mark[data-hl]`)].every((m) => m.classList.contains("hl-blue")), v(4));
       t.assert.ok((await marked(page, v(5)))[0][1].includes("hl-blue"), "both verses recoloured");
-      const box2 = await page.locator(`.doc-bible .vt[data-tb="${v(4)}"] mark[data-hl]`).first().boundingBox();
+      const box2 = await markBox(t, v(4));
       await page.mouse.click(box2.x + 4, box2.y + box2.height / 2);
       await toolbar(page, "Underline");
       await page.waitForFunction((n) => !!document.querySelector(`.doc-bible .vt[data-tb="${n}"] mark.hl-u`), v(5));
@@ -215,7 +224,7 @@ export default [
       const { page } = t;
       await readRom12(t, 6);
       await highlightWords(t, [v(6), 2, 6], null, "purple");
-      const box = await page.locator(`.doc-bible .vt[data-tb="${v(6)}"] mark[data-hl]`).first().boundingBox();
+      const box = await markBox(t, v(6));
       await page.mouse.click(box.x + 4, box.y + box.height / 2);
       await t.shot("hl-05a-before-remove.png");
       await toolbar(page, "Remove the highlight");

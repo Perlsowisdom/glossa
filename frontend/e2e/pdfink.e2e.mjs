@@ -212,6 +212,11 @@ const checks = [
       const pe = () => visibleBook(t).locator(".pdf-ink").first().evaluate((e) => getComputedStyle(e).pointerEvents);
       t.assert.equal(await pe(), "none", "ink does not catch the pointer while not writing, so text can be selected");
       const count = async () => ((await t.app.run("ink.page.get", { item_id: shared.pdf.id, page: 1 })).ink.strokes ?? []).length;
+      // counts waits for the saved page to hold n strokes (a stroke is handed over and saved a moment after the click), then asserts it.
+      const counts = async (n, msg) => {
+        for (const until = Date.now() + 8000; (await count()) !== n && Date.now() < until;) await page.waitForTimeout(100);
+        t.assert.equal(await count(), n, msg);
+      };
       // hide and show
       await paneMenu(t, "Hide ink");
       t.assert.equal(await visibleBook(t).locator(".pdf-ink:visible").count(), 0, "ink is hidden");
@@ -222,24 +227,20 @@ const checks = [
       await paneMenu(t, "Write on this PDF");
       const bar = visibleBook(t).locator(".pdf-ink-bar");
       await draw(t, [[0.1, 0.05], [0.9, 0.05]]);
-      t.assert.equal(await count(), 3, "a third stroke is saved");
+      await counts(3, "a third stroke is saved");
       await bar.locator("[aria-label='Undo last stroke']").click();
-      await page.waitForTimeout(400);
-      t.assert.equal(await count(), 2, "undo removes the last stroke from the saved page");
+      await counts(2, "undo removes the last stroke from the saved page");
       t.assert.equal((await inkBox(t)).strokes, 2);
       await bar.locator("[aria-label='Redo']").click();
-      await page.waitForTimeout(400);
-      t.assert.equal(await count(), 3, "redo puts it back");
+      await counts(3, "redo puts it back");
       // the eraser takes the whole stroke it crosses
       await bar.locator("[aria-label^='Eraser']").click();
       await draw(t, [[0.05, 0.05], [0.95, 0.05]]);
-      t.assert.equal(await count(), 2, "the eraser removed the stroke it crossed");
+      await counts(2, "the eraser removed the stroke it crossed");
       await page.keyboard.press("Control+z");
-      await page.waitForTimeout(400);
-      t.assert.equal(await count(), 3, "Ctrl+Z undoes the erasing");
+      await counts(3, "Ctrl+Z undoes the erasing");
       await bar.locator("[aria-label='Undo last stroke']").click();
-      await page.waitForTimeout(400);
-      t.assert.equal(await count(), 2, "back to the two strokes");
+      await counts(2, "back to the two strokes");
       // Done leaves writing and keeps the ink; hide stays hidden for the next check
       await bar.locator(".ink-done").click();
       t.assert.equal(await visibleBook(t).locator(".pdf-ink-bar:visible").count(), 0, "the strip is gone");

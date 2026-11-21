@@ -323,6 +323,7 @@ export default [
       await t.openNote("Visit [the site](https://example.com/glossa-e2e) or [write](mailto:e2e@example.com) today", "External link");
       const links = t.editor().locator("a.rt-link");
       await links.first().waitFor();
+      await t.settled(); // the note has finished drawing and saving; a redraw would detach the link under the click
       // Record the calls instead of opening a browser.
       await t.page.evaluate(() => {
         window.__opened = [];
@@ -333,7 +334,7 @@ export default [
       const here = await t.page.evaluate(() => location.href);
       await links.nth(0).click();
       await links.nth(1).click();
-      await t.page.waitForTimeout(300);
+      await t.page.waitForFunction(() => window.__opened.length >= 2, null, { timeout: 5000 });
       t.assert.equal(JSON.stringify(await t.page.evaluate(() => window.__opened)), JSON.stringify(["https://example.com/glossa-e2e", "mailto:e2e@example.com"]), "BrowserOpenURL got both links");
       t.assert.equal(await t.page.evaluate(() => window.__windows.length), 0, "no pop-up window was opened");
       t.assert.equal(await t.page.evaluate(() => location.href), here, "the app did not navigate");

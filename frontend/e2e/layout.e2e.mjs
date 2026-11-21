@@ -29,6 +29,7 @@ export default [
         ids.push(n.id);
         await openNoteInStudy(t, n.id, title);
       }
+      await t.settled(); // four tabs have just opened: measure once the tab bar stops moving
       const r = await page.evaluate(() => {
         const bar = [...document.querySelectorAll(".grid-pane")].find((p) => p.offsetParent && p.querySelector(".grid-tab"))?.querySelector(".grid-bar");
         const plus = bar.querySelector(".grid-plus").getBoundingClientRect();
