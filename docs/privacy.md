@@ -27,6 +27,26 @@ for its files: STEPBible's from `https://raw.githubusercontent.com/STEPBible/STE
 (GitHub), OpenBible.info's `https://a.openbible.info/data/cross-references.zip`. Their entries appear
 only while the catalogues are on.
 
+## Free books from CCEL (ccel.org)
+
+Off until you turn it on: the switch "Christian Classics Ethereal Library (ccel.org)" in Settings → Privacy, or
+`ccel.settings {"enable": true}`. Turning it off stops every request; the cached list stays on disk.
+
+Every request is an HTTPS `GET` (or `HEAD`) with the header `User-Agent: Glossa` and no cookies, account,
+identifier, search terms or information about your library. ccel.org sees your IP address and which pages and
+files you request. Glossa waits at least ten seconds between requests, as ccel.org's robots.txt asks. Terms and
+formats are in `docs/sources/ccel.md`.
+
+| When | Requests |
+| --- | --- |
+| You turn it on, and later when the list is more than a week old and you open From Logos or press refresh (`ccel.refresh`) | `https://ccel.org/index/title`: one page listing every book (titles and authors) |
+| You press Get free copy, before anything is downloaded (`ccel.get` with `preview`) | The first 32 KB of the book's file `https://ccel.org/ccel/<a>/<author>/<book>.xml` for its rights note, and `HEAD https://ccel.org/ccel/<a>/<author>/<book>/cache/<book>.epub` for the size |
+| You confirm (`ccel.get`) | The rights note again, then `https://ccel.org/ccel/<a>/<author>/<book>/cache/<book>.epub` |
+
+Only books whose rights note says "Public Domain" are downloaded. They are added to your library as public
+domain with a credit to CCEL. Matching From Logos books to CCEL books reads the cached list only and sends
+nothing, and nothing about your Logos library leaves your computer.
+
 ## Updates (T23, direct download only)
 
 Off until you turn it on: the first time Glossa starts, it asks once whether to check for updates, and
