@@ -30,13 +30,22 @@ export default [
     async run(t) {
       const { page } = t;
       root = makeLogosLibraryFolder();
+      // A list another file read stays in the library for good (there is no way to forget it), so the first-read
+      // path is only checked when nothing has read one yet; otherwise this check reads its own folder by command.
+      const first = (await t.app.run("logos.library", {})).refreshed === false;
+      if (!first) {
+        await t.app.run("logos.library_refresh", { folder: root });
+        await page.reload();
+        await page.waitForSelector(".shell", { timeout: 30000 });
+      }
       await openView(t);
-      t.assert.ok(await page.locator("#fromlogos-empty").isVisible(), "before reading there is an invitation to read the library");
-      t.assert.equal((await t.app.run("logos.library", {})).refreshed, false);
-      await t.shot("t22c-empty.png");
-      await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
-      await page.locator("#fromlogos-folder").fill(root);
-      await page.locator("#fromlogos-read").click();
+      if (first) {
+        t.assert.ok(await page.locator("#fromlogos-empty").isVisible(), "before reading there is an invitation to read the library");
+        await t.shot("t22c-empty.png");
+        await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
+        await page.locator("#fromlogos-folder").fill(root);
+        await page.locator("#fromlogos-read").click();
+      }
       await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
       await rows(page, 8);
       t.assert.match(await page.locator("#fromlogos-status").innerText(), /8 books · 4 public domain/);
@@ -99,6 +108,9 @@ export default [
     shot: "t22c-match.png",
     timeout: 240000,
     async run(t) {
+      // This check reads the fake library itself, so it does not depend on the check before it.
+      root ??= makeLogosLibraryFolder();
+      await t.app.run("logos.library_refresh", { folder: root });
       // A small fake SWORD repository, served from this machine, becomes the CrossWire source.
       const repo = mkdtempSync(join(tmpdir(), "glossa-e2e-repo-"));
       execFileSync("go", ["run", "./internal/bible/sword/swordtest/genrepo", repo], { cwd: resolve(import.meta.dirname, "../.."), stdio: "pipe", timeout: 120000 });
@@ -158,6 +170,11 @@ export default [
         server.close();
         rmSync(repo, { recursive: true, force: true });
         rmSync(root, { recursive: true, force: true });
+        root = undefined;
+        // Leave no books of these checks in the list for any later check: read an empty folder.
+        const empty = makeLogosLibraryFolder([]);
+        await t.app.run("logos.library_refresh", { folder: empty }).catch(() => {});
+        rmSync(empty, { recursive: true, force: true });
         await t.app.restart();
       }
     },

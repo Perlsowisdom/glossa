@@ -31,8 +31,16 @@ export async function addBooks(t) {
 }
 
 // openFromLibrary finds a book in the Library and presses its Read or Open in Study button.
+// The books open at their saved place, which an earlier check (or file) may have moved: a test book is put back at its
+// start first, so every check that opens one begins at the top.
+const TEST_BOOKS = [EPUB_TITLE, "e2e-test-pages", "e2e-scroll-pages"];
 export async function openFromLibrary(t, title, button) {
   const { page } = t;
+  if (TEST_BOOKS.includes(title)) {
+    const found = await t.app.run("library.items", { text: title, limit: 5 });
+    const it = found.items.find((x) => x.status === "online");
+    if (it) await t.app.run("book.set_position", { item_id: it.id, section: 1, para: 0 });
+  }
   await page.evaluate(() => { location.hash = "#library"; });
   const q = page.locator("input.work-search:visible").first();
   await q.waitFor();

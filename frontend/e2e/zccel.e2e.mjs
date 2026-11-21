@@ -67,14 +67,13 @@ export default [
         await t.app.run("bible.sources", { enable: false });
 
         // Read the fake Logos library. CCEL is off, so nothing is offered and nothing is sent.
+        // The list another file read stays in the library, so this check reads its own folder by command (its
+        // four books replace those) and the page then shows it.
+        await t.app.run("logos.library_refresh", { folder: root });
+        await page.reload();
+        await page.waitForSelector(".shell", { timeout: 30000 });
         await page.evaluate(() => { location.hash = "#fromlogos"; });
         await page.locator(".fromlogos-view").waitFor({ timeout: 15000 });
-        await page.locator(".fromlogos-view details.more-options").evaluate((d) => { d.open = true; });
-        await page.locator("#fromlogos-folder").fill(root);
-        // The list may have been read by an earlier check (From Logos): then it is refreshed, and
-        // the books of that check go.
-        if (await page.locator("#fromlogos-read").isVisible()) await page.locator("#fromlogos-read").click();
-        else await page.locator("#fromlogos-refresh").click();
         await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
         t.assert.match(await page.locator("#fromlogos-status").innerText(), /4 books · 3 public domain/);
         { const tt = await page.locator("table.fromlogos-table").innerText(); t.assert.ok(!/Get free copy/.test(tt), `no free copy while CCEL is off: ${JSON.stringify(tt)}`); }

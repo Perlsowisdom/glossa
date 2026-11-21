@@ -105,7 +105,8 @@ export default [
       t.assert.equal((await row.locator(".book-tag").textContent()).trim(), "book");
       await t.shot();
       await row.click();
-      await page.waitForFunction(() => !document.querySelector(".popover .quote-pop button[type=submit]")?.disabled, null, { timeout: 8000 });
+      // The preview shows the Bible chosen before: wait for the book's own words, not just for an enabled button.
+      await page.waitForFunction(() => /Verse line 2/.test(document.querySelector(".popover .quote-preview")?.textContent ?? "") && !document.querySelector(".popover .quote-pop button[type=submit]")?.disabled, null, { timeout: 8000 });
       t.assert.ok((await page.locator(".popover .quote-preview").textContent()).includes("Verse line 2"), await page.locator(".popover .quote-preview").textContent());
       await t.press("Enter");
       const q = t.editor().locator(".verse-quote");
