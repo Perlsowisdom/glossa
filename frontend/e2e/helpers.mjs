@@ -35,6 +35,8 @@ export function helpers(app, shotName) {
     // openNote makes a note through note.create and opens its page in My work.
     async openNote(body = "", title = "E2E note") {
       const n = await app.run("note.create", { title, body });
+      // A navigation the check before started (a link click, a view change) may still be drawing; a hash set over it can be undone by it.
+      await t.settled();
       await page.evaluate((id) => { location.hash = `#notes/note/${id}`; }, n.id);
       await t.current(".note-page");
       t.id = n.id;
@@ -43,6 +45,7 @@ export function helpers(app, shotName) {
     async openSermon(body = "", title = "E2E sermon") {
       const d = await app.run("document.create", { kind: "sermon" });
       if (body || title) await app.run("document.update", { id: d.id, title, kind: "sermon", body });
+      await t.settled();
       await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
       await t.current(".sermon-layout");
       t.id = d.id;
