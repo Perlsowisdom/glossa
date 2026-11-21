@@ -3,9 +3,13 @@ name: Release
 # Two ways to start it (docs/releasing.md):
 #   - Push a version tag:   git tag v1.2.3 && git push origin v1.2.3     (makes a DRAFT release)
 #   - Press the button:     Actions > Release > Run workflow > version, kind
-# Either way it builds the Windows setup (NSIS) and the Microsoft Store package (MSIX), signs the
-# update with GLOSSA_UPDATE_KEY (skipped, with a warning, while internal/update/pubkey.txt is the
-# placeholder), and makes the GitHub Release. Nothing is public until a release is published.
+# Either way it builds the Windows setup (NSIS), the Microsoft Store package (MSIX) and the macOS
+# disk image (DMG: not signed by Apple, only ad-hoc signed), signs the update with GLOSSA_UPDATE_KEY
+# (skipped, with a warning, while internal/update/pubkey.txt is the placeholder), and makes the
+# GitHub Release. Nothing is public until a release is published.
+#
+# Jobs: prepare (version, kind, commit) -> windows and macos in parallel -> release (checksums,
+# latest.json, tag, GitHub Release). If either build fails, no tag and no release are made.
 
 on:
   push:
@@ -35,12 +39,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      # The old secret and variable names (Xegesis) still work until they are renamed.
-      GLOSSA_UPDATE_KEY: ${{ secrets.GLOSSA_UPDATE_KEY || secrets.XEGESIS_UPDATE_KEY }}
+  # Decides the version, the kind of release and the exact commit once, so both builds and the
+  # release itself use the same ones.
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      kind: ${{ steps.ver.outputs.kind }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
+      sha: ${{ steps.ver.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,11 +58,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Version, tag and kind
         id: ver
@@ -79,11 +83,31 @@ jobs:
             git fetch --tags --quiet
             if (git tag --list "v$v") { throw "The tag v$v already exists. Choose a new version, or delete the tag first." }
           }
+          $sha = git rev-parse HEAD
           "version=$v" >> $env:GITHUB_OUTPUT
           "tag=v$v" >> $env:GITHUB_OUTPUT
           "kind=$kind" >> $env:GITHUB_OUTPUT
           "prerelease=$pre" >> $env:GITHUB_OUTPUT
-          Write-Host "Releasing $v as $kind from $(git rev-parse HEAD)"
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $v as $kind from $sha"
+
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Frontend
         working-directory: frontend
@@ -113,12 +137,12 @@ jobs:
 
       - name: Build the setup (NSIS)
         shell: pwsh
-        run: ./scripts/package-nsis.ps1 -Version ${{ steps.ver.outputs.version }}
+        run: ./scripts/package-nsis.ps1 -Version ${{ needs.prepare.outputs.version }}
 
       - name: Try the setup
         shell: pwsh
         run: |
-          $setup = "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
+          $setup = "build/bin/Glossa-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe"
           $dir = Join-Path $env:RUNNER_TEMP 'glossa-try'
           Start-Process (Resolve-Path $setup) -ArgumentList '/S', "/D=$dir" -Wait
           foreach ($f in 'Glossa.exe', 'Uninstall.exe', 'LICENSE-MIT', 'LICENSE-APACHE') {
@@ -133,14 +157,101 @@ jobs:
           GLOSSA_MSIX_IDENTITY: ${{ vars.GLOSSA_MSIX_IDENTITY || vars.XEGESIS_MSIX_IDENTITY }}
           GLOSSA_MSIX_PUBLISHER: ${{ vars.GLOSSA_MSIX_PUBLISHER || vars.XEGESIS_MSIX_PUBLISHER }}
           GLOSSA_MSIX_PUBLISHER_DISPLAY: ${{ vars.GLOSSA_MSIX_PUBLISHER_DISPLAY || vars.XEGESIS_MSIX_PUBLISHER_DISPLAY }}
-        run: ./scripts/package-msix.ps1 -Version ${{ steps.ver.outputs.version }}
+        run: ./scripts/package-msix.ps1 -Version ${{ needs.prepare.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-files
+          path: |
+            build/bin/Glossa-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe
+            build/bin/Glossa-${{ needs.prepare.outputs.version }}-windows-x64.msix
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    needs: prepare
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # Tests that only make sense on Windows carry build tags or runtime checks, so they are
+      # skipped here.
+      - name: Go vet and tests
+        run: |
+          go vet ./...
+          go test ./...
+          go test -tags store ./internal/update/...
+          cd tools
+          go vet ./...
+          go test ./...
+
+      - name: Build the app and the disk image
+        run: bash ./scripts/package-macos.sh ${{ needs.prepare.outputs.version }}
+
+      - name: Check the disk image
+        run: |
+          mac="$(cd tools && go run ./versionmap mac ${{ needs.prepare.outputs.version }})"
+          bash ./scripts/check-macos.sh "build/bin/Glossa-${{ needs.prepare.outputs.version }}-macos-universal.dmg" "$mac"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-files
+          path: build/bin/Glossa-${{ needs.prepare.outputs.version }}-macos-universal.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    # Both builds passed: checksums, signature and latest.json cover all three files, then the tag
+    # (button runs) and the GitHub Release are made.
+    needs: [prepare, windows, macos]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # The old secret and variable names (Xegesis) still work until they are renamed.
+      GLOSSA_UPDATE_KEY: ${{ secrets.GLOSSA_UPDATE_KEY || secrets.XEGESIS_UPDATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-files
+          path: dl/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-files
+          path: dl/macos
 
       - name: Checksums, signature and latest.json
         shell: pwsh
         run: >
-          ./scripts/release-files.ps1 -Version ${{ steps.ver.outputs.version }}
-          -Setup "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64-setup.exe"
-          -Msix "build/bin/Glossa-${{ steps.ver.outputs.version }}-windows-x64.msix"
+          ./scripts/release-files.ps1 -Version ${{ needs.prepare.outputs.version }}
+          -Setup "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe"
+          -Msix "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64.msix"
+          -Mac "dl/macos/Glossa-${{ needs.prepare.outputs.version }}-macos-universal.dmg"
 
       - name: Tag the commit (button runs only)
         if: github.event_name == 'workflow_dispatch'
@@ -149,8 +260,8 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag -a "${{ steps.ver.outputs.tag }}" -m "Glossa ${{ steps.ver.outputs.version }}" HEAD
-          git push origin "refs/tags/${{ steps.ver.outputs.tag }}"
+          git tag -a "${{ needs.prepare.outputs.tag }}" -m "Glossa ${{ needs.prepare.outputs.version }}" HEAD
+          git push origin "refs/tags/${{ needs.prepare.outputs.tag }}"
           if ($LASTEXITCODE) { throw 'pushing the tag failed' }
           "created=true" >> $env:GITHUB_OUTPUT
 
@@ -159,18 +270,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $flags = @('--verify-tag', '--generate-notes', '--title', "Glossa ${{ steps.ver.outputs.version }}")
-          switch ('${{ steps.ver.outputs.kind }}') {
+          $flags = @('--verify-tag', '--generate-notes', '--title', "Glossa ${{ needs.prepare.outputs.version }}")
+          switch ('${{ needs.prepare.outputs.kind }}') {
             'draft' { $flags += '--draft' }
             'prerelease' { $flags += '--prerelease' }
           }
           # A draft of a suffixed version is also marked as a pre-release, for when it is published.
-          if ('${{ steps.ver.outputs.kind }}' -eq 'draft' -and '${{ steps.ver.outputs.prerelease }}' -eq 'True') { $flags += '--prerelease' }
+          if ('${{ needs.prepare.outputs.kind }}' -eq 'draft' -and '${{ needs.prepare.outputs.prerelease }}' -eq 'True') { $flags += '--prerelease' }
           $files = Get-ChildItem build/release | ForEach-Object { $_.FullName }
-          gh release create '${{ steps.ver.outputs.tag }}' @flags @files
+          gh release create '${{ needs.prepare.outputs.tag }}' @flags @files
           if ($LASTEXITCODE) { throw 'gh release create failed' }
 
       - name: Remove the tag again if the release failed
         if: failure() && steps.tag.outputs.created == 'true'
         shell: pwsh
-        run: git push origin ":refs/tags/${{ steps.ver.outputs.tag }}"
+        run: git push origin ":refs/tags/${{ needs.prepare.outputs.tag }}"

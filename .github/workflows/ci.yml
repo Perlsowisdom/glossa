@@ -30,12 +30,22 @@ jobs:
       - name: Build CLI
         run: go build ./cmd/glossa
       - name: Build desktop app
+        if: runner.os != 'macOS'
         shell: bash
         run: |
           tags=desktop,production
           if [ "$RUNNER_OS" = Linux ]; then tags=$tags,webkit2_41; fi
-          if [ "$RUNNER_OS" = macOS ]; then export CGO_LDFLAGS="-framework UniformTypeIdentifiers"; fi
           go build -tags "$tags" -o glossa-desktop ./app
+      # The macOS app the release ships: a universal (arm64 + x86_64) Glossa.app, ad-hoc signed, in a
+      # disk image, then checked (contents, signature, and that the binary starts). Same scripts as
+      # the release workflow; the frontend is the committed build in frontend/dist.
+      - name: Build the macOS app and disk image
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bash ./scripts/package-macos.sh
+          dmg="$(ls build/bin/Glossa-*-macos-universal.dmg)"
+          bash ./scripts/check-macos.sh "$dmg" 0.0.0
 
   frontend:
     runs-on: ubuntu-24.04
