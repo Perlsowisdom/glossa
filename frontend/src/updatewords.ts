@@ -8,6 +8,12 @@ export interface UpdateInfo {
   latest?: string;
   current: string;
   key_set: boolean;
+  manual?: boolean; // macOS: the update is downloaded and installed by hand
+}
+
+// updateAction is the button for a newer version: Windows installs it, macOS opens the download.
+export function updateAction(manual?: boolean): string {
+  return manual ? "Download" : "Restart to update";
 }
 
 // lastCheckedText says when the last check was, in plain words.

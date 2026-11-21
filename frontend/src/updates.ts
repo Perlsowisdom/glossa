@@ -4,7 +4,7 @@
 
 import { Message, onEvent, run } from "./api";
 import { button, h } from "./dom";
-import { UpdateInfo } from "./updatewords";
+import { UpdateInfo, updateAction } from "./updatewords";
 
 let banner: HTMLElement | null = null;
 
@@ -22,19 +22,32 @@ function hide() {
 // restartToUpdate downloads, verifies and starts the installer; the app quits when it is running.
 export async function restartToUpdate(msg: Message): Promise<void> {
   try {
-    await run("update.install");
+    const r = await run<{ open_url?: string }>("update.install");
+    if (r?.open_url) {
+      openDownload(r.open_url);
+      msg.ok("The download page is open in your browser. Open the new disk image and drag Glossa to Applications, replacing the old one.");
+      return;
+    }
     msg.ok("Updating. Glossa will close and open again in a moment.");
   } catch (e) {
     msg.error(e);
   }
 }
 
-function offer(version: string) {
+// openDownload opens the new version's download in the browser (macOS).
+function openDownload(url: string) {
+  const rt = (window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }).runtime;
+  if (rt?.BrowserOpenURL) rt.BrowserOpenURL(url);
+  else window.open(url, "_blank", "noopener");
+}
+
+function offer(version: string, manual?: boolean) {
   const msg = new Message();
   show("Update ready",
-    h("p", {}, h("strong", {}, `Glossa ${version} is ready.`), " It installs in a moment and opens again; your library is not touched."),
+    h("p", {}, h("strong", {}, `Glossa ${version} is ready.`),
+      manual ? " Download it, open the disk image and drag Glossa to Applications; your library is not touched." : " It installs in a moment and opens again; your library is not touched."),
     h("div", { class: "row" },
-      button("Restart to update", () => void restartToUpdate(msg), { class: "primary" }),
+      button(updateAction(manual), () => void restartToUpdate(msg), { class: "primary" }),
       button("Later", hide)),
     msg.el);
 }
@@ -60,16 +73,16 @@ async function answer(on: boolean) {
 // startUpdates asks the first-run question if it was not answered, and listens for a newer version.
 export async function startUpdates(): Promise<void> {
   onEvent("update:available", (r) => {
-    const v = (r as { latest?: string } | undefined)?.latest;
-    if (v) offer(v);
+    const x = r as { latest?: string; manual?: boolean } | undefined;
+    if (x?.latest) offer(x.latest, x.manual);
   });
   try {
     const info = await run<UpdateInfo>("update.settings.get");
     if (!info.asked) ask();
     else if (info.enabled && info.latest && info.latest !== info.current) {
       // A version found earlier and not yet installed is offered again at start.
-      const check = await run<{ newer: boolean; latest?: string }>("update.auto");
-      if (check.newer && check.latest) offer(check.latest);
+      const check = await run<{ newer: boolean; latest?: string; manual?: boolean }>("update.auto");
+      if (check.newer && check.latest) offer(check.latest, check.manual);
     }
   } catch {
     // No update commands: the Store build, or no library open.

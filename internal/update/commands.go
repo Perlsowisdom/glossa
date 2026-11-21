@@ -59,6 +59,7 @@ type SettingsInfo struct {
 	Settings
 	Current string `json:"current" desc:"This version"`
 	Key     bool   `json:"key_set" desc:"The build has a real update key; false means updates cannot verify yet"`
+	Manual  bool   `json:"manual,omitempty" desc:"Updates are downloaded and installed by hand (macOS)"`
 }
 
 type SetParams struct {
@@ -72,11 +73,13 @@ type CheckResult struct {
 	Latest  string `json:"latest,omitempty" desc:"The newest published version"`
 	Newer   bool   `json:"newer" desc:"The newest version is newer than this one"`
 	Notes   string `json:"notes,omitempty"`
+	Manual  bool   `json:"manual,omitempty" desc:"This system cannot install updates itself: install downloads the new version in the browser instead"`
 }
 
 type InstallResult struct {
 	Version  string `json:"version"`
 	Launched bool   `json:"launched" desc:"The installer was started; the app must quit now"`
+	OpenURL  string `json:"open_url,omitempty" desc:"Where to download the new version; the app opens it in the browser"`
 }
 
 func needStore(env *command.Env) error {
@@ -117,7 +120,7 @@ func settingsInfo(ctx context.Context, env *command.Env, cfg Config) (SettingsIn
 		return SettingsInfo{}, err
 	}
 	st, err := load(ctx, env.Store)
-	return SettingsInfo{Settings: st, Current: cfg.Current, Key: len(cfg.PubKey) > 0 && !PlaceholderKey()}, err
+	return SettingsInfo{Settings: st, Current: cfg.Current, Key: len(cfg.PubKey) > 0 && !PlaceholderKey(), Manual: cfg.Manual}, err
 }
 
 func settingsSet(ctx context.Context, env *command.Env, cfg Config, p SetParams) (SettingsInfo, error) {
@@ -172,7 +175,7 @@ func check(ctx context.Context, env *command.Env, cfg Config, st Settings) (Chec
 	if err := save(ctx, env.Store, st); err != nil {
 		return CheckResult{}, err
 	}
-	return CheckResult{Ran: true, Current: cfg.Current, Latest: m.Version, Newer: Newer(m.Version, cfg.Current), Notes: m.Notes}, nil
+	return CheckResult{Ran: true, Current: cfg.Current, Latest: m.Version, Newer: Newer(m.Version, cfg.Current), Notes: m.Notes, Manual: cfg.Manual}, nil
 }
 
 func runAuto(ctx context.Context, env *command.Env, cfg Config) (CheckResult, error) {
@@ -199,6 +202,10 @@ func runInstall(ctx context.Context, env *command.Env, cfg Config) (InstallResul
 	}
 	if !Newer(m.Version, cfg.Current) {
 		return InstallResult{}, command.Errorf("not_found", "Glossa %s is the newest version", cfg.Current)
+	}
+	if cfg.Manual {
+		// No installer is run: the person gets the download and installs it themselves.
+		return InstallResult{Version: m.Version, OpenURL: cfg.ManualURL(m)}, nil
 	}
 	file, err := cfg.Download(ctx, m)
 	if err != nil {

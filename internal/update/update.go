@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ type Manifest struct {
 	SHA256    string `json:"sha256" desc:"The installer's SHA-256, hex"`
 	Signature string `json:"signature" desc:"Ed25519 signature (base64) over the version and SHA-256"`
 	Notes     string `json:"notes,omitempty" desc:"What changed"`
+	Mac       *Asset `json:"mac,omitempty" desc:"The macOS disk image (offered for download; macOS builds cannot replace themselves)"`
 }
 
 // ParseManifest reads and checks the shape of latest.json. allowHTTP is for tests.
@@ -69,6 +71,7 @@ func ParseManifest(data []byte, allowHTTP bool) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("the update manifest has no usable SHA-256 (%q)", m.SHA256)
 	}
 	m.SHA256 = strings.ToLower(m.SHA256)
+	cleanMac(&m, allowHTTP)
 	return m, nil
 }
 
@@ -82,13 +85,18 @@ type Config struct {
 	AllowHTTP bool // tests only: serve from http://127.0.0.1
 	TempDir   string
 	Launch    func(installer string) error
-	Now       func() time.Time
+	// Manual is true where the app cannot replace itself (macOS, unsigned): a newer version is offered
+	// as a download that opens in the browser instead of being installed.
+	Manual bool
+	// DownloadPrefix is where a manifest-given download address must be (tests change it).
+	DownloadPrefix string
+	Now            func() time.Time
 }
 
 // DefaultConfig is the real updater: the public endpoint, the embedded key, this build's version.
 func DefaultConfig() Config {
 	key, _ := updatesig.ParsePublicKey(pubkeyText)
-	return Config{Endpoint: DefaultEndpoint, PubKey: key, Current: core.Version, Launch: launchInstaller}
+	return Config{Endpoint: DefaultEndpoint, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin"}
 }
 
 func (c Config) client() *http.Client {

@@ -19,7 +19,7 @@ import { logosSection } from "./logos";
 import { readingControls } from "./reader";
 import { syncSection } from "./sync";
 import { restartToUpdate } from "../updates";
-import { UpdateInfo, lastCheckedText, versionLine } from "../updatewords";
+import { UpdateInfo, lastCheckedText, updateAction, versionLine } from "../updatewords";
 
 interface KeyStatus {
   key_set: boolean;
@@ -306,9 +306,9 @@ function updatesPage(): PageView {
     check.disabled = !info.enabled;
     clear(body,
       toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Glossa is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
-      h("div", { class: "row wrap" }, check, newer ? button("Restart to update", () => void restartToUpdate(msg), { class: "primary" }) : null),
+      h("div", { class: "row wrap" }, check, newer ? button(updateAction(info.manual), () => void restartToUpdate(msg), { class: "primary" }) : null),
       h("p", { class: "hint update-status" }, lastCheckedText(info.last_checked), " ", versionLine(info, newer)),
-      info.key_set ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));
+      info.key_set || info.manual ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));
   }
   return { el, show: () => void show() };
 }
