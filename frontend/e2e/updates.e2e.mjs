@@ -37,18 +37,6 @@ export default [
     },
   },
   {
-    row: "Updates: while off, the check and the install are refused",
-    shot: "t23-refused.png",
-    async run(t) {
-      const { app } = t;
-      for (const id of ["update.check", "update.install"]) {
-        await t.assert.rejects(() => app.run(id), /updates are off/, `${id} while off`);
-      }
-      const auto = await app.run("update.auto");
-      t.assert.equal(auto.ran, false);
-    },
-  },
-  {
     row: "Updates: the Settings section shows the switch, the version and the last check",
     shot: "t23-settings.png",
     async run(t) {

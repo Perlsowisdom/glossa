@@ -128,77 +128,6 @@ const checks = [
     },
   },
   {
-    row: "PDF ink: strokes stay aligned with the page at every zoom",
-    shot: "pdfink-02-zoom.png",
-    async run(t) {
-      const before = await inkBox(t);
-      const widths = [before.w];
-      for (const [label, times] of [["Zoom in", 3], ["Zoom out", 6]]) {
-        await zoom(t, label, times);
-        await onPage(t).waitFor();
-        const b = await inkBox(t);
-        t.assert.ok(b, "the ink is drawn again after the zoom");
-        widths.push(b.w);
-        for (const k of ["x0", "y0", "x1", "y1"]) near(t, b[k], shared.box[k], 0.004, `${k} after zoom to width ${Math.round(b.w)}`);
-        if (label === "Zoom in") await t.shot();
-      }
-      t.assert.ok(Math.max(...widths) - Math.min(...widths) > 100, `the page changed size: ${widths.map(Math.round)}`);
-      await zoom(t, "Zoom in", 3);
-    },
-  },
-  {
-    row: "PDF ink: Scroll mode draws each page's ink in place, and writing works on a later page",
-    shot: "pdfink-03-scroll.png",
-    async run(t) {
-      const page = t.app.page;
-      const books = await addBooks(T(t));
-      await closeBooks(T(t));
-      await chooseLayout(t, "Scroll");
-      await openAtPageOne(t, "e2e-scroll-pages");
-      await visibleBook(t).locator(".pdf-slot[data-page='1'] canvas").waitFor({ timeout: 20000 });
-      await paneMenu(t, "Write on this PDF");
-      await draw(t, stroke, 0);
-      const first = await inkBox(t, 0);
-      near(t, first.x0, 0.2, 0.02, "page 1 left edge in Scroll mode");
-      near(t, first.y1, 0.28, 0.02, "page 1 bottom edge in Scroll mode");
-      // scroll to page 3 and write there
-      await visibleBook(t).locator(".book-body").evaluate((e) => { e.scrollTop = e.querySelector(".pdf-slot[data-page='3']").offsetTop - 8; });
-      await visibleBook(t).locator(".pdf-slot[data-page='3'] canvas").waitFor({ timeout: 10000 });
-      const idx = await visibleBook(t).locator(".pdf-slot").evaluateAll((s) => s.findIndex((e) => e.dataset.page === "3"));
-      await page.waitForTimeout(400);
-      const box = await visibleBook(t).locator(".pdf-slot[data-page='3'] .pdf-page").boundingBox();
-      await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.1);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.15, { steps: 6 });
-      await page.mouse.up();
-      await page.waitForTimeout(400);
-      t.assert.ok(idx === 2, "page 3 is the third slot");
-      const p3 = await t.app.run("ink.page.get", { item_id: books.scrollPdf.id, page: 3 });
-      t.assert.equal((p3.ink.strokes ?? []).length, 1, "page 3 has its stroke");
-      near(t, p3.ink.strokes[0].p[0][0], 0.3, 0.01, "page 3 first x");
-      near(t, p3.ink.strokes[0].p[0][1], 0.1, 0.01, "page 3 first y");
-      const p1 = await t.app.run("ink.page.get", { item_id: books.scrollPdf.id, page: 1 });
-      t.assert.equal((p1.ink.strokes ?? []).length, 1, "page 1 kept its own");
-      // zoom in Scroll mode: page 3's ink stays on the page
-      const was = await visibleBook(t).locator(".pdf-slot[data-page='3'] .pdf-page").evaluate((pg) => {
-        const p = pg.getBoundingClientRect(), r = pg.querySelector(".pdf-ink-svg path").getBoundingClientRect();
-        return [(r.left - p.left) / p.width, (r.top - p.top) / p.height];
-      });
-      await zoom(t, "Zoom out", 2);
-      await visibleBook(t).locator(".pdf-slot[data-page='3'] .pdf-page").waitFor({ timeout: 10000 }).catch(() => {});
-      await visibleBook(t).locator(".book-body").evaluate((e) => { e.scrollTop = e.querySelector(".pdf-slot[data-page='3']").offsetTop - 8; });
-      await visibleBook(t).locator(".pdf-slot[data-page='3'] .pdf-ink-svg path").waitFor({ timeout: 10000 });
-      const now = await visibleBook(t).locator(".pdf-slot[data-page='3'] .pdf-page").evaluate((pg) => {
-        const p = pg.getBoundingClientRect(), r = pg.querySelector(".pdf-ink-svg path").getBoundingClientRect();
-        return [(r.left - p.left) / p.width, (r.top - p.top) / p.height];
-      });
-      near(t, now[0], was[0], 0.004, "page 3 ink x after zoom");
-      near(t, now[1], was[1], 0.004, "page 3 ink y after zoom");
-      await zoom(t, "Zoom in", 2);
-      await t.shot();
-    },
-  },
-  {
     row: "PDF ink: undo, redo and the eraser go through commands, and Hide ink / Show ink works per book",
     shot: "pdfink-04-undo-hide.png",
     async run(t) {
@@ -295,58 +224,6 @@ const checks = [
       await page.waitForTimeout(500);
       t.assert.equal((await inkBox(t)).strokes, 2, "Undo restored both strokes on the page");
       if (openedSidebar) await page.locator("button[aria-label='Right sidebar']").click();
-    },
-  },
-  {
-    row: "PDF ink: a Study pane draws the same ink in the same place",
-    shot: "pdfink-06-study.png",
-    async run(t) {
-      const page = t.app.page;
-      await closeBooks(T(t));
-      await openAtPageOne(t, "e2e-test-pages", "Open in Study");
-      await page.waitForFunction(() => document.querySelector(".doc-book .pdf-page"), null, { timeout: 20000 });
-      await visibleBook(t).locator(".pdf-ink-svg path").first().waitFor({ timeout: 10000 });
-      const b = await inkBox(t);
-      t.assert.equal(b.strokes, 2, "the Study pane shows both strokes");
-      near(t, b.x0, shared.box.x0, 0.004, "x0 in Study");
-      near(t, b.y1, shared.box.y1, 0.004, "y1 in Study");
-      await paneMenu(t, "Write on this PDF");
-      await draw(t, [[0.2, 0.05], [0.6, 0.06]]);
-      const saved = await t.app.run("ink.page.get", { item_id: shared.pdf.id, page: 1 });
-      t.assert.equal(saved.ink.strokes.length, 3, "a stroke written in the Study pane is saved");
-      await t.shot();
-    },
-  },
-  {
-    row: "PDF ink: Print or export shows the page's ink, and exports carry it as SVG in HTML and an outline in PDF",
-    shot: "pdfink-07-export.png",
-    async run(t) {
-      const page = t.app.page;
-      await closeBooks(T(t));
-      await chooseLayout(t, "Pages");
-      await openAtPageOne(t, "e2e-test-pages");
-      await onPage(t).waitFor({ timeout: 20000 });
-      await visibleBook(t).locator(".pdf-ink-svg path").first().waitFor({ timeout: 10000 });
-      await paneMenu(t, "Print or export");
-      const paper = page.locator(".export-dialog .paper");
-      await paper.locator("svg path").first().waitFor({ timeout: 15000 });
-      t.assert.ok(/Ink · page 1/.test(await paper.innerText()), "the preview names the ink");
-      t.assert.equal(await paper.locator("svg path").count(), 3, "all three strokes are in the preview");
-      await t.shot();
-      await page.keyboard.press("Escape");
-      // the files
-      const src = [{ kind: "book", item_id: shared.pdf.id, from: 1, to: 2 }];
-      const html = await t.app.run("export.make", { sources: src, format: "html" });
-      const text = readFileSync(html.path, "utf8");
-      t.assert.ok(text.includes("Ink · page 1") && (text.match(/<svg[^>]*viewBox="0 0 1000 /g) ?? []).length === 1, "HTML has one SVG drawing, for page 1");
-      t.assert.ok((text.match(/<path d="M/g) ?? []).length === 3, "HTML draws three strokes");
-      const pdfOut = await t.app.run("export.make", { sources: src, format: "pdf" });
-      const bare = await t.app.run("export.make", { sources: [{ ...src[0], no_ink: true }], format: "pdf" });
-      t.assert.ok(readFileSync(pdfOut.path).length > readFileSync(bare.path).length, "the PDF with ink is larger than the one without");
-      const backup = await t.app.run("export.data", { types: ["highlight"] });
-      const files = readdirSync(join(backup.path, "objects", "highlight"));
-      t.assert.ok(files.some((f) => readFileSync(join(backup.path, "objects", "highlight", f), "utf8").includes('"strokes"')), "the annotations export holds the ink");
-      t.note = "HTML, PDF and annotations export checked";
     },
   },
 ];

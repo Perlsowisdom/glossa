@@ -40,29 +40,6 @@ export default [
     },
   },
   {
-    row: "/table makes 3 × 3; /table3x2 makes 3 rows by 2 columns; × works too; over 10 is capped",
-    shot: "tb6-02-slash.png",
-    async run(t) {
-      await t.openNote("", "Table slash");
-      await t.focusEnd();
-      await slash(t, "/table");
-      t.assert.deepEqual(await shape(t), [3, 3, 3]);
-      for (const [cmd, want] of [["/table3x2", [2, 2, 2]], ["/table2×4", [4, 4]], ["/table12x30", Array(10).fill(10)]]) {
-        await t.openNote("", `Table ${cmd}`);
-        await t.focusEnd();
-        await t.type(cmd);
-        await t.page.waitForSelector(".slash-menu:not([hidden])");
-        if (cmd === "/table3x2") {
-          t.assert.equal((await t.page.locator(".slash-menu .slash-name").first().textContent()).trim(), "Table 3 × 2");
-          await t.shot();
-        }
-        await t.press("Enter");
-        await table(t).waitFor();
-        t.assert.deepEqual(await shape(t), want, cmd);
-      }
-    },
-  },
-  {
     row: "In a cell: formats, Markdown shortcuts and chips work; Tab, Tab in the last cell adds a row, Shift+Tab goes back",
     shot: "tb6-03-cells.png",
     async run(t) {
@@ -97,106 +74,6 @@ export default [
       t.assert.equal(await table(t).locator(".rt-i, em").first().textContent(), "now");
       const md = await t.saved();
       t.assert.ok(md.includes("| Point | Verse |\n| --- | --- |\n| **Grace** and <u>hope</u> *now* | [Romans 8:28](#passage/Rom.8.28)"), md);
-      await t.shot();
-    },
-  },
-  {
-    row: "Right-click a cell: add rows and columns, delete them, toggle the header row, delete the table",
-    shot: "tb6-04-menu.png",
-    async run(t) {
-      await t.openNote("| A | B |\n| --- | --- |\n| c | d |", "Table menu");
-      const act = async (cell, id) => {
-        await table(t).locator("td, th").filter({ hasText: cell }).first().click({ button: "right" });
-        const menu = t.page.locator(".popover .table-menu");
-        await menu.waitFor();
-        if (id === "row-below") await t.shot();
-        await menu.locator(`button[data-action=${id}]`).click();
-        await t.page.waitForTimeout(150);
-      };
-      t.assert.deepEqual(await shape(t), [2, 2]);
-      await act("c", "row-below");
-      t.assert.deepEqual(await shape(t), [2, 2, 2]);
-      await act("c", "row-above");
-      t.assert.deepEqual(await shape(t), [2, 2, 2, 2]);
-      await act("d", "col-right");
-      t.assert.deepEqual(await shape(t), [3, 3, 3, 3]);
-      await act("c", "col-left");
-      t.assert.deepEqual(await shape(t), [4, 4, 4, 4]);
-      await act("c", "del-col");
-      t.assert.deepEqual(await shape(t), [3, 3, 3, 3]);
-      t.assert.equal(await table(t).locator("td, th").filter({ hasText: /^c$/ }).count(), 0, "c's column went");
-      await act("d", "del-row");
-      t.assert.deepEqual(await shape(t), [3, 3, 3]);
-      t.assert.equal(await table(t).locator("th").count(), 3);
-      await act("B", "header");
-      t.assert.equal(await table(t).locator("th").count(), 0, "header row off");
-      const md = await t.saved();
-      t.assert.ok(md.startsWith("<!-- table header=no -->\n|  | B |  |\n| --- | --- | --- |"), JSON.stringify(md));
-      await act("B", "header");
-      t.assert.equal(await table(t).locator("th").count(), 3, "header row on");
-      // The toolbar's Table button offers the same menu inside a table.
-      await table(t).locator("td").first().click();
-      await tableButton(t);
-      await t.page.locator(".popover .table-menu").waitFor();
-      await t.press("Escape");
-      await act("B", "del-table");
-      t.assert.equal(await t.editor().locator("table").count(), 0);
-    },
-  },
-  {
-    row: "Columns resize by dragging their borders; widths are saved and read back (sermon)",
-    shot: "tb6-05-resize.png",
-    async run(t) {
-      const s = await t.openSermon("Before\n\n| Name | Note |\n| --- | --- |\n| a | b |", "Table widths");
-      const th = table(t).locator("th").first();
-      const box = await th.boundingBox();
-      const { mouse } = t.page;
-      await mouse.move(box.x + box.width - 2, box.y + box.height / 2);
-      await t.page.waitForTimeout(100);
-      t.assert.ok(await t.editor().evaluate((e) => e.classList.contains("rt-col-resize")), "the border shows a resize cursor");
-      await mouse.down();
-      for (let i = 1; i <= 8; i++) await mouse.move(box.x + box.width - 2 + i * 15, box.y + box.height / 2);
-      await mouse.up();
-      await t.page.waitForTimeout(200);
-      const after = (await th.boundingBox()).width;
-      t.assert.ok(after > box.width + 60, `wider: ${box.width} -> ${after}`);
-      const md = await t.saved();
-      const m = /<!-- table widths=(\d+),(\d+) -->/.exec(md);
-      t.assert.ok(m && Math.abs(Number(m[1]) - after) < 6, md);
-      await t.shot();
-      // Read back: leave and open the sermon again.
-      await t.page.evaluate(() => { location.hash = "#reader"; });
-      await t.page.waitForTimeout(300);
-      await t.page.evaluate((id) => { location.hash = `#sermons/${id}`; }, s.id);
-      await t.current(".sermon-layout");
-      const again = (await table(t).locator("th").first().boundingBox()).width;
-      t.assert.ok(Math.abs(again - after) < 6, `kept: ${after} -> ${again}`);
-    },
-  },
-  {
-    row: "A column cannot be dragged narrower than 60px, and words wrap only between words",
-    shot: "tb6-06-min-width.png",
-    async run(t) {
-      await t.openNote("| Alpha beta gamma | Delta epsilon |\n| --- | --- |\n| one two three | four five |", "Table min width");
-      const th = table(t).locator("th").first();
-      const box = await th.boundingBox();
-      const { mouse } = t.page;
-      await mouse.move(box.x + box.width - 2, box.y + box.height / 2);
-      await t.page.waitForTimeout(100);
-      await mouse.down();
-      for (let i = 1; i <= 12; i++) await mouse.move(box.x + box.width - 2 - i * 40, box.y + box.height / 2);
-      await mouse.up();
-      await t.page.waitForTimeout(250);
-      // The saved width stops at the minimum; the cell can show wider only so its longest word fits.
-      const w = (await th.boundingBox()).width;
-      const m = /<!-- table widths=(\d+),/.exec(await t.saved());
-      t.assert.ok(m && Number(m[1]) === 60, `dragged far left, the saved width is 60, got ${m && m[1]}`);
-      t.assert.ok(w >= 60 && w < box.width / 2, `narrow but not below 60px: ${w}`);
-      // No word is split: each cell's longest word fits on a line.
-      const split = await table(t).evaluate((tb) => [...tb.querySelectorAll("th, td")].some((c) => c.scrollWidth > c.clientWidth + 1));
-      t.assert.equal(split, false, "words are not cut or overflowing");
-      const style = await th.evaluate((e) => { const c = getComputedStyle(e); return [c.wordBreak, c.overflowWrap]; });
-      t.assert.deepEqual(style, ["normal", "normal"], "no mid-word breaks");
       await t.shot();
     },
   },

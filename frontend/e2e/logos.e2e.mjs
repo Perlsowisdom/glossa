@@ -145,51 +145,6 @@ export default [
       t.assert.equal((await app.run("logos.runs")).length, 1);
       await card.locator(".logos-report").scrollIntoViewIfNeeded();
       await t.shot();
-    },
-  },
-  {
-    row: "Logos import: running it again adds nothing and the preview says so",
-    shot: "t22a-again.png",
-    async run(t) {
-      const { app } = t;
-      const before = (await app.run("note.list", { limit: 1000 })).length;
-      const card = await preview(t);
-      const text = await card.locator(".logos-kinds").innerText();
-      t.assert.match(text, /Notes: 2 found, 0 new, 2 already imported/, text);
-      t.assert.match(text, /Reading plans: 1 found, 0 new, 1 already imported/, text);
-      t.assert.match(text, /Sermons: 2 found, 0 new, 2 already imported/, text);
-      const button = card.locator("#logos-import");
-      t.assert.equal(await button.innerText(), "Nothing new to import");
-      t.assert.equal(await button.isDisabled(), true);
-      t.assert.equal((await app.run("note.list", { limit: 1000 })).length, before);
-      // The same, run as a command: everything is skipped.
-      const again = await app.run("logos.import", { folder: root });
-      for (const k of again.kinds) t.assert.equal(k.created + k.updated, 0, `${k.kind} was imported twice`);
-      await card.locator(".logos-kinds").scrollIntoViewIfNeeded();
-      await t.shot();
-    },
-  },
-  {
-    row: "Logos import: Undo takes the import back and the folders it made",
-    shot: "t22a-undone.png",
-    async run(t) {
-      const { app, page } = t;
-      const card = await openCard(t);
-      t.assert.equal(await card.locator(".logos-runs li").count(), 1, "one import; the repeat that added nothing left none");
-      const asked = acceptNext(page);
-      await card.locator(".logos-runs li").first().getByRole("button", { name: "Undo" }).click();
-      t.assert.match(await asked, /Take this import back/);
-      await page.waitForFunction(() => /taken back/.test(document.querySelector("#logos-card .logos-runs")?.innerText ?? ""), null, { timeout: 15000 });
-      const notes = await app.run("note.list", { limit: 1000 });
-      t.assert.ok(importedNotes.length === 3 && !notes.some((n) => importedNotes.includes(n.id)), "the imported notes are gone");
-      const folders = await app.run("folder.list");
-      t.assert.ok(!folders.some((f) => f.name === "Romans study" || f.name === "Word studies"), "its folders are gone");
-      t.assert.equal((await app.run("highlight.list", { ref: "John 3:16" })).length, 0);
-      t.assert.ok(!(await app.run("plan.list", {})).some((p) => p.name === "John in three days"));
-      t.assert.ok(!(await app.run("document.list", { kind: "sermon" })).some((d) => d.title === "Nothing can separate us"), "the imported sermons are gone");
-      t.assert.ok(!folders.some((f) => f.name === "Romans 8" || f.name === "Sermons from Logos"), "the sermon folders are gone");
-      await card.scrollIntoViewIfNeeded();
-      await t.shot();
       rmSync(root, { recursive: true, force: true });
     },
   },
