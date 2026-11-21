@@ -115,3 +115,23 @@ call shows in the chat as a line you can open to see exactly what was sent.
 Before your first message to a provider (and again if its address changes), the chat shows what is sent
 and where, and sends nothing until you press Send. What the provider does with it is governed by its own
 terms. Chats are kept in memory only, until you quit, unless you press "Save as note".
+
+## Sync through a folder (T20)
+
+Glossa itself sends nothing over the network for sync, and has no server or account. When you set it up
+(`sync.setup`, Settings → Sync), Glossa reads and writes encrypted files in a `Glossa Sync` folder inside a
+folder you choose. If that folder is one your own sync service (OneDrive, Dropbox, Google Drive, iCloud,
+Syncthing) copies between your devices, that service moves the files, under its own terms. Glossa never
+contacts it.
+
+| What is in the folder | Who can read it |
+| --- | --- |
+| `key.json`: the encryption settings and a random salt (never your password) | Anyone with the folder; it holds nothing about your data |
+| Per-device change files and snapshots: your notes, highlights, lists, plans, folders, tags, sermons and settings | Only people who know your sync password. They are encrypted on your computer (XChaCha20-Poly1305, key from your password with Argon2id) before they are written |
+
+Your sync service can see that the files exist, their names, sizes and times, and which of your devices wrote
+them (device IDs and file numbers are not encrypted). It cannot read them, and Glossa refuses any file that has
+been altered. A lost password cannot be recovered: the synced copy cannot be read, though the data on each
+device is fine. The password is kept in memory while Glossa runs, and saved in your computer's credential store
+only if you choose "remember". It is never written to `library.db`, a file or a log. Deleting a note for good
+also removes its text from the folder's files when Glossa next tidies them. See ADR 0013.

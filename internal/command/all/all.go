@@ -25,6 +25,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/reader"
 	"github.com/Perlsowisdom/glossa/internal/report"
 	"github.com/Perlsowisdom/glossa/internal/search"
+	foldersync "github.com/Perlsowisdom/glossa/internal/sync"
 	"github.com/Perlsowisdom/glossa/internal/update"
 )
 
@@ -52,6 +53,7 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	ccel.Register(r, filepath.Join(dataDir, "ccel"))
 	logosimport.Register(r)
 	assistant.Register(r, s)
+	foldersync.Register(r, s)
 	update.Register(r) // nothing in the Store build
 	return r
 }
