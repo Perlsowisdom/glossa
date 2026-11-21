@@ -215,3 +215,4 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - Databases are closed on shutdown (T39): the Bible module library and the search indexes.
 - The M2 real-app steps no longer depend on each other (T39).
 - e2e: build the keep-awake request (SetThreadExecutionState with ES_DISPLAY_REQUIRED) into run.mjs on Windows. On 12 November a laptop display going to sleep during a full run made screenshots hang and the app close, failing 116 of 130; the same run passed 130 of 130 with the display kept awake.
+- e2e flakiness is growing (21 November): full runs fail 1–4 different, unrelated checks (PDF ink undo/restart, T38b 6 long tabs, the http link click, Updates first-run), each passing alone. Needs a hardening pass: per-check isolation and settled-state waits instead of order dependence.
