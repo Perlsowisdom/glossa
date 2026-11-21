@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,19 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+// readOnlyURI is the SQLite URI that opens path for reading only: file:///C:/a/b.db on Windows,
+// file:///Users/a/b.db elsewhere, with spaces and the like escaped ("Application Support").
+// "file:/var/…" is read as having an authority "var" on macOS and Linux, so the three slashes
+// matter.
+func readOnlyURI(path string) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	u := url.URL{Scheme: "file", Path: p, RawQuery: "_pragma=query_only(1)&_pragma=busy_timeout(3000)"}
+	return u.String()
+}
 
 // The user's own data files, relative to the user's folder under Documents or Data. These and the
 // catalogue's metadata are all the importer reads.
@@ -197,11 +211,7 @@ func (s *Snapshot) open(name string) (*sql.DB, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	uri := "file:" + filepath.ToSlash(path) + "?_pragma=query_only(1)&_pragma=busy_timeout(3000)"
-	if !strings.HasPrefix(filepath.ToSlash(path), "/") {
-		uri = "file:/" + filepath.ToSlash(path) + "?_pragma=query_only(1)&_pragma=busy_timeout(3000)"
-	}
-	db, err := sql.Open("sqlite", uri)
+	db, err := sql.Open("sqlite", readOnlyURI(path))
 	if err != nil {
 		return nil, err
 	}
