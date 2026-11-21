@@ -1,5 +1,5 @@
 // The interface shell: the left rail of places (shell/rail.ts), the main area, and the right sidebar
-// of study tools (views/sidebar.ts). Places hold the views: Library (your library, Get Bibles),
+// of study tools (views/sidebar.ts). Places hold the views: Library (your library, Get Bibles, From Logos),
 // Reader (reading, and its reading plans page), My work (notes, sermons, lists, reports), Search and
 // Settings (with Commands under Advanced). Every action in the views calls a registered command
 // (api.ts); the shell itself only switches views.
@@ -15,6 +15,7 @@ import { PLACES, PlaceId, isView, placeForKey, placeOf, viewLabel } from "./shel
 import { applyTheme, loadPref, onPrefs, prefs, savePref, setNavigator } from "./state";
 import { binView } from "./views/bin";
 import { biblesView } from "./views/bibles";
+import { fromLogosView } from "./views/fromlogos";
 import { libraryView } from "./views/library";
 import { listsView } from "./views/lists";
 import { notesSectionView } from "./views/notes";
@@ -40,7 +41,7 @@ interface View {
 // "commands" is not a view of its own: it is the Commands page of Settings (#settings/commands).
 const makers: Record<string, () => View> = {
   reader: readerView, plans: plansView,
-  library: libraryView, bibles: biblesView,
+  library: libraryView, bibles: biblesView, fromlogos: fromLogosView,
   notes: notesSectionView, sermons: sermonsView, highlights: highlightsView, lists: listsView, reports: reportView, bin: binView,
   search: searchView, settings: settingsView,
 };

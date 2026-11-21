@@ -173,58 +173,71 @@ function getBibles(changed: () => void) {
       action);
   }
 
-  // start shows the size and licence first; the download runs only after the user confirms.
-  async function start(it: CatalogueItem, cell: HTMLElement) {
-    const pre = await msg.attempt(() => run<{ item: CatalogueItem; size: number }>("bible.get", { source: it.source, item: it.id, preview: true }));
-    if (!pre) return;
-    const item = pre.item;
-    const verb = item.update_available ? "Update" : "Install";
-    const form = item.licence_clear ? null : licenceChooser("What may you do with this text?", false);
-    if (form) form.set(item.licence);
-    const box = h("div", { class: "card", role: "dialog", "aria-label": `${verb} ${item.name}` },
-      h("h2", {}, `${verb} ${item.name}`),
-      h("p", {}, `Download: ${size(pre.size)} from ${item.source_name}.`),
-      item.licence_clear ? h("p", {}, `Licence: ${licenceText(item.licence)}. ${termsText(item.licence)}`) :
-        h("p", {}, "The catalogue does not say clearly what this licence allows. Choose the nearest below; you can change it later."),
-      h("details", {}, h("summary", {}, "What the source says"), h("pre", { class: "rights" }, item.rights || "Nothing")),
-      form?.el,
-      h("div", { class: "row" },
-        button(verb, () => go(), { class: "primary" }),
-        button("Cancel", () => clear(dialog))));
-    clear(dialog, box);
-    box.querySelector<HTMLButtonElement>(".row button")?.focus();
-
-    async function go() {
-      const params: Record<string, unknown> = { source: item.source, item: item.id, accept_licence: true };
-      if (item.update_available) params.replace = true;
-      if (form) Object.assign(params, bibleLicenceParams(form.value(), "licence_type"));
-      clear(dialog);
-      const bar = h("progress", { "aria-label": `Installing ${item.name}` });
-      const phase = h("small", { class: "hint", "aria-live": "polite" }, "Starting…");
-      clear(cell, bar, " ", phase);
-      const poll = window.setInterval(async () => {
-        const ps = await run<Progress[]>("bible.progress").catch(() => [] as Progress[]);
-        const p = ps.find((x) => x.source === item.source && x.item === item.id);
-        if (!p) return;
-        if (p.total > 0) { bar.max = p.total; bar.value = Math.min(p.done, p.total); }
-        phase.textContent = p.phase === "downloading" ? `Downloading ${size(p.done)}` : p.phase === "checking" ? "Checking" : "Converting";
-      }, 400);
-      try {
-        const r = await run<{ module: Module; warnings: string[] }>("bible.get", params);
-        clearInterval(poll);
-        msg.ok(`Installed ${r.module.name}.`);
-        changed();
-        load();
-      } catch (e) {
-        clearInterval(poll);
-        // Reload first: a successful reload clears messages, and the failure must stay visible.
-        await load();
-        msg.error(e);
-      }
-    }
-  }
+  const start = (it: CatalogueItem, cell: HTMLElement) => installFlow(it, cell, { msg, dialog, done: () => { changed(); void load(); }, failed: load });
 
   return { el, show: load };
+}
+
+// installFlow shows the size and licence first; the download runs only after the user confirms.
+// It is used by Get Bibles and by the free copies offered for books from Logos. intro is a line of
+// context for the confirmation.
+export interface InstallContext {
+  msg: Message;
+  dialog: HTMLElement;
+  done: () => void;
+  failed: () => Promise<void> | void;
+  intro?: string;
+}
+
+export async function installFlow(it: { source: string; id: string }, cell: HTMLElement, ctx: InstallContext) {
+  const { msg, dialog } = ctx;
+  const pre = await msg.attempt(() => run<{ item: CatalogueItem; size: number }>("bible.get", { source: it.source, item: it.id, preview: true }));
+  if (!pre) return;
+  const item = pre.item;
+  const verb = item.update_available ? "Update" : "Install";
+  const form = item.licence_clear ? null : licenceChooser("What may you do with this text?", false);
+  if (form) form.set(item.licence);
+  const box = h("div", { class: "card", role: "dialog", "aria-label": `${verb} ${item.name}` },
+    h("h2", {}, `${verb} ${item.name}`),
+    ctx.intro ? h("p", { class: "hint" }, ctx.intro) : null,
+    h("p", {}, `Download: ${size(pre.size)} from ${item.source_name}.`),
+    item.licence_clear ? h("p", {}, `Licence: ${licenceText(item.licence)}. ${termsText(item.licence)}`) :
+      h("p", {}, "The catalogue does not say clearly what this licence allows. Choose the nearest below; you can change it later."),
+    h("details", {}, h("summary", {}, "What the source says"), h("pre", { class: "rights" }, item.rights || "Nothing")),
+    form?.el,
+    h("div", { class: "row" },
+      button(verb, () => go(), { class: "primary" }),
+      button("Cancel", () => clear(dialog))));
+  clear(dialog, box);
+  box.querySelector<HTMLButtonElement>(".row button")?.focus();
+
+  async function go() {
+    const params: Record<string, unknown> = { source: item.source, item: item.id, accept_licence: true };
+    if (item.update_available) params.replace = true;
+    if (form) Object.assign(params, bibleLicenceParams(form.value(), "licence_type"));
+    clear(dialog);
+    const bar = h("progress", { "aria-label": `Installing ${item.name}` });
+    const phase = h("small", { class: "hint", "aria-live": "polite" }, "Starting…");
+    clear(cell, bar, " ", phase);
+    const poll = window.setInterval(async () => {
+      const ps = await run<Progress[]>("bible.progress").catch(() => [] as Progress[]);
+      const p = ps.find((x) => x.source === item.source && x.item === item.id);
+      if (!p) return;
+      if (p.total > 0) { bar.max = p.total; bar.value = Math.min(p.done, p.total); }
+      phase.textContent = p.phase === "downloading" ? `Downloading ${size(p.done)}` : p.phase === "checking" ? "Checking" : "Converting";
+    }, 400);
+    try {
+      const r = await run<{ module: Module; warnings: string[] }>("bible.get", params);
+      clearInterval(poll);
+      msg.ok(`Installed ${r.module.name}.`);
+      ctx.done();
+    } catch (e) {
+      clearInterval(poll);
+      // Reload first: a successful reload clears messages, and the failure must stay visible.
+      await ctx.failed();
+      msg.error(e);
+    }
+  }
 }
 
 // installedList shows the installed modules and available updates.

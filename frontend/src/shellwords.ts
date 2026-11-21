@@ -19,7 +19,7 @@ export interface Place {
 // The places on the rail, top to bottom; Settings is reached from Rail settings, Help or Ctrl+,.
 export const PLACES: Place[] = [
   { id: "search", label: "Search", views: [{ id: "search", label: "Search" }], tabs: false },
-  { id: "library", label: "Library", views: [{ id: "library", label: "Your library" }, { id: "bibles", label: "Get Bibles" }], tabs: true },
+  { id: "library", label: "Library", views: [{ id: "library", label: "Your library" }, { id: "bibles", label: "Get Bibles" }, { id: "fromlogos", label: "From Logos" }], tabs: true },
   { id: "reader", label: "Reader", views: [{ id: "reader", label: "Reader" }], tabs: false },
   // My work shows its own column of folders, tags and writing (views/work.ts) instead of tabs.
   {
