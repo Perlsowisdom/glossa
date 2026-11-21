@@ -3,7 +3,7 @@
 <!--
   The macOS app bundle's Info.plist. scripts/package-macos.sh fills in:
     {{VERSION}}   three numbers from the release version (0.5.0-alpha gives 0.5.0; tools/relver)
-  The bundle id is org.glossa.app. Changing it later makes macOS treat the app as a new one (saved
+  The bundle id is io.github.perlsowisdom.glossa. Changing it later makes macOS treat the app as a new one (saved
   window and WebKit settings do not carry over), so choose once.
 -->
 <plist version="1.0">
@@ -17,7 +17,7 @@
     <key>CFBundleExecutable</key>
     <string>Glossa</string>
     <key>CFBundleIdentifier</key>
-    <string>org.glossa.app</string>
+    <string>io.github.perlsowisdom.glossa</string>
     <key>CFBundleVersion</key>
     <string>{{VERSION}}</string>
     <key>CFBundleShortVersionString</key>

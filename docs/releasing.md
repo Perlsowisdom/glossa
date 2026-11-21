@@ -45,7 +45,7 @@ release" below.
 The `macos` job (macos-latest) runs the Go and frontend tests, then `scripts/package-macos.sh`: an arm64 and an
 x86_64 build of the app (cgo, as Wails' own build does: `-mmacosx-version-min=11.0`, the
 UniformTypeIdentifiers framework), joined with `lipo` into one `Glossa.app` (icon from `build/darwin/icon.icns`,
-`Info.plist` from `build/darwin/Info.plist.template`, bundle id `org.glossa.app`, version from the tag with the
+`Info.plist` from `build/darwin/Info.plist.template`, bundle id `io.github.perlsowisdom.glossa`, version from the tag with the
 suffix dropped: 0.5.0-alpha is 0.5.0), `codesign --sign -` (ad-hoc; Apple Silicon will not run unsigned code), and a
 `.dmg` made with `hdiutil`. `scripts/check-macos.sh` then mounts the DMG and checks its contents, both
 architectures, the signature, the version and that the app's binary starts. CI runs the same two scripts on every push.
