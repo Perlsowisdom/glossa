@@ -44,7 +44,7 @@ export default [
       await sw.click();
       await card.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
       t.assert.ok((await card.locator(".connection-status").innerText()).includes("Connected to Zotero"), "status line");
-      t.assert.equal((await app.run("connect.list"))[0].enabled, true);
+      t.assert.equal((await app.run("connect.list")).find((x) => x.id === "zotero").enabled, true);
       t.assert.ok(fake.requests().some((r) => r.includes("/api/users/0/")), "asked the app on this computer");
 
       // Zotero refuses other programs: the card says what to tick, in plain words.
@@ -69,7 +69,7 @@ export default [
       t.assert.equal(await card.locator("input[type=password]").inputValue(), "", "the key field is emptied");
       const everything = await page.evaluate(() => document.body.innerText + [...document.querySelectorAll("input")].map((i) => i.value).join(" "));
       t.assert.ok(!everything.includes(fake.key), "the key is shown nowhere");
-      t.assert.equal((await app.run("connect.list"))[0].key_set, true);
+      t.assert.equal((await app.run("connect.list")).find((x) => x.id === "zotero").key_set, true);
       t.assert.ok(!JSON.stringify(await app.run("connect.list")).includes(fake.key), "the key is not in the command's answer");
 
       // Screenshots: the connected card at both sizes, light and dark (the key box open in the first).
@@ -93,7 +93,7 @@ export default [
       await card.getByRole("button", { name: "Remove key" }).click();
       await card.locator("input[type=password]").waitFor();
       await page.waitForFunction(() => !document.querySelector(".connection .danger"), null, { timeout: 10000 });
-      t.assert.equal((await app.run("connect.list"))[0].key_set, false);
+      t.assert.equal((await app.run("connect.list")).find((x) => x.id === "zotero").key_set, false);
       fake.mode = "ok";
       await card.getByRole("switch", { name: "Use Zotero" }).click();
       await card.locator(".badge", { hasText: /^Off$/ }).waitFor({ timeout: 10000 });

@@ -114,3 +114,54 @@ styles and everything else about citing work offline. Downloaded styles are save
 parent. `GLOSSA_CSL_LIST_URL` and `GLOSSA_CSL_RAW_URL` point the feature at test servers. `docs/privacy.md` has
 the section. No schema change: manual sources and kept Zotero items share `cite_items`; the default style is the
 setting `cite.style` and a document's own choice `cite.doc_style.<id>`.
+
+## Addendum: Any, two-way (T40c; still Proposed)
+
+ADR 0009's list of network features gains **Any** (the Any app, formerly Anytype), reached **only on this
+computer**. Nothing leaves the computer: Glossa talks to the app's local API on the loopback address, and
+`internal/connect/any` refuses an address that is not loopback. It is a connection like Zotero (switch off by
+default, one sentence of what is sent, key in the keychain, a Test), with sign-in "a local app".
+
+**What was confirmed** (from Any's developer documentation, `developers.anytype.io`, and the OpenAPI description
+`openapi-2025-11-08.yaml` in `github.com/anyproto/anytype-api`; no Any source code was read, and the person's
+real Any app was never contacted, only a fake):
+
+| Part | Confirmed |
+| --- | --- |
+| Version | The dated API version is **2025-11-08** (older: 2025-05-20, 2025-04-22). Every request carries the header `Anytype-Version: 2025-11-08`. |
+| Address | The OpenAPI server is `http://127.0.0.1:31009`; the examples use `localhost:31009`. Glossa uses `http://127.0.0.1:31009`; `GLOSSA_ANY_URL` points it elsewhere on this computer (tests). |
+| Pairing | `POST /v1/auth/challenges` with `{"app_name": "Glossa"}` returns `{"challenge_id"}` and makes the Any app show a 4-digit code; the person types it into Glossa; `POST /v1/auth/api_keys` with `{"challenge_id", "code"}` returns `{"api_key"}`. |
+| Authentication | `Authorization: Bearer <api_key>` on every other call; a 401 means the key is no longer good (the person is asked to sign in again). |
+| Spaces | `GET /v1/spaces?offset&limit` returns `{data: [{id, name, ...}], pagination: {total, offset, limit, has_more}}`. All list calls page the same way. |
+| Search and list | `POST /v1/spaces/{space}/search?offset&limit` with `{query, types: ["page"], sort}`; objects carry `id`, `name`, `snippet`, `archived`, `type.key` and `properties` (including `last_modified_date`, a date property). |
+| Read | `GET /v1/spaces/{space}/objects/{id}?format=md` returns `{object: {..., markdown}}`. |
+| Create | `POST /v1/spaces/{space}/objects` with `{type_key: "page", name, body, properties: [{key, text}]}` (the text field is `body` when creating). |
+| Update | `PATCH /v1/spaces/{space}/objects/{id}` with `{name, markdown, properties}` (the text field is `markdown` when updating). |
+| Properties | `GET`/`POST /v1/spaces/{space}/properties`: Glossa makes a text property `glossa_passages` in the space once and sets it. If Any refuses, the page is still sent without it. |
+
+**What is sent and where.** Only a note or sermon the person chooses to send (title, Markdown text, its
+passages as plain references such as "Romans 8:1; John 3:16"), and searches for pages they pick, and only to
+the Any app on this computer. Nothing is sent to anyone else, and nothing is sent while the switch is off.
+Anything Any itself then syncs is Any's business, not Glossa's.
+
+**Links.** Migration `0016_any_links.sql` adds `any_links(kind, item_id, space_id, object_id, glossa_hash,
+any_hash, any_modified, synced_at)`, one row per linked note or sermon. Sending again updates the linked page
+(no duplicate); importing a linked page again updates the same note. **The table is per device**, like
+`files`: it is logged but never sent to other devices (`perDeviceTable` in `internal/store/remote.go`). Page
+IDs belong to the Any app, and the account, on this computer; another device may have no Any, or another
+account, and a synced link there would update the wrong page or none.
+
+**Two sides changed.** At each sync Glossa compares what each side looks like now with what it recorded at the
+last sync (a hash of Glossa's title, text and passages; Any's last-modified time and a hash of the page text as
+Any returned it). If only one side changed it carries the change across; if both changed (or Any changed and
+the person is sending) it **changes nothing** and returns `both_changed` (or `any_changed`). The person then
+chooses: keep Glossa's (the page is replaced), keep Any's (the note or sermon is replaced), or keep both (Any's
+text is saved as a new note, then Glossa's goes to Any). A page deleted in Any is made again on the next send.
+
+**Commands.** `any.pair_start`, `any.pair_finish`, `any.unpair`, `any.spaces`, `any.set_space`, `any.pages`,
+`any.search`, `any.send`, `any.import`, `any.sync_status`. The key is stored once, in the keychain
+(`connect.any.key`), and never returned, logged or shown. The default space is the per-device setting
+`connect.any.space`.
+
+**Not done.** Sermon outlines are not sent separately (the text is); a page imported becomes a note, never a
+sermon; pictures, files and links inside pages are not carried; no automatic or background syncing.

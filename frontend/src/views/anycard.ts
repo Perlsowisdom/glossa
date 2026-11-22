@@ -67,8 +67,11 @@ function spaceChooser(say: (t: string, kind?: string) => void): HTMLElement {
       return; // Any is not running: the card's status already says so
     }
     if (!r.spaces.length) return;
-    const pick = select(r.spaces.map((s) => [s.id, s.name] as [string, string]), r.default_space_id ?? r.spaces[0].id, { "aria-label": "Space to send to", id: "any-space" });
+    const options = r.spaces.map((s) => [s.id, s.name] as [string, string]);
+    if (!r.default_space_id) options.unshift(["", "Choose a space…"]);
+    const pick = select(options, r.default_space_id ?? "", { id: "any-space" });
     pick.addEventListener("change", async () => {
+      if (!pick.value) return;
       try { await run("any.set_space", { space_id: pick.value }); say("Saved.", "ok"); } catch (e) { say(failureText(e), "error"); }
     });
     clear(box, field("Send to this space", pick, r.spaces.length > 1 ? "New notes and sermons go here. Pages you send before stay where they are." : undefined));
