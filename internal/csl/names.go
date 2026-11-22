@@ -401,6 +401,7 @@ func (r *renderer) renderNames(list []Name, cfg *namesCfg) []*rich {
 		if it.empty() {
 			continue
 		}
+		it = r.nameFont(cfg, it)
 		items = append(items, it)
 		inverted = append(inverted, inv && !nm.isLiteral())
 	}
@@ -437,6 +438,20 @@ func (r *renderer) renderNames(list []Name, cfg *namesCfg) []*rich {
 }
 
 func (nm Name) isLiteral() bool { return nm.Literal != "" }
+
+// nameFont applies the font attributes of cs:name to one rendered name.
+func (r *renderer) nameFont(cfg *namesCfg, it *rich) *rich {
+	if cfg == nil || cfg.name == nil {
+		return it
+	}
+	el := cfg.name
+	if !el.has("font-style") && !el.has("font-weight") && !el.has("font-variant") && !el.has("text-decoration") && !el.has("vertical-align") {
+		return it
+	}
+	w := &rich{Kids: []*rich{it}, Style: fontValue(el.a("font-style")), Weight: fontValue(el.a("font-weight")),
+		Variant: fontValue(el.a("font-variant")), Deco: fontValue(el.a("text-decoration")), VAlign: fontValue(el.a("vertical-align"))}
+	return w
+}
 
 // separator is the text before the i-th name (i >= 1) of count rendered names.
 func (r *renderer) separator(o nameOpts, i, count int, inverted []bool, truncated, useLast bool) string {

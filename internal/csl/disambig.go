@@ -474,15 +474,37 @@ func (p *Processor) sameYear(a, b string) bool {
 
 func (p *Processor) joinGroup(parts [][]*rich, groupDelim, suffixDelim, mode string, cs []renderedCite) []*rich {
 	var out []*rich
-	for i, part := range parts {
+	i := 0
+	for i < len(parts) {
+		suffixOnly := func(k int) bool {
+			return k > 0 && len(parts[k]) == 1 && cs[k].suffix != "" && parts[k][0].Text == cs[k].suffix && p.sameYear(cs[k-1].id, cs[k].id)
+		}
 		if i > 0 {
 			d := groupDelim
-			if len(part) == 1 && part[0].Text != "" && len(part[0].Text) <= 2 && cs[i].suffix == part[0].Text && p.sameYear(cs[i-1].id, cs[i].id) && suffixDelim != "" {
+			if suffixOnly(i) && suffixDelim != "" {
 				d = suffixDelim
 			}
 			out = append(out, leaf(d))
 		}
-		out = append(out, part...)
+		if mode == "year-suffix-ranged" && suffixOnly(i) {
+			j := i
+			for j+1 < len(parts) && suffixOnly(j+1) && nextLetter(cs[j].suffix, cs[j+1].suffix) {
+				j++
+			}
+			if j-i >= 2 {
+				out = append(out, parts[i]...)
+				out = append(out, leaf("–"))
+				out = append(out, parts[j]...)
+				i = j + 1
+				continue
+			}
+		}
+		out = append(out, parts[i]...)
+		i++
 	}
 	return out
+}
+
+func nextLetter(a, b string) bool {
+	return len(a) == 1 && len(b) == 1 && b[0] == a[0]+1
 }

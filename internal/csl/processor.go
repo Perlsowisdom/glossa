@@ -63,7 +63,8 @@ type Processor struct {
 	extra    []string // registered without citing
 	clusters []*Cluster
 
-	noPositions bool
+	noPositions  bool
+	noEmptyError bool
 
 	// computed by prepare
 	order     []string // registry order: citation order, then registered
@@ -165,17 +166,24 @@ func (p *Processor) BibliographyFiltered(keep func(*Item) bool) []Entry {
 		}
 		r := newRenderer(p, p.style.bibliography, true, it)
 		r.dis = *p.disFor(id)
-		root := r.layout()
-		node := &rich{Kids: p.wrapLayoutBib(root)}
+		node := p.bibEntryNode(r)
 		nodes = append(nodes, node)
 		firsts = append(firsts, r.firstNames)
 		ents = append(ents, Entry{ID: id})
 	}
 	p.substituteAuthors(firsts)
+	var kept []Entry
+	aligned := p.style.bibliography.node.has("second-field-align")
 	for i, n := range nodes {
 		ents[i].Output = p.finish([]*rich{n}, true)
+		if aligned && !ents[i].Output.IsEmpty() {
+			ents[i].Output.HTML = "\n    " + ents[i].Output.HTML + "\n  "
+		}
+		if !ents[i].Output.IsEmpty() {
+			kept = append(kept, ents[i])
+		}
 	}
-	return ents
+	return kept
 }
 
 // BibliographyHTML wraps the entries as the CSL HTML bibliography block.
@@ -405,6 +413,9 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 		}
 		nodes = u
 	}
+	if allEmpty(nodes) && !p.noEmptyError {
+		nodes = []*rich{leaf("[CSL STYLE ERROR: reference with no printed form.]")}
+	}
 	rc.nodes = nodes
 	rc.hasAffix = it.Prefix != "" || it.Suffix != "" || it.Locator != ""
 	if n, err := strconv.Atoi(p.citationNumber(it.ID)); err == nil {
@@ -474,6 +485,29 @@ func dropEmpty(cs []renderedCite) []renderedCite {
 		}
 	}
 	return out
+}
+
+// bibEntryNode renders one bibliography entry. With second-field-align the first field goes in a
+// left-margin block and the rest in a right-inline block.
+func (p *Processor) bibEntryNode(r *renderer) *rich {
+	if !p.style.bibliography.node.has("second-field-align") {
+		return &rich{Kids: p.wrapLayoutBib(r.layout())}
+	}
+	var first []*rich
+	var rest [][]*rich
+	found := false
+	for _, k := range r.sec.layout.Kids {
+		for _, u := range r.units(k) {
+			if !found && !allEmpty(u) {
+				first, found = u, true
+				continue
+			}
+			rest = append(rest, u)
+		}
+	}
+	left := &rich{Kids: first, Display: "left-margin"}
+	right := &rich{Kids: p.wrapLayoutBib(join(rest, "")), Display: "right-inline"}
+	return &rich{Kids: []*rich{left, right}}
 }
 
 func (p *Processor) wrapLayoutBib(root []*rich) []*rich {

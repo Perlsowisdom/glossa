@@ -3,6 +3,7 @@ package csl
 import (
 	"sort"
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
@@ -60,6 +61,32 @@ func padNumStr(s string) string {
 	return s
 }
 
+// sortText prepares a key for comparison: markup, punctuation and repeated spaces do not count.
+func sortText(s string) string {
+	if strings.Contains(s, "<") {
+		var b strings.Builder
+		for _, n := range parseMarkup(s) {
+			n.writePlain(&b)
+		}
+		s = b.String()
+	}
+	var b strings.Builder
+	space := false
+	for _, r := range s {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			if space && b.Len() > 0 {
+				b.WriteByte(' ')
+			}
+			space = false
+			b.WriteRune(r)
+		case unicode.IsSpace(r):
+			space = true
+		}
+	}
+	return b.String()
+}
+
 func (p *Processor) lessKeys(a, b []sortKey) int {
 	for i := range a {
 		if i >= len(b) {
@@ -74,7 +101,7 @@ func (p *Processor) lessKeys(a, b []sortKey) int {
 		case y.val == "":
 			return -1
 		}
-		c := p.coll.compare(x.val, y.val)
+		c := p.coll.compare(sortText(x.val), sortText(y.val))
 		if x.desc {
 			c = -c
 		}
