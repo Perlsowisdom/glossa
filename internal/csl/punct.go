@@ -59,7 +59,7 @@ func smartQuotes(toks []tok, q quotes) []tok {
 				}
 				s, ns, open, closing := straightQuote(c, prev, next, stack, q)
 				stack = ns
-				if open || closing {
+				if (open || closing) && !t.affix {
 					flush()
 					out = append(out, tok{kind: 't', s: s, quoteOpen: open, quoteClose: closing})
 				} else {
@@ -195,7 +195,14 @@ func moveIntoQuotes(toks []tok) []tok {
 		if toks[i].kind != 't' || !toks[i].quoteClose {
 			continue
 		}
-		for j := i + 1; j < len(toks); j++ {
+		if i > 0 && prevTextIsClose(toks, i) {
+			continue // the innermost close of a run takes the punctuation
+		}
+		j := i + 1
+		for j < len(toks) && (toks[j].kind != 't' || toks[j].s == "" || toks[j].quoteClose) {
+			j++
+		}
+		for ; j < len(toks); j++ {
 			if toks[j].kind != 't' || toks[j].s == "" {
 				continue
 			}
@@ -208,4 +215,13 @@ func moveIntoQuotes(toks []tok) []tok {
 		}
 	}
 	return toks
+}
+
+func prevTextIsClose(toks []tok, i int) bool {
+	for k := i - 1; k >= 0; k-- {
+		if toks[k].kind == 't' && toks[k].s != "" {
+			return toks[k].quoteClose
+		}
+	}
+	return false
 }

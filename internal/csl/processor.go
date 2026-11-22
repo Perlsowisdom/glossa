@@ -397,11 +397,11 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 		pre, suf := it.Prefix, it.Suffix
 		var u []*rich
 		if pre != "" {
-			u = append(u, parseMarkup(spaced(pre, true))...)
+			u = append(u, tagAffix(parseMarkup(spaced(pre, true)))...)
 		}
 		u = append(u, nodes...)
 		if suf != "" {
-			u = append(u, parseMarkup(spaced(suf, false))...)
+			u = append(u, tagAffix(parseMarkup(spaced(suf, false)))...)
 		}
 		nodes = u
 	}
@@ -485,20 +485,38 @@ func (p *Processor) wrapLayout(lay *xnode, node *rich) []*rich {
 	if allEmpty([]*rich{node}) {
 		return nil
 	}
+	var kids []*rich
+	if s := lay.a("prefix"); s != "" {
+		kids = append(kids, affixLeaf(s))
+	}
+	kids = append(kids, node.Kids...)
+	if s := lay.a("suffix"); s != "" {
+		kids = append(kids, affixLeaf(s))
+	}
+	node.Kids = kids
 	node.Style = fontValue(lay.a("font-style"))
 	node.Weight = fontValue(lay.a("font-weight"))
 	node.Variant = fontValue(lay.a("font-variant"))
 	node.Deco = fontValue(lay.a("text-decoration"))
 	node.VAlign = fontValue(lay.a("vertical-align"))
-	var out []*rich
-	if s := lay.a("prefix"); s != "" {
-		out = append(out, leaf(s))
+	return []*rich{node}
+}
+
+func affixLeaf(s string) *rich {
+	l := leaf(s)
+	l.Tag = "affix"
+	return l
+}
+
+// tagAffix marks the text of a cite prefix or suffix, which is the writer's own punctuation.
+func tagAffix(ns []*rich) []*rich {
+	for _, n := range ns {
+		if n.Text != "" {
+			n.Tag = "affix"
+		}
+		tagAffix(n.Kids)
 	}
-	out = append(out, node)
-	if s := lay.a("suffix"); s != "" {
-		out = append(out, leaf(s))
-	}
-	return out
+	return ns
 }
 
 func (p *Processor) cOpt(key string) string {
@@ -526,22 +544,16 @@ func (p *Processor) citationLabel(it *Item) string {
 	var s string
 	switch {
 	case len(names) == 1:
-		f := names[0].Family
-		if len(f) > 4 {
-			f = f[:4]
-		}
-		s = f
-	case len(names) >= 2 && len(names) <= 4:
+		s = prefixRunes(names[0].Family, 3)
+	case len(names) == 2:
+		s = prefixRunes(names[0].Family, 2) + prefixRunes(names[1].Family, 2)
+	case len(names) == 3:
 		for _, n := range names {
-			if n.Family != "" {
-				s += n.Family[:1]
-			}
+			s += prefixRunes(n.Family, 1)
 		}
-	case len(names) > 4:
-		for _, n := range names[:4] {
-			if n.Family != "" {
-				s += n.Family[:1]
-			}
+	case len(names) > 3:
+		for _, n := range names[:3] {
+			s += prefixRunes(n.Family, 1)
 		}
 		s += "+"
 	}
@@ -607,4 +619,12 @@ func joinCites(units [][]*rich, delim string, cites []renderedCite) []*rich {
 		prevSuffix = strings.TrimSpace(cites[i].item.Suffix)
 	}
 	return out
+}
+
+func prefixRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) > n {
+		r = r[:n]
+	}
+	return string(r)
 }

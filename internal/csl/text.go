@@ -18,17 +18,28 @@ var stopWords = map[string]bool{"a": true, "an": true, "and": true, "as": true, 
 type caseState struct {
 	first      bool // nothing has been written yet
 	afterColon bool
+	words      int // words in the whole text, for knowing the last
+	seen       int
 }
 
 func applyCase(n *rich, mode string, english bool) {
-	st := &caseState{first: true}
+	st := &caseState{first: true, words: countWords(n)}
 	n.caseWalk(mode, english, st)
 }
 
+func countWords(n *rich) int {
+	c := len(strings.Fields(n.Text))
+	for _, k := range n.Kids {
+		c += countWords(k)
+	}
+	return c
+}
+
 func (n *rich) caseWalk(mode string, english bool, st *caseState) {
-	if n.NoCase {
+	if n.NoCase || n.Variant == "small-caps" || n.VAlign != "" {
 		if !n.empty() {
 			st.first = false
+			st.seen += countWords(n)
 		}
 		return
 	}
@@ -123,33 +134,66 @@ func mapWords(s string, f func(w string, idx int) string) string {
 	return b.String()
 }
 
+// titleWord capitalises one word (or one part of a hyphenated one) for title case.
+func titleWord(w string, stop bool) string {
+	if w == "" {
+		return w
+	}
+	r, _ := utf8.DecodeRuneInString(w)
+	rest := w[utf8.RuneLen(r):]
+	if strings.IndexFunc(rest, unicode.IsUpper) >= 0 {
+		return w // UK, iPad, McDonald: already capitalised on purpose
+	}
+	bare := strings.ToLower(strings.Trim(w, ".,;:!?()[]\"'“”‘’"))
+	if stop && stopWords[bare] {
+		return strings.ToLower(w)
+	}
+	if !unicode.IsLower(r) && unicode.IsLetter(r) && rest != strings.ToLower(rest) {
+		return w
+	}
+	return upperFirst(w)
+}
+
 func titleCase(s string, st *caseState) string {
-	allCaps := isAllUpper(s)
 	out := mapWords(s, func(w string, idx int) string {
 		first := st.first && idx == 0
-		after := st.afterColon && idx == 0
-		defer func() { st.first = false; st.afterColon = strings.HasSuffix(w, ":") }()
-		if allCaps {
-			w = strings.ToLower(w)
-		}
-		bare := strings.ToLower(strings.Trim(w, ".,;:!?()[]\"'"))
-		if stopWords[bare] && !first && !after {
-			return strings.ToLower(w)
-		}
-		if strings.Contains(w, "-") && !first {
-			parts := strings.Split(w, "-")
-			for i, p := range parts {
-				if stopWords[strings.ToLower(p)] && i > 0 {
-					parts[i] = strings.ToLower(p)
-				} else {
-					parts[i] = upperFirst(p)
-				}
+		after := st.afterColon
+		last := st.words > 0 && st.seen+1 == st.words
+		st.seen++
+		st.first = false
+		st.afterColon = strings.HasSuffix(w, ":") || strings.HasSuffix(w, ".") || strings.HasSuffix(w, "?") || strings.HasSuffix(w, "!")
+		parts := splitDashes(w)
+		for i, p := range parts {
+			if p == "" || strings.ContainsAny(p, "-–—/") && len(p) == 1 {
+				continue
 			}
-			return strings.Join(parts, "-")
+			stop := !(first && i == 0) && !after || i > 0
+			if !(first || after) && i == 0 && !last {
+				stop = true
+			} else if i == 0 {
+				stop = false
+			}
+			if last && i == len(parts)-1 {
+				stop = false
+			}
+			parts[i] = titleWord(p, stop)
 		}
-		return upperFirst(w)
+		return strings.Join(parts, "")
 	})
 	return out
+}
+
+// splitDashes splits a word at hyphens, dashes and slashes, keeping them as parts.
+func splitDashes(w string) []string {
+	var parts []string
+	start := 0
+	for i, r := range w {
+		if r == '-' || r == '–' || r == '—' || r == '/' {
+			parts = append(parts, w[start:i], string(r))
+			start = i + utf8.RuneLen(r)
+		}
+	}
+	return append(parts, w[start:])
 }
 
 func sentenceCase(s string, st *caseState) string {

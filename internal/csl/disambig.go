@@ -438,6 +438,9 @@ func (p *Processor) collapseYears(ci int, cites []renderedCite, mode string) [][
 		groupDelim = v
 	}
 	suffixDelim := p.style.citation.node.a("year-suffix-delimiter")
+	if suffixDelim == "" {
+		suffixDelim = p.style.citation.layout.a("delimiter")
+	}
 	var units [][]*rich
 	for i := 0; i < len(cites); {
 		j := i

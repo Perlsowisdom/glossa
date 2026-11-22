@@ -153,11 +153,11 @@ func (r *renderer) wrap(n *xnode, content []*rich) []*rich {
 	}
 	var out []*rich
 	if pre != "" {
-		out = append(out, leaf(pre))
+		out = append(out, affixLeaf(pre))
 	}
 	out = append(out, node)
 	if suf != "" {
-		out = append(out, leaf(suf))
+		out = append(out, affixLeaf(suf))
 	}
 	return out
 }

@@ -97,6 +97,7 @@ type tok struct {
 	s          string
 	quoteClose bool
 	quoteOpen  bool
+	affix      bool
 	eff        effStyle
 }
 
@@ -145,7 +146,7 @@ func (f *flattener) walk(n *rich) {
 		f.toks = append(f.toks, tok{kind: 'o', n: n, eff: e, s: openS})
 	}
 	if n.Text != "" {
-		f.toks = append(f.toks, tok{kind: 't', s: n.Text})
+		f.toks = append(f.toks, tok{kind: 't', s: n.Text, affix: n.Tag == "affix"})
 	}
 	for _, k := range n.Kids {
 		f.walk(k)
@@ -377,7 +378,7 @@ func markupTag(tag string) (n *rich, closing, ok bool) {
 			return &rich{NoCase: true}, false, true
 		}
 		if strings.Contains(t, "nodecor") {
-			return &rich{Style: "normal", Weight: "normal", Variant: "normal"}, false, true
+			return &rich{Style: "normal", Weight: "normal", Variant: "normal", NoCase: true}, false, true
 		}
 		if strings.Contains(t, "small-caps") {
 			return &rich{Variant: "small-caps"}, false, true
