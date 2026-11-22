@@ -21,13 +21,14 @@ func tidy(toks []tok, q quotes, punctInQuote bool) []tok {
 }
 
 // smartQuotes replaces straight quotes and apostrophes in the text with the locale's quotes,
-// choosing outer or inner by nesting.
+// choosing outer or inner by nesting. Quotes it makes count as quotes for moving punctuation.
 func smartQuotes(toks []tok, q quotes) []tok {
 	var stack []byte // 0 for a quote the style added, otherwise the straight character
 	prev := ' '
-	for i := range toks {
-		t := &toks[i]
+	out := make([]tok, 0, len(toks))
+	for _, t := range toks {
 		if t.kind != 't' {
+			out = append(out, t)
 			continue
 		}
 		switch {
@@ -38,8 +39,14 @@ func smartQuotes(toks []tok, q quotes) []tok {
 				stack = stack[:len(stack)-1]
 			}
 		case strings.ContainsAny(t.s, "\"'"):
-			var b strings.Builder
 			rs := []rune(t.s)
+			var b strings.Builder
+			flush := func() {
+				if b.Len() > 0 {
+					out = append(out, tok{kind: 't', s: b.String()})
+					b.Reset()
+				}
+			}
 			for j, c := range rs {
 				if c != '"' && c != '\'' {
 					b.WriteRune(c)
@@ -50,42 +57,58 @@ func smartQuotes(toks []tok, q quotes) []tok {
 				if j+1 < len(rs) {
 					next = rs[j+1]
 				}
-				out, ns := straightQuote(c, prev, next, stack, q)
+				s, ns, open, closing := straightQuote(c, prev, next, stack, q)
 				stack = ns
-				b.WriteString(out)
-				prev, _ = utf8.DecodeLastRuneInString(out)
+				if open || closing {
+					flush()
+					out = append(out, tok{kind: 't', s: s, quoteOpen: open, quoteClose: closing})
+				} else {
+					b.WriteString(s)
+				}
+				prev, _ = utf8.DecodeLastRuneInString(s)
 			}
-			t.s = b.String()
+			flush()
 			continue
 		}
 		if t.s != "" {
 			prev, _ = utf8.DecodeLastRuneInString(t.s)
 		}
+		out = append(out, t)
 	}
-	return toks
+	return out
 }
 
-func straightQuote(c, prev, next rune, stack []byte, q quotes) (string, []byte) {
-	opening := prev == ' ' || prev == '(' || prev == '[' || prev == ' ' || prev == '\n' || prev == '“' || prev == '‘'
-	if c == '\'' {
-		if len(stack) > 0 && stack[len(stack)-1] == '\'' && !opening {
-			return closeFor(len(stack)-1, q), stack[:len(stack)-1]
-		}
-		if !opening {
-			return "’", stack
-		}
-		return openFor(len(stack), q), append(stack, '\'')
+func wordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
+
+func straightQuote(c, prev, next rune, stack []byte, q quotes) (s string, ns []byte, open, closing bool) {
+	opening := prev == ' ' || prev == '(' || prev == '[' || prev == '\u00a0' || prev == '\n' || prev == '“' || prev == '‘'
+	top := byte(255)
+	if len(stack) > 0 {
+		top = stack[len(stack)-1]
 	}
-	if len(stack) > 0 && stack[len(stack)-1] == '"' && !opening {
-		return closeFor(len(stack)-1, q), stack[:len(stack)-1]
+	if c == '\'' {
+		switch {
+		case wordRune(prev) && wordRune(next):
+			return "’", stack, false, false
+		case opening && unicode.IsDigit(next):
+			return "’", stack, false, false
+		case top == '\'' && !opening:
+			return closeFor(len(stack)-1, q), stack[:len(stack)-1], false, true
+		case !opening:
+			return "’", stack, false, false
+		}
+		return openFor(len(stack), q), append(stack, '\''), true, false
+	}
+	if top == '"' && !opening {
+		return closeFor(len(stack)-1, q), stack[:len(stack)-1], false, true
 	}
 	if opening || (next != 0 && !unicode.IsSpace(next) && !strings.ContainsRune(".,;:!?)]", next) && !unicode.IsLetter(prev)) {
-		return openFor(len(stack), q), append(stack, '"')
+		return openFor(len(stack), q), append(stack, '"'), true, false
 	}
 	if len(stack) > 0 {
-		return closeFor(len(stack)-1, q), stack[:len(stack)-1]
+		return closeFor(len(stack)-1, q), stack[:len(stack)-1], false, true
 	}
-	return openFor(len(stack), q), append(stack, '"')
+	return openFor(len(stack), q), append(stack, '"'), true, false
 }
 
 func openFor(depth int, q quotes) string {

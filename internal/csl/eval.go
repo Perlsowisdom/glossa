@@ -192,7 +192,7 @@ func (r *renderer) text(n *xnode) []*rich {
 	case n.has("term"):
 		content = r.termText(n)
 	case n.has("value"):
-		content = []*rich{leaf(n.a("value"))}
+		content = parseMarkup(n.a("value"))
 	}
 	return r.wrap(n, content)
 }
@@ -204,7 +204,16 @@ func (r *renderer) macro(name string) []*rich {
 	}
 	r.depth++
 	defer func() { r.depth-- }()
-	return r.children(m)
+	c0, n0 := r.called, r.nonEmpty
+	r.called, r.nonEmpty = 0, 0
+	out := r.children(m)
+	called, non := r.called, r.nonEmpty
+	r.called, r.nonEmpty = c0+called, n0
+	if called > 0 && non == 0 {
+		return nil
+	}
+	r.nonEmpty += non
+	return out
 }
 
 func (r *renderer) termText(n *xnode) []*rich {
@@ -213,6 +222,9 @@ func (r *renderer) termText(n *xnode) []*rich {
 	s, ok := r.loc.lookup(n.a("term"), form, plural)
 	if !ok {
 		return nil
+	}
+	if strings.Contains(s, "<") {
+		return parseMarkup(s)
 	}
 	l := leaf(s)
 	l.Tag = "term"
@@ -396,7 +408,16 @@ func labelPlural(mode, v, val string) bool {
 		n, err := strconv.Atoi(strings.TrimSpace(val))
 		return err == nil && n > 1
 	}
-	return strings.ContainsAny(val, "-–,&") && isNumeric(val)
+	if !strings.ContainsAny(val, "-–,&") && !strings.Contains(val, " and ") && !strings.Contains(val, " et ") {
+		return false
+	}
+	if strings.Contains(val, " and ") || strings.Contains(val, " et ") {
+		return true
+	}
+	if a, b, ok := splitRange(val); ok && isRoman(a) && isRoman(b) {
+		return true
+	}
+	return isNumeric(val)
 }
 
 // ---- choose ----

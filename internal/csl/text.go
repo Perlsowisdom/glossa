@@ -369,12 +369,14 @@ func isDigits(s string) bool {
 	return true
 }
 
+var romanRE = regexp.MustCompile("^(?i:m{0,3}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3}))$")
+
+func isRoman(s string) bool { return s != "" && romanRE.MatchString(s) }
+
 // formatPages applies page-range-format to a page value: lists are split at commas and
-// ampersands, ranges at hyphens.
+// ampersands, ranges at hyphens. Without a format a hyphen between two numbers is still shown
+// as an en dash.
 func formatPages(s, format, delim string) string {
-	if format == "" {
-		return s
-	}
 	var b strings.Builder
 	rest := s
 	for rest != "" {
@@ -386,50 +388,74 @@ func formatPages(s, format, delim string) string {
 		} else {
 			rest = ""
 		}
-		b.WriteString(formatRange(piece, format, delim))
+		core := strings.TrimSpace(piece)
+		lead := piece[:strings.Index(piece, core+"")]
+		if core == "" {
+			lead = piece
+		}
+		trail := piece[len(lead)+len(core):]
+		b.WriteString(lead + formatRange(core, format, delim) + trail)
 		b.WriteString(sep)
 	}
 	return b.String()
 }
 
-func formatRange(p, format, delim string) string {
-	i := strings.IndexAny(p, "-–")
-	if i < 0 {
-		return p
-	}
-	a, c := strings.TrimSpace(p[:i]), strings.TrimSpace(p[i+len("-"):])
-	if strings.HasPrefix(p[i:], "–") {
-		c = strings.TrimSpace(p[i+len("–"):])
-	}
-	lead := p[:len(p)-len(strings.TrimLeft(p, " "))]
-	if !isDigits(a) || !isDigits(c) {
-		pa, na := splitPrefix(a)
-		pc, nc := splitPrefix(c)
-		if pa == pc && isDigits(na) && isDigits(nc) && pa != "" {
-			return lead + pa + shorten(na, nc, format, delim)
+func splitRange(p string) (a, b string, ok bool) {
+	for i := 0; i < len(p); i++ {
+		if p[i] == '\\' {
+			i++
+			continue
 		}
-		return lead + a + delim + c
+		if p[i] == '-' {
+			return strings.TrimSpace(p[:i]), strings.TrimSpace(p[i+1:]), true
+		}
+		if strings.HasPrefix(p[i:], "–") {
+			return strings.TrimSpace(p[:i]), strings.TrimSpace(p[i+len("–"):]), true
+		}
 	}
-	return lead + shorten(a, c, format, delim)
+	return "", "", false
 }
 
-func splitPrefix(s string) (string, string) {
-	i := 0
-	for i < len(s) && (s[i] < '0' || s[i] > '9') {
-		i++
+// splitTrail splits a page number into its prefix and the final run of digits.
+func splitTrail(s string) (string, string) {
+	i := len(s)
+	for i > 0 && s[i-1] >= '0' && s[i-1] <= '9' {
+		i--
 	}
 	return s[:i], s[i:]
 }
 
-func shorten(a, b, format, delim string) string {
+func formatRange(p, format, delim string) string {
+	a, b, ok := splitRange(p)
+	if !ok {
+		return strings.ReplaceAll(p, "\\", "")
+	}
+	if a == "" || b == "" {
+		return strings.ReplaceAll(p, "\\", "")
+	}
+	pa, na := splitTrail(a)
+	pb, nb := splitTrail(b)
+	switch {
+	case na != "" && nb != "" && pa == pb:
+		return pa + shorten(na, nb, format, delim, pa)
+	case isRoman(a) && isRoman(b):
+		return a + delim + b
+	}
+	return strings.ReplaceAll(a, "\\", "") + "-" + strings.ReplaceAll(b, "\\", "")
+}
+
+func shorten(a, b, format, delim, prefix string) string {
 	orig := b
 	if len(b) < len(a) {
 		b = a[:len(a)-len(b)] + b
 	}
 	na, _ := strconv.Atoi(a)
 	nb, _ := strconv.Atoi(b)
-	if nb < na || len(a) != len(b) {
-		return a + delim + orig
+	if format == "" {
+		return a + delim + prefix + orig
+	}
+	if nb < na || len(a) != len(b) && len(b) < len(a) {
+		return a + delim + prefix + orig
 	}
 	switch format {
 	case "minimal":
@@ -439,11 +465,14 @@ func shorten(a, b, format, delim string) string {
 	case "chicago", "chicago-15", "chicago-16":
 		return a + delim + chicagoTail(a, b, na)
 	}
-	return a + delim + b
+	return a + delim + prefix + b
 }
 
 // minimalTail keeps the digits of b from the first one that differs from a, and at least min.
 func minimalTail(a, b string, min int) string {
+	if len(a) != len(b) {
+		return b
+	}
 	i := 0
 	for i < len(a) && a[i] == b[i] {
 		i++
@@ -465,5 +494,9 @@ func chicagoTail(a, b string, na int) string {
 	if na%100 < 10 {
 		return minimalTail(a, b, 1)
 	}
-	return minimalTail(a, b, 2)
+	t := minimalTail(a, b, 2)
+	if len(t) > 2 && len(a) <= 4 {
+		return b
+	}
+	return t
 }

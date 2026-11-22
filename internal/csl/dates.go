@@ -19,12 +19,13 @@ func (r *renderer) date(n *xnode) []*rich {
 	if r.suppressed[v] || d.IsEmpty() {
 		return nil
 	}
-	r.nonEmpty++
 	r.note(v)
 	if r.sortMode {
+		r.nonEmpty++
 		return []*rich{leaf(sortDate(d))}
 	}
 	if d.Literal != "" && d.Y == 0 {
+		r.nonEmpty++
 		return r.wrap(n, []*rich{leaf(d.Literal)})
 	}
 	parts := r.dateParts(n)
@@ -36,8 +37,11 @@ func (r *renderer) date(n *xnode) []*rich {
 	if delim == "" && n.has("form") {
 		delim = r.loc.dates[n.a("form")].a("delimiter")
 	}
-	out := r.formatDate(d, parts, delim, suffix)
-	return r.wrap(n, out)
+	out := r.wrap(n, r.formatDate(d, parts, delim, suffix))
+	if !allEmpty(out) {
+		r.nonEmpty++
+	}
+	return out
 }
 
 // dateParts finds the parts to render, from the style or the locale's date format.
@@ -130,12 +134,12 @@ func (r *renderer) partValue(p datePart, y, m, d, season int) string {
 func (r *renderer) yearText(y int, form string) string {
 	switch {
 	case y < 0:
-		return strconv.Itoa(-y) + r.term("bc", "long", false)
+		return strconv.Itoa(-y) + " " + r.term("bc", "long", false)
 	case y < 1000 && y > 0:
 		if form == "short" {
 			return fmt.Sprintf("%02d", y%100)
 		}
-		return strconv.Itoa(y) + r.term("ad", "long", false)
+		return strconv.Itoa(y) + " " + r.term("ad", "long", false)
 	case form == "short":
 		return fmt.Sprintf("%02d", y%100)
 	}
@@ -185,10 +189,10 @@ func (r *renderer) formatDate(d *Date, parts []datePart, delim, suffix string) [
 	}
 	rd := "–"
 	if d.EndY == 0 {
-		return append(whole(), leaf(r.rangeDelim(parts, 0, len(parts)-1, rd)))
+		return append(whole(), leaf(r.rangeDelim(parts, true, true, rd)))
 	}
 	diffY := d.Y != d.EndY
-	diffM := diffY || d.M != d.EndM
+	diffM := diffY || d.M != d.EndM || d.Season != d.EndSeason
 	diffD := diffM || d.D != d.EndD
 	if !diffD {
 		return whole()
@@ -214,37 +218,37 @@ func (r *renderer) formatDate(d *Date, parts []datePart, delim, suffix string) [
 	if first < 0 {
 		return whole()
 	}
-	rd = r.rangeDelim(parts, first, last, rd)
+	rd = r.rangeDelim(parts, diffY, diffM, rd)
 	startSuffix := ""
 	if diffY {
 		startSuffix = suffix
 	}
 	lead := r.renderParts(parts[:first], d.Y, d.M, d.D, d.Season, suffix, false)
 	start := r.renderParts(parts[first:last+1], d.Y, d.M, d.D, d.Season, startSuffix, true)
-	end := r.renderParts(parts[first:last+1], d.EndY, d.EndM, d.EndD, 0, suffix, false)
-	trail := r.renderParts(parts[last+1:], d.EndY, d.EndM, d.EndD, 0, suffix, false)
+	end := r.renderParts(parts[first:last+1], d.EndY, d.EndM, d.EndD, d.EndSeason, suffix, false)
+	trail := r.renderParts(parts[last+1:], d.EndY, d.EndM, d.EndD, d.EndSeason, suffix, false)
 	out := join(append(lead, start...), delim)
 	out = append(out, leaf(rd))
 	return append(out, join(append(end, trail...), delim)...)
 }
 
-func (r *renderer) rangeDelim(parts []datePart, first, last int, def string) string {
-	for i := first; i <= last; i++ {
-		if parts[i].el.has("range-delimiter") {
-			return parts[i].el.a("range-delimiter")
+func (r *renderer) rangeDelim(parts []datePart, diffY, diffM bool, def string) string {
+	name := "day"
+	if diffY {
+		name = "year"
+	} else if diffM {
+		name = "month"
+	}
+	for _, p := range parts {
+		if p.name == name && p.el.has("range-delimiter") {
+			return p.el.a("range-delimiter")
 		}
 	}
 	return def
 }
 
 func sortDate(d *Date) string {
-	enc := func(y, m, dd int) string {
-		sign := "1"
-		if y < 0 {
-			sign, y = "0", -y
-		}
-		return fmt.Sprintf("%s%04d%02d%02d", sign, y, m, dd)
-	}
+	enc := func(y, m, dd int) string { return fmt.Sprintf("%07d%02d%02d", y+100000, m, dd) }
 	s := enc(d.Y, d.M, d.D)
 	if d.HasEnd {
 		s += "-" + enc(d.EndY, d.EndM, d.EndD)

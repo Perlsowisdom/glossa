@@ -170,6 +170,11 @@ func toggle(v, inherited, on string) string {
 	switch v {
 	case "":
 		return inherited
+	case "normal":
+		if inherited == on {
+			return "normal"
+		}
+		return inherited
 	case on:
 		if inherited == on {
 			return "normal"
@@ -214,27 +219,24 @@ func tagsFor(n *rich, parent, e effStyle) (open, closeS string) {
 	if n.Display != "" {
 		add("<div class=\"csl-"+n.Display+"\">", "</div>")
 	}
-	switch {
-	case n.Style == "italic" && e.style == "italic":
-		add("<i>", "</i>")
-	case n.Style == "normal" && parent.style == "italic":
-		add("<span style=\"font-style:normal;\">", "</span>")
-	case n.Style == "oblique":
-		add("<span style=\"font-style:oblique;\">", "</span>")
+	if e.style != parent.style {
+		switch e.style {
+		case "italic":
+			add("<i>", "</i>")
+		case "oblique", "normal":
+			add("<span style=\"font-style:"+e.style+";\">", "</span>")
+		}
 	}
-	switch {
-	case n.Weight == "bold" && e.weight == "bold":
-		add("<b>", "</b>")
-	case n.Weight == "normal" && parent.weight == "bold":
-		add("<span style=\"font-weight:normal;\">", "</span>")
-	case n.Weight == "light":
-		add("<span style=\"font-weight:light;\">", "</span>")
+	if e.weight != parent.weight {
+		switch e.weight {
+		case "bold":
+			add("<b>", "</b>")
+		case "normal", "light":
+			add("<span style=\"font-weight:"+e.weight+";\">", "</span>")
+		}
 	}
-	switch {
-	case n.Variant == "small-caps" && e.variant == "small-caps":
-		add("<span style=\"font-variant:small-caps;\">", "</span>")
-	case n.Variant == "normal" && parent.variant == "small-caps":
-		add("<span style=\"font-variant:normal;\">", "</span>")
+	if e.variant != parent.variant {
+		add("<span style=\"font-variant:"+e.variant+";\">", "</span>")
 	}
 	if n.Deco == "underline" {
 		add("<span style=\"text-decoration:underline;\">", "</span>")
@@ -244,9 +246,6 @@ func tagsFor(n *rich, parent, e effStyle) (open, closeS string) {
 		add("<sup>", "</sup>")
 	case "sub":
 		add("<sub>", "</sub>")
-	}
-	if n.NoDecor {
-		add("<span class=\"nodecor\" style=\"font-variant:normal;font-style:normal;font-weight:normal;text-decoration:none;\">", "</span>")
 	}
 	return open, closeS
 }
@@ -336,6 +335,8 @@ func parseMarkup(s string) []*rich {
 			if closing {
 				if len(stack) > 1 {
 					stack = stack[:len(stack)-1]
+				} else {
+					top().Kids = append(top().Kids, leaf(s[:j+1]))
 				}
 			} else {
 				top().Kids = append(top().Kids, n)
@@ -376,7 +377,7 @@ func markupTag(tag string) (n *rich, closing, ok bool) {
 			return &rich{NoCase: true}, false, true
 		}
 		if strings.Contains(t, "nodecor") {
-			return &rich{NoDecor: true}, false, true
+			return &rich{Style: "normal", Weight: "normal", Variant: "normal"}, false, true
 		}
 		if strings.Contains(t, "small-caps") {
 			return &rich{Variant: "small-caps"}, false, true

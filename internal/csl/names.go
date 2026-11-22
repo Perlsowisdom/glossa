@@ -402,7 +402,16 @@ func (r *renderer) renderNames(list []Name, cfg *namesCfg) []*rich {
 	}
 	holder := &rich{Kids: out}
 	holder.nameParts = items
-	return []*rich{holder}
+	res := []*rich{holder}
+	if cfg != nil && cfg.name != nil {
+		if p := cfg.name.a("prefix"); p != "" {
+			res = append([]*rich{leaf(p)}, res...)
+		}
+		if p := cfg.name.a("suffix"); p != "" {
+			res = append(res, leaf(p))
+		}
+	}
+	return res
 }
 
 func (nm Name) isLiteral() bool { return nm.Literal != "" }

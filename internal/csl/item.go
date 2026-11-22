@@ -27,6 +27,7 @@ type Date struct {
 	EndM, EndD int
 	HasEnd     bool // a range; with EndY == 0 it is open-ended
 	Season     int  // 1..4
+	EndSeason  int
 	Circa      bool
 	Literal    string
 }
@@ -201,6 +202,11 @@ func parseDate(raw json.RawMessage) *Date {
 			q := w.Parts[1]
 			d.HasEnd = true
 			d.EndY, d.EndM, d.EndD = part(q, 0), part(q, 1), part(q, 2)
+			if d.EndM >= 13 && d.EndM <= 16 {
+				d.EndSeason, d.EndM = d.EndM-12, 0
+			} else if d.EndM >= 21 && d.EndM <= 24 {
+				d.EndSeason, d.EndM = d.EndM-20, 0
+			}
 		}
 	}
 	if d.M >= 13 && d.M <= 16 {

@@ -385,7 +385,9 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 	it := cl.Items[ii]
 	r := p.citeRenderer(ci, ii, it, suppressAuthor)
 	nodes := r.layout()
-	capitalizeLeadingTerm(nodes, it.Prefix)
+	if p.style.IsNote() {
+		capitalizeLeadingTerm(nodes, it.Prefix)
+	}
 	rc := renderedCite{id: it.ID, item: it}
 	if r.firstNames != nil {
 		rc.authKey = r.firstNames.plain()
