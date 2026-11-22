@@ -8,12 +8,14 @@
 import { Message, RunError, run } from "../api";
 import { AssistantConfig, CLIInfo, LOCAL_CHOICES, ONLINE_CHOICES, providerLine } from "../assistantwords";
 import { segmented, settingRow, tick, toggleSwitch } from "../controls";
+import { ConnectionInfo } from "../connectwords";
 import { badge, button, clear, field, h } from "../dom";
 import { icon } from "../icons";
 import { railControls } from "../shell/rail";
 import { APP_THEMES, ToolId, moveTool, showTool, toolLabel } from "../shellwords";
 import { prefs, setPrefs } from "../state";
 import { commandsView } from "./commands";
+import { connectionsSection } from "./connections";
 import { dataSection } from "./data";
 import { logosSection } from "./logos";
 import { readingControls } from "./reader";
@@ -41,6 +43,7 @@ const GROUPS: { label: string; pages: Page[] }[] = [
       { id: "privacy", label: "Privacy", make: privacyPage },
       { id: "data", label: "Your data", make: dataPage },
       { id: "sync", label: "Sync", make: syncPage },
+      { id: "connections", label: "Connections", make: connectionsPage },
       { id: "updates", label: "Updates", make: updatesPage },
     ],
   },
@@ -237,11 +240,12 @@ function privacyPage(): PageView {
 
   // Both status commands read local settings only; neither uses the network.
   async function show() {
-    const [key, cat, ai, ccel] = await Promise.all([
+    const [key, cat, ai, ccel, conns] = await Promise.all([
       run<KeyStatus>("apibible.status").catch(() => null),
       run<{ enabled: boolean }>("bible.sources").catch(() => null),
       run<AssistantConfig>("assistant.config.get").catch(() => null),
       run<{ enabled: boolean; works: number }>("ccel.settings").catch(() => null),
+      run<ConnectionInfo[]>("connect.list").catch(() => [] as ConnectionInfo[]),
     ]);
     const aiOn = !!ai && ai.provider !== "off";
     const on = (yes: boolean | undefined) => (yes ? badge("On", "ok") : badge("Off"));
@@ -264,6 +268,7 @@ function privacyPage(): PageView {
             void show();
           },
         })),
+      ...conns.flatMap((c) => [h("dt", {}, c.name), h("dd", {}, on(c.enabled), " ", c.sends, " Turn it on or off in Connections.")]),
       h("dt", {}, "Bibles online"),
       h("dd", {}, on(key?.key_set), " Reads Bibles from API.Bible with your own key. Set it in Bibles online."),
       h("dt", {}, "Assistant"),
@@ -330,6 +335,14 @@ function dataPage(): PageView {
 function syncPage(): PageView {
   const s = syncSection();
   return { el: pageEl("Sync", null, s.el), show: s.show, focus: s.focus };
+}
+
+function connectionsPage(): PageView {
+  const s = connectionsSection();
+  return {
+    el: pageEl("Connections", "Link Glossa to programs and services you already use, such as Zotero. Each one is off until you turn it on, and says exactly what it sends.", s.el),
+    show: s.show, focus: s.focus,
+  };
 }
 
 // Assistant ---------------------------------------------------------------------------------------
