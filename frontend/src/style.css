@@ -1777,7 +1777,7 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
   background: transparent; color: var(--muted); opacity: 0; transition: opacity .12s, background-color .12s; }
 .cite-bib:hover .vq-remove, .cite-bib .vq-remove:focus-visible { opacity: 1; }
 .cite-bib .vq-remove:hover { background: var(--ghost-hover); color: var(--fg); border: 0; }
-.cite-pop { width: 380px; max-width: calc(100vw - 24px); }
+.cite-pop { box-sizing: border-box; width: 360px; max-width: 100%; }
 .cite-kind { width: 20px; font-size: .85rem; }
 .cite-kind.k-bible { color: var(--verse); }
 .cite-row .pick-where { overflow-wrap: anywhere; }
