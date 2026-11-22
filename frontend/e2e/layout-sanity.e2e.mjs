@@ -9,7 +9,7 @@ import { openNoteInStudy } from "./layout.e2e.mjs";
 
 const SIZES = [[1536, 816], [900, 700]];
 const THEMES = ["light", "dark"];
-const SETTINGS = ["appearance", "sidebar", "online", "privacy", "data", "sync", "updates", "model", "about"];
+const SETTINGS = ["appearance", "sidebar", "online", "privacy", "data", "sync", "connections", "updates", "model", "about"];
 
 // audit runs in the page and says what looks wrong, one line each.
 const audit = () => {
