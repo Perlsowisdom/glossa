@@ -14,6 +14,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/connect"
 	"github.com/Perlsowisdom/glossa/internal/connect/zotero"
+	"github.com/Perlsowisdom/glossa/internal/csl"
 	"github.com/Perlsowisdom/glossa/internal/document"
 	"github.com/Perlsowisdom/glossa/internal/export"
 	"github.com/Perlsowisdom/glossa/internal/folder"
@@ -59,6 +60,7 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 		ModulesDir: filepath.Join(dataDir, "modules"), ReleaseModule: bibles.Release})
 	z := zotero.New()
 	z.Register(r, connect.Register(r, s, z))
+	csl.Register(r, filepath.Join(dataDir, "styles"))
 	update.Register(r) // nothing in the Store build
 	return r
 }
