@@ -9,6 +9,7 @@ import {
 } from "../connectwords";
 import { toggleSwitch } from "../controls";
 import { badge, button, clear, field, h } from "../dom";
+import { anySection } from "./anycard";
 
 export function connectionsSection(): { el: HTMLElement; show: () => void; focus: () => void } {
   const list = h("div", { class: "connections" });
@@ -94,6 +95,7 @@ export function connectionsSection(): { el: HTMLElement; show: () => void; focus
     const body = h("div", { class: "connection-detail" },
       h("p", { class: `connection-status${test && !test.ok ? " bad" : ""}`, role: "status", "aria-live": "polite" },
         test ? test.message : "Checking…"),
+      c.id === "any" ? anySection(c.key_set, () => check(c.id), say) : null,
       h("div", { class: "row wrap" }, testBtn));
     if (c.key) {
       const keyForm = keyBox(c);
