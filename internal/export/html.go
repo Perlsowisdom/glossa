@@ -33,6 +33,14 @@ func Body(d Doc) string {
 		}
 		b.WriteString(`</section>`)
 	}
+	if len(d.Notes) > 0 {
+		b.WriteString(`<section class="xd-notes"><h2>Notes</h2><ol>`)
+		for _, n := range d.Notes {
+			fmt.Fprintf(&b, `<li id="fn-%d" value="%d" dir="auto">%s <a class="xd-back" href="#fnref-%d" aria-label="Back to the text">↩</a></li>`,
+				n.Num, n.Num, inlineHTML(n.Spans), n.Num)
+		}
+		b.WriteString(`</ol></section>`)
+	}
 	if cs := d.credits(); d.creditsAtEnd() && len(cs) > 0 {
 		b.WriteString(`<section class="xd-credits"><h2>Credits</h2><ul>`)
 		for _, c := range cs {
@@ -97,7 +105,13 @@ func htmlBlocks(b *strings.Builder, bs []Block, opt Options) {
 			b.WriteString(`<hr>`)
 		case Handwriting:
 			fmt.Fprintf(b, `<div class="xd-par xd-ink">%s</div>`, bl.Ink.svg())
+		case Bibliography:
+			// replaced by the entries when the citations are rendered
 		default:
+			if bl.Hang {
+				fmt.Fprintf(b, `<p class="xd-hang" dir="auto">%s</p>`, inlineHTML(bl.Spans))
+				continue
+			}
 			fmt.Fprintf(b, `<p dir="auto">%s</p>`, inlineHTML(bl.Spans))
 		}
 	}
@@ -148,7 +162,14 @@ func inlineHTML(spans []Span) string {
 			b.WriteString("<br>")
 			continue
 		}
+		if s.Foot > 0 {
+			fmt.Fprintf(&b, `<sup class="xd-fn"><a id="fnref-%d" href="#fn-%d">%d</a></sup>`, s.Foot, s.Foot, s.Foot)
+			continue
+		}
 		t := esc(s.Text)
+		if s.Super {
+			t = "<sup>" + t + "</sup>"
+		}
 		if s.Code {
 			t = "<code>" + t + "</code>"
 		}
@@ -226,6 +247,15 @@ func CSS(o Options, title string) string {
 .xdoc table.xd-table th, .xdoc table.xd-table td { border: 1px solid #bbb; padding: .25em .45em; }
 .xdoc table.xd-table th { background: #f2f2f2; }
 .xdoc a { color: inherit; }
+.xdoc .xd-hang { padding-left: 2em; text-indent: -2em; }
+.xdoc .xd-fn { font-size: .75em; line-height: 0; }
+.xdoc .xd-fn a { text-decoration: none; }
+.xdoc .xd-notes { border-top: 1px solid #bbb; margin-top: 1.6em; font-size: .9em; }
+.xdoc .xd-notes h2 { font-size: 1em; margin: .6em 0 .3em; }
+.xdoc .xd-notes ol { margin: 0; padding-left: 1.6em; }
+.xdoc .xd-notes li { margin: 0 0 .25em; }
+.xdoc .xd-back { text-decoration: none; }
+@media print { .xdoc .xd-back { display: none; } }
 `, o.fontSize())
 }
 

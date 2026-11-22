@@ -15,21 +15,25 @@ import (
 func DOCX(d Doc) ([]byte, error) {
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
-	links := &relList{}
+	links := &relList{footnotes: len(d.Notes) > 0}
 	body := docxBody(d, links)
 	parts := []struct{ name, data string }{
-		{"[Content_Types].xml", contentTypes},
+		{"[Content_Types].xml", contentTypesFor(len(d.Notes) > 0)},
 		{"_rels/.rels", rootRels},
 		{"docProps/core.xml", coreXML(d.Title)},
 		{"docProps/app.xml", appXML},
 		{"word/styles.xml", stylesXML(d.Opt)},
-		{"word/settings.xml", settingsXML},
+		{"word/settings.xml", settingsFor(len(d.Notes) > 0)},
 		{"word/header1.xml", headerXML(d)},
 		{"word/footer1.xml", footerXML(d.Opt)},
 		{"word/_rels/document.xml.rels", links.xml()},
+		{"word/footnotes.xml", footnotesXML(d, links)},
 		{"word/document.xml", body},
 	}
 	for _, p := range parts {
+		if p.data == "" {
+			continue
+		}
 		w, err := z.CreateHeader(&zip.FileHeader{Name: p.name, Method: zip.Deflate, Modified: time.Now()})
 		if err != nil {
 			return nil, err
@@ -47,7 +51,7 @@ func DOCX(d Doc) ([]byte, error) {
 const xmlHead = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n"
 const wNS = `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"`
 
-const contentTypes = xmlHead + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+const contentTypesBase = xmlHead + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
@@ -95,7 +99,7 @@ func stylesXML(o Options) string {
 		style("Notice", "Notice", `<w:pBdr><w:top w:val="single" w:sz="4" w:space="2" w:color="CC9900"/><w:left w:val="single" w:sz="4" w:space="4" w:color="CC9900"/><w:bottom w:val="single" w:sz="4" w:space="2" w:color="CC9900"/><w:right w:val="single" w:sz="4" w:space="4" w:color="CC9900"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="FFF8E6"/>`, ``) +
 		style("ListItem", "List Paragraph", `<w:ind w:left="567" w:hanging="283"/><w:spacing w:after="40"/>`, ``) +
 		style("HeaderFooter", "Header and Footer", `<w:jc w:val="center"/><w:spacing w:after="0"/>`, fmt.Sprintf(`<w:color w:val="555555"/><w:sz w:val="%d"/><w:szCs w:val="%d"/>`, 18, 18)) +
-		`</w:styles>`
+		notesStyles + `</w:styles>`
 }
 
 func headerXML(d Doc) string {
@@ -117,7 +121,10 @@ func footerXML(o Options) string {
 }
 
 // relList holds document.xml's relationships: styles and the like, then one per web link.
-type relList struct{ links []string }
+type relList struct {
+	links     []string
+	footnotes bool
+}
 
 func (l *relList) add(url string) string {
 	l.links = append(l.links, url)
@@ -131,6 +138,9 @@ func (l *relList) xml() string {
 	b.WriteString(`<Relationship Id="rIdT" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>`)
 	b.WriteString(`<Relationship Id="rIdH" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>`)
 	b.WriteString(`<Relationship Id="rIdF" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>`)
+	if l.footnotes {
+		b.WriteString(`<Relationship Id="rIdN" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>`)
+	}
 	for i, u := range l.links {
 		fmt.Fprintf(&b, `<Relationship Id="rIdL%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="%s" TargetMode="External"/>`, i+1, xesc(u))
 	}
@@ -176,7 +186,11 @@ func runs(spans []Span, links *relList) string {
 			b.WriteString(`<w:r><w:br/></w:r>`)
 			continue
 		}
-		r := run(s.Text, runStyle{bold: s.Bold, italic: s.Italic, code: s.Code, under: s.Under})
+		if s.Foot > 0 {
+			b.WriteString(footRef(s.Foot))
+			continue
+		}
+		r := run(s.Text, runStyle{bold: s.Bold, italic: s.Italic, code: s.Code, under: s.Under, sup: s.Super})
 		if u := safeURL(s.Link); u != "" && links != nil {
 			r = `<w:hyperlink r:id="` + links.add(u) + `">` + strings.Replace(r, `<w:r>`, `<w:r><w:rPr><w:u w:val="single"/></w:rPr>`, 1) + `</w:hyperlink>`
 			r = strings.Replace(r, `</w:rPr><w:rPr>`, ``, 1)
@@ -280,8 +294,14 @@ func docxBlocks(b *strings.Builder, bs []Block, opt Options, links *relList) {
 			// Word has no place for strokes yet; they stay in the Markdown and HTML copies.
 		case Rule:
 			b.WriteString(`<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="999999"/></w:pBdr></w:pPr></w:p>`)
+		case Bibliography:
+			// replaced by the entries when the citations are rendered
 		default:
-			b.WriteString(para("", rtl, runs(bl.Spans, links)))
+			style := ""
+			if bl.Hang {
+				style = "Hang"
+			}
+			b.WriteString(para(style, rtl, runs(bl.Spans, links)))
 		}
 	}
 }

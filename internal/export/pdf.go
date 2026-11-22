@@ -425,7 +425,12 @@ func (l *layout) spans(sp []Span, scale, gray float64, italic bool) []tspan {
 			out = append(out, tspan{"\n", l.style(false, false, scale, gray)})
 			continue
 		}
-		out = append(out, tspan{s.Text, l.style(s.Bold, s.Italic || italic, scale, gray)})
+		st := l.style(s.Bold, s.Italic || italic, scale, gray)
+		if s.Super || s.Foot > 0 {
+			st = l.style(s.Bold, s.Italic || italic, scale*0.65, gray)
+			st.rise = l.base * scale * 0.33
+		}
+		out = append(out, tspan{s.Text, st})
 	}
 	return out
 }
@@ -458,6 +463,13 @@ func (l *layout) document() {
 			for _, c := range p.Credits {
 				l.para(l.text(c, false, false, 0.82, 0.27), 0, l.base*0.3, nil)
 			}
+		}
+	}
+	if len(d.Notes) > 0 {
+		l.heading(l.text("Notes", true, false, 1.3, 0), l.base*0.9)
+		for _, n := range d.Notes {
+			sp := l.text(fmt.Sprintf("%d. ", n.Num), false, false, 0.9, 0)
+			l.para(append(sp, l.spans(n.Spans, 0.9, 0, false)...), 0, l.base*0.25, nil)
 		}
 	}
 	if cs := d.credits(); d.creditsAtEnd() && len(cs) > 0 {
@@ -520,6 +532,8 @@ func (l *layout) blocks(bs []Block) {
 			l.table(b.Table)
 		case Handwriting:
 			l.ink(b.Ink)
+		case Bibliography:
+			// replaced by the entries when the citations are rendered
 		case Rule:
 			l.need(l.base)
 			l.y -= l.base * 0.5

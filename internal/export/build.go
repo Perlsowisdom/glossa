@@ -83,6 +83,7 @@ type builder struct {
 	order  []*owner
 	warned map[string]bool
 	warn   []string
+	docID  string // the first note or document: its citation style applies
 }
 
 func (s *service) build(ctx context.Context, env *command.Env, sources []Source, title string, opt Options, act string) (*built, error) {
@@ -114,6 +115,9 @@ func (s *service) build(ctx context.Context, env *command.Env, sources []Source,
 	out.doc.Title = strings.TrimSpace(title)
 	if out.doc.Title == "" && len(out.doc.Pieces) > 0 {
 		out.doc.Title = out.doc.Pieces[0].Title
+	}
+	if err := bd.resolveCites(&out.doc); err != nil {
+		return nil, err
 	}
 	if out.warnings == nil {
 		out.warnings = []string{}
@@ -662,6 +666,9 @@ func (bd *builder) note(src Source) ([]draft, error) {
 	if err := bd.run("note.get", map[string]any{"id": src.ID}, &n); err != nil {
 		return nil, err
 	}
+	if bd.docID == "" {
+		bd.docID = src.ID
+	}
 	d := draft{piece: Piece{Title: n.Title}}
 	if d.piece.Title == "" {
 		d.piece.Title = "Note"
@@ -688,6 +695,9 @@ func (bd *builder) document(src Source) ([]draft, error) {
 	var doc document.Document
 	if err := bd.run("document.get", map[string]any{"id": src.ID}, &doc); err != nil {
 		return nil, err
+	}
+	if bd.docID == "" {
+		bd.docID = src.ID
 	}
 	sub := []string{map[string]string{"sermon": "Sermon", "lesson": "Lesson", "study": "Bible study"}[doc.Kind]}
 	var shown []string

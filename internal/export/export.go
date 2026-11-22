@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Perlsowisdom/glossa/internal/bible"
+	"github.com/Perlsowisdom/glossa/internal/cite"
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/store"
 )
@@ -22,7 +23,7 @@ import (
 // Register adds export.preview, export.make and export.print. Files go to dataDir/exports unless
 // a path is given; Bible text comes from bibles.
 func Register(r *command.Registry, dataDir string, bibles *bible.Library) {
-	s := &service{reg: r, dir: filepath.Join(dataDir, "exports"), bibles: bibles,
+	s := &service{reg: r, dir: filepath.Join(dataDir, "exports"), bibles: bibles, cites: cite.NewResolver(r, filepath.Join(dataDir, "styles")),
 		today: func() string { return time.Now().Format("2006-01-02") }}
 	r.Add(
 		command.Define("export.preview", "Show what a print or export would contain: the page, and what each item's licence cuts and why. Nothing is counted.", false, s.preview),
@@ -35,6 +36,7 @@ type service struct {
 	reg    *command.Registry
 	dir    string
 	bibles *bible.Library
+	cites  *cite.Resolver
 	today  func() string
 }
 
@@ -71,6 +73,8 @@ type Options struct {
 	Header       *bool   `json:"header,omitempty" desc:"The title at the top of each page (default true)"`
 	Footer       *bool   `json:"footer,omitempty" desc:"Page numbers at the foot of each page (default true)"`
 	Credits      string  `json:"credits,omitempty" enum:"each,end" desc:"Credit lines under each piece (default) or together at the end"`
+	CiteStyle    string  `json:"cite_style,omitempty" desc:"Citation style for the citations in notes and documents (a style id from csl.styles); default: the document's own, else the one chosen in Settings"`
+	Bibliography string  `json:"bibliography,omitempty" enum:"auto,end,none" desc:"Where the bibliography of cited sources goes: auto (default) only where the document has a bibliography block, end also adds one at the end, none leaves it out"`
 }
 
 func (o Options) verseNumbers() bool { return o.VerseNumbers == nil || *o.VerseNumbers }
