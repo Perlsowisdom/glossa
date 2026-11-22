@@ -17,6 +17,13 @@ import (
 // for the fixtures listed in testdata/test-suite/must-pass.txt: those exercise features the
 // bundled styles rely on.
 
+// mustCategories are the fixture categories whose passing fixtures become must-pass.
+var mustCategories = map[string]bool{"affix": true, "condition": true, "date": true, "decorations": true,
+	"disambiguate": true, "etal": true, "flipflop": true, "form": true, "group": true, "label": true,
+	"locale": true, "locator": true, "name": true, "nameattr": true, "nameorder": true, "number": true,
+	"page": true, "plural": true, "position": true, "punctuation": true, "quotes": true, "sort": true,
+	"substitute": true, "textcase": true, "variables": true}
+
 var sectionRE = regexp.MustCompile(`(?s)>>=+\s*([A-Z-]+)\s*=+>>\r?\n(.*?)<<=+\s*[A-Z-]+\s*=+<<`)
 
 type fixture struct {
@@ -300,7 +307,7 @@ func TestCSLSuite(t *testing.T) {
 	must := readMustPass(t)
 	type stat struct{ pass, total int }
 	cats := map[string]*stat{}
-	var failed []string
+	var failed, passedNames []string
 	passed := 0
 	mustFailed := 0
 	for _, f := range files {
@@ -324,6 +331,9 @@ func TestCSLSuite(t *testing.T) {
 		if ok {
 			cats[cat].pass++
 			passed++
+			if mustCategories[cat] {
+				passedNames = append(passedNames, name)
+			}
 		} else {
 			detail := fmt.Sprintf("%s\n  want: %q\n  got:  %q", name, want, got)
 			if err != nil {
@@ -348,6 +358,12 @@ func TestCSLSuite(t *testing.T) {
 		fmt.Fprintf(&sb, "  %-14s %3d/%3d\n", c, cats[c].pass, cats[c].total)
 	}
 	t.Log("\n" + sb.String())
+	if os.Getenv("CSL_WRITE_MUST_PASS") != "" {
+		hdr := "# Fixtures that must pass: they exercise features the bundled styles use (names, dates,\n" +
+			"# numbers, pages, labels, locators, positions, text-case, sorting, disambiguation, affixes,\n" +
+			"# punctuation and quotes). Regenerate with CSL_WRITE_MUST_PASS=1 after a real improvement.\n"
+		_ = os.WriteFile("testdata/test-suite/must-pass.txt", []byte(hdr+strings.Join(passedNames, "\n")+"\n"), 0o644)
+	}
 	if out := os.Getenv("CSL_SUITE_FAILURES"); out != "" {
 		_ = os.WriteFile(out, []byte(sb.String()+"\n"+strings.Join(failed, "\n")), 0o644)
 	}

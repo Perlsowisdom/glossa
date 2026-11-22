@@ -91,3 +91,50 @@ func TestGoldenPrint(t *testing.T) {
 		t.Logf("\n=== %s\n%s", s, renderGolden(t, s))
 	}
 }
+
+var goldenStyles = []string{"society-of-biblical-literature-fullnote-bibliography", "chicago-notes-bibliography", "apa"}
+
+// TestGolden compares the golden document with the reviewed outputs in testdata/golden. After
+// changing the engine on purpose, review the new output and refresh with CSL_UPDATE=1.
+func TestGolden(t *testing.T) {
+	for _, s := range goldenStyles {
+		t.Run(s, func(t *testing.T) {
+			got := renderGolden(t, s)
+			path := "testdata/golden/" + s + ".txt"
+			if os.Getenv("CSL_UPDATE") != "" {
+				if err := os.MkdirAll("testdata/golden", 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			want, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != strings.ReplaceAll(string(want), "\r\n", "\n") {
+				t.Errorf("golden output changed for %s:\n%s", s, got)
+			}
+		})
+	}
+}
+
+// TestGoldenBookCite pins one book cite in each style, the example in the task report.
+func TestGoldenBookCite(t *testing.T) {
+	want := map[string]string{
+		"society-of-biblical-literature-fullnote-bibliography": "Gordon J. Wenham, <i>Genesis 1–15</i>, Word Biblical Commentary 1 (Word Books, 1987), 12.",
+		"chicago-notes-bibliography":                           "Gordon J. Wenham, <i>Genesis 1–15</i>, Word Biblical Commentary 1 (Word Books, 1987), 12.",
+		"apa":                                                  "(Wenham, 1987, p. 12)",
+	}
+	for s, w := range want {
+		p := goldenProcessor(t, s)
+		c, err := p.Cite(Cluster{Items: []CiteItem{{ID: "book", Locator: "12", Label: "page"}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Output.HTML != w {
+			t.Errorf("%s: got %q, want %q", s, c.Output.HTML, w)
+		}
+	}
+}
