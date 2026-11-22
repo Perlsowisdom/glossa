@@ -13,7 +13,7 @@
   - Where reports go (an endpoint run by the developer, or a self-hosted, permissively licensed
     collector) is decided when the feature is built (T32).
 - **Every network call is listed.** Only named features may use the network: API.Bible, the Digital
-  Bible Library, the Bible catalogues (T25), sync (M3), crash reports and, once ADR 0014 is accepted, Zotero (the app on this computer, and zotero.org). Each is off until the user
+  Bible Library, the Bible catalogues (T25), sync (M3) and crash reports. Each is off until the user
   turns it on, and `docs/privacy.md` says exactly what each one sends.
 - **Sync must not let servers read user data.** Any sync option chosen in M3 encrypts content end to
   end (for example any, or Syncthing with untrusted devices).
