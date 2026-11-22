@@ -24,6 +24,8 @@ type Style struct {
 	locales      []*Locale
 	usesSuffix   bool // the style renders year-suffix itself
 	usesDisamb   bool // the style has an if disambiguate="true" branch
+	condCount    int  // how many disambiguate tests it has
+	usesInitWith bool // some name uses initialize-with
 }
 
 // section is the citation or the bibliography part of a style.
@@ -83,6 +85,10 @@ func (s *Style) scan(n *xnode) {
 	}
 	if n.has("disambiguate") {
 		s.usesDisamb = true
+		s.condCount++
+	}
+	if n.has("initialize-with") {
+		s.usesInitWith = true
 	}
 	for _, k := range n.Kids {
 		s.scan(k)

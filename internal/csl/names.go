@@ -480,19 +480,12 @@ func (r *renderer) renderName(nm Name, o nameOpts, idx int, inverted bool) *rich
 	}
 	form := o.form
 	initWith, hasInit, initialize := o.initWith, o.hasInitWith, o.initialize
-	if g := r.givenLevelFor(idx); g > 0 {
+	if g := r.dis.given[nameKey(nm)]; g > 0 {
 		if form == "short" {
 			form = "long"
-			if !hasInit && g == 1 {
-				g = 2
-			}
 		}
-		if g == 2 {
-			initialize = false
-			hasInit = false
-		}
-		if r.p.disambRule() != "" && strings.HasSuffix(r.p.disambRule(), "with-initials") && hasInit {
-			initialize = true
+		if g == 2 || !hasInit {
+			initialize, hasInit = false, false
 		}
 	}
 	given := nm.Given
@@ -598,16 +591,6 @@ func (r *renderer) assembleInverted(nm Name, given string, fam *rich, o nameOpts
 		kids = append(kids, leaf(o.sortSep+nm.Suffix))
 	}
 	return &rich{Kids: kids}
-}
-
-func (r *renderer) givenLevelFor(idx int) int {
-	if r.dis.givenLevel == 0 {
-		return 0
-	}
-	if r.dis.primaryOnly && idx > 0 {
-		return 0
-	}
-	return r.dis.givenLevel
 }
 
 type namePiece struct {
@@ -722,3 +705,6 @@ func (r *renderer) sortNames(list []Name) []*rich {
 	}
 	return []*rich{leaf(strings.Join(parts, "   "))}
 }
+
+// nameKey identifies a person's name for disambiguation.
+func nameKey(nm Name) string { return nm.Family + "|" + nm.Given + "|" + nm.NonDropping }

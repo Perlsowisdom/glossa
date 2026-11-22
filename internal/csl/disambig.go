@@ -3,6 +3,7 @@ package csl
 import (
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // ---- disambiguation ----
@@ -10,25 +11,32 @@ import (
 func (p *Processor) newDis() {
 	p.dis = map[string]*disState{}
 	for _, id := range p.order {
-		p.dis[id] = &disState{}
+		p.dis[id] = &disState{given: map[string]int{}}
 	}
 }
 
 // disKey is how an item reads as a cite, for comparing with others: its first cite, no
-// locator, in the current disambiguation state.
-func (p *Processor) disKey(id string) string {
+// locator, in the current disambiguation state. With namesOnly it is just the first names.
+func (p *Processor) disKey(id string, namesOnly bool) string {
 	r := newRenderer(p, p.style.citation, false, p.items[id])
 	r.cite = &citeCtx{label: "page"}
 	r.dis = *p.disFor(id)
-	return strings.TrimSpace(plainOf(r.layout()))
+	nodes := r.layout()
+	if namesOnly {
+		if r.firstNames == nil {
+			return ""
+		}
+		return strings.TrimSpace(r.firstNames.plain())
+	}
+	return strings.TrimSpace(plainOf(nodes))
 }
 
-// ambiguous returns the groups of different items whose cites read the same.
-func (p *Processor) ambiguous() [][]string {
+// ambiguous returns the groups of different items whose cites (or names) read the same.
+func (p *Processor) ambiguous(namesOnly bool) [][]string {
 	by := map[string][]string{}
 	var keys []string
 	for _, id := range p.order {
-		k := p.disKey(id)
+		k := p.disKey(id, namesOnly)
 		if k == "" {
 			continue
 		}
@@ -62,11 +70,8 @@ func (p *Processor) disambiguate() {
 	if !(addNames || addGiven || addSuffix || p.style.usesDisamb) {
 		return
 	}
-	if addNames {
-		p.phaseNames()
-	}
-	if addGiven {
-		p.phaseGiven()
+	if addNames || addGiven {
+		p.phaseNamesGiven(addNames, addGiven, addSuffix)
 	}
 	if p.style.usesDisamb {
 		p.phaseCondition()
@@ -86,67 +91,168 @@ func maxNames(it *Item) int {
 	return n
 }
 
-func (p *Processor) phaseNames() {
-	for round := 0; round < 30; round++ {
-		amb := flattenIDs(p.ambiguous())
-		if len(amb) == 0 {
-			return
+// phaseNamesGiven works on each group of items whose names read the same. It tries the given
+// names of the names shown, then shows one more name and tries again. If a year suffix can finish
+// the job, expansions that did not separate a group from other items are undone.
+func (p *Processor) phaseNamesGiven(addNames, addGiven, addSuffix bool) {
+	rule := p.disambRule()
+	primary := strings.HasPrefix(rule, "primary-name")
+	withInit := strings.HasSuffix(rule, "with-initials")
+	base := map[string]string{}
+	for _, id := range p.order {
+		base[id] = p.disKey(id, true)
+	}
+	for _, g := range p.ambiguous(true) {
+		if p.resolveGroup(g, addNames, addGiven, primary, withInit) {
+			continue
 		}
-		changed := false
-		for _, id := range amb {
-			d := p.dis[id]
-			if d.extraNames < maxNames(p.items[id]) {
-				d.extraNames++
-				changed = true
+		if !addSuffix {
+			continue
+		}
+		shared := false
+		in := map[string]bool{}
+		for _, id := range g {
+			in[id] = true
+		}
+		for _, other := range p.order {
+			if !in[other] && base[other] == base[g[0]] {
+				shared = true
 			}
 		}
-		if !changed {
-			break
+		if !shared {
+			for _, id := range g {
+				p.dis[id].extraNames = 0
+				p.dis[id].given = map[string]int{}
+			}
 		}
-	}
-	for _, id := range flattenIDs(p.ambiguous()) {
-		p.dis[id].extraNames = 0
 	}
 }
 
-func (p *Processor) phaseGiven() {
-	rule := p.disambRule()
-	maxLevel := 2
-	if strings.HasSuffix(rule, "with-initials") {
-		maxLevel = 1
+func (p *Processor) groupResolved(g []string) bool {
+	count := map[string]int{}
+	for _, id := range p.order {
+		count[p.disKey(id, true)]++
 	}
-	for level := 1; level <= maxLevel; level++ {
-		amb := flattenIDs(p.ambiguous())
-		if len(amb) == 0 {
-			return
-		}
-		for _, id := range amb {
-			d := p.dis[id]
-			d.givenLevel = level
-			d.primaryOnly = strings.HasPrefix(rule, "primary-name")
+	for _, id := range g {
+		if count[p.disKey(id, true)] > 1 {
+			return false
 		}
 	}
-	for _, id := range flattenIDs(p.ambiguous()) {
-		d := p.dis[id]
-		d.givenLevel, d.primaryOnly = 0, false
+	return true
+}
+
+func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withInit bool) bool {
+	maxN := 0
+	for _, id := range g {
+		if n := maxNames(p.items[id]); n > maxN {
+			maxN = n
+		}
+	}
+	for extra := 0; extra <= maxN; extra++ {
+		if extra > 0 && !addNames {
+			break
+		}
+		for _, id := range g {
+			p.dis[id].extraNames = extra
+			p.dis[id].given = map[string]int{}
+		}
+		if extra > 0 && p.groupResolved(g) {
+			return true
+		}
+		if !addGiven {
+			continue
+		}
+		p.expandGiven(g, primary, p.style.usesInitWith || withInit, 1)
+		if p.groupResolved(g) {
+			return true
+		}
+		if !withInit {
+			p.expandGiven(g, primary, false, 2)
+			if p.groupResolved(g) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// firstNameList is the list of names an item is compared on: its author, or else the first
+// names variable it has.
+func firstNameList(it *Item) []Name {
+	if l := it.Names["author"]; len(l) > 0 {
+		return l
+	}
+	var keys []string
+	for k := range it.Names {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if len(it.Names[k]) > 0 {
+			return it.Names[k]
+		}
+	}
+	return nil
+}
+
+func initialOf(g string) string {
+	r, _ := utf8.DecodeRuneInString(strings.TrimSpace(g))
+	return string(r)
+}
+
+func (p *Processor) expandGiven(group []string, primary, initialsOK bool, forced int) {
+	maxLen := 0
+	for _, id := range group {
+		if n := len(firstNameList(p.items[id])); n > maxLen {
+			maxLen = n
+		}
+	}
+	for i := 0; i < maxLen; i++ {
+		if primary && i > 0 {
+			break
+		}
+		distinct := map[string]Name{}
+		inits := map[string]bool{}
+		for _, id := range group {
+			l := firstNameList(p.items[id])
+			if i < len(l) {
+				distinct[nameKey(l[i])] = l[i]
+				inits[l[i].Family+"|"+initialOf(l[i].Given)] = true
+			}
+		}
+		if len(distinct) < 2 {
+			continue
+		}
+		level := 2
+		if forced == 1 && initialsOK && len(inits) == len(distinct) {
+			level = 1
+		}
+		for _, id := range group {
+			l := firstNameList(p.items[id])
+			if i < len(l) {
+				p.dis[id].given[nameKey(l[i])] = level
+			}
+		}
 	}
 }
 
 func (p *Processor) phaseCondition() {
-	amb := flattenIDs(p.ambiguous())
-	if len(amb) == 0 {
-		return
+	for level := 1; level <= p.style.condCount; level++ {
+		amb := flattenIDs(p.ambiguous(false))
+		if len(amb) == 0 {
+			return
+		}
+		for _, id := range amb {
+			p.dis[id].condLevel = level
+		}
 	}
-	for _, id := range amb {
-		p.dis[id].tryCond = true
-	}
-	for _, id := range flattenIDs(p.ambiguous()) {
-		p.dis[id].tryCond = false
+	for _, id := range flattenIDs(p.ambiguous(false)) {
+		p.dis[id].condLevel = 0
 	}
 }
 
 func (p *Processor) phaseSuffix() {
-	groups := p.ambiguous()
+	groups := p.ambiguous(false)
 	if len(groups) == 0 {
 		return
 	}

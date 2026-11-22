@@ -25,11 +25,10 @@ const (
 
 // disState is how far disambiguation has gone for one item.
 type disState struct {
-	extraNames  int // names added beyond et-al-use-first
-	givenLevel  int // 0 style as written, 1 initials, 2 full given names
-	yearSuffix  string
-	tryCond     bool // cs:if disambiguate="true" is satisfied
-	primaryOnly bool
+	extraNames int            // names added beyond et-al-use-first
+	given      map[string]int // per name: 1 initials (or full when the style has no initials), 2 full given name
+	yearSuffix string
+	condLevel  int // how many cs:if disambiguate="true" tests are satisfied
 }
 
 // renderer evaluates a layout for one item.
@@ -48,6 +47,7 @@ type renderer struct {
 	depth      int
 
 	called, nonEmpty int // group suppression counters
+	condSeen         int
 
 	firstNames *rich  // first names node rendered (for subsequent-author-substitute)
 	keyEl      *xnode // the sort key being evaluated
@@ -430,7 +430,11 @@ func (r *renderer) test(b *xnode) bool {
 		return r.cite != nil && r.cite.locator != "" && labelOf(r.cite) == v
 	})
 	add("position", r.hasPosition)
-	add("disambiguate", func(v string) bool { return (v == "true") == r.dis.tryCond })
+	add("disambiguate", func(v string) bool {
+		sat := r.condSeen < r.dis.condLevel
+		r.condSeen++
+		return (v == "true") == sat
+	})
 	if len(results) == 0 {
 		return true
 	}
