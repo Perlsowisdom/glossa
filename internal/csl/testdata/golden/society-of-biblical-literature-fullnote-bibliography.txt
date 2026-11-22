@@ -1,0 +1,21 @@
+[1] Gordon J. Wenham, Genesis 1–15, Word Biblical Commentary 1 (Word Books, 1987), 12.
+[2] Wenham, Genesis 1–15, 14.
+[3] Wenham, Genesis 1–15.
+[4] John Barton, ed., The Cambridge Companion to Biblical Interpretation (Cambridge University Press, 1998).
+[5] Jane A. Smith, “Reading Genesis as Narrative,” in The Cambridge Companion to Biblical Interpretation, ed. John Barton (Cambridge University Press, 1998), 15.
+[6] John Doe, “Hebrew Poetry and the Psalter,” Journal of Biblical Literature 135.2 (2016): 305, https://doi.org/10.1234/jbl.2016.135.2.301.
+[7] The Holy Bible: New Revised Standard Version (Thomas Nelson, 1989), v. 1:1.
+[8] Alice Roe, “Shalom,” The New Interpreter’s Dictionary of the Bible 5:35–37.
+[9] Richard Poe, “Introduction to Textual Criticism,” Bible Study Resources, 1 June 2023, https://example.org/textual-criticism.
+[10] Anna Alpha et al., Studies in Reception History (Example Press, 2005).
+[11] Wenham, Genesis 1–15, 20.
+[12] See Doe, “Hebrew Poetry and the Psalter” for more.
+--
+Alpha, Anna, Ben Beta, Cara Gamma, Dan Delta, and Eve Epsilon. Studies in Reception History. Example Press, 2005.
+Barton, John, ed. The Cambridge Companion to Biblical Interpretation. Cambridge University Press, 1998.
+Doe, John. “Hebrew Poetry and the Psalter.” Journal of Biblical Literature 135.2 (2016): 301–22. https://doi.org/10.1234/jbl.2016.135.2.301.
+Poe, Richard. “Introduction to Textual Criticism.” Bible Study Resources, 1 June 2023. https://example.org/textual-criticism.
+Roe, Alice. “Shalom.” The New Interpreter’s Dictionary of the Bible 5:35–37.
+Smith, Jane A. “Reading Genesis as Narrative.” Pages 13–27 in The Cambridge Companion to Biblical Interpretation. Edited by John Barton. Cambridge University Press, 1998.
+Wenham, Gordon J. Genesis 1–15. Word Biblical Commentary 1. Word Books, 1987.
+The Holy Bible: New Revised Standard Version. Thomas Nelson, 1989.

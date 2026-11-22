@@ -1,0 +1,21 @@
+[1] (Wenham, 1987, p. 12)
+[2] (Wenham, 1987, p. 14)
+[3] (Wenham, 1987)
+[4] (Barton, 1998)
+[5] (Smith, 1998, p. 15)
+[6] (Doe, 2016, p. 305)
+[7] (The Holy Bible: New Revised Standard Version, 1989, 1:1)
+[8] (Roe, 2009)
+[9] (Poe, 2023)
+[10] (Alpha et al., 2005)
+[11] (Wenham, 1987, p. 20)
+[12] (See Doe, 2016 for more)
+--
+Alpha, A., Beta, B., Gamma, C., Delta, D., & Epsilon, E. (2005). Studies in Reception History. Example Press.
+Barton, J. (Ed.). (1998). The Cambridge Companion to Biblical Interpretation. Cambridge University Press.
+Doe, J. (2016). Hebrew Poetry and the Psalter. Journal of Biblical Literature, 135(2), 301–322. https://doi.org/10.1234/jbl.2016.135.2.301
+Poe, R. (2023, June 1). Introduction to Textual Criticism. Bible Study Resources. https://example.org/textual-criticism
+Roe, A. (2009). Shalom. In K. D. Sakenfeld (Ed.), The New Interpreter’s Dictionary of the Bible (Vol. 5, pp. 35–37). Abingdon.
+Smith, J. A. (1998). Reading Genesis as Narrative. In J. Barton (Ed.), The Cambridge Companion to Biblical Interpretation (pp. 13–27). Cambridge University Press.
+The Holy Bible: New Revised Standard Version. (1989). Thomas Nelson.
+Wenham, G. J. (1987). Genesis 1–15. Word Books.
