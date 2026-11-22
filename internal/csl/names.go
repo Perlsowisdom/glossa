@@ -92,7 +92,15 @@ func flatten(units [][]*rich) []*rich {
 }
 
 func (r *renderer) finishNames(n *xnode, units [][]*rich) []*rich {
-	body := join(units, n.a("delimiter"))
+	delim := n.a("delimiter")
+	if !n.has("delimiter") {
+		if v, ok := r.sec.node.Attr["names-delimiter"]; ok {
+			delim = v
+		} else if v, ok := r.p.style.opts["names-delimiter"]; ok {
+			delim = v
+		}
+	}
+	body := join(units, delim)
 	out := r.wrap(n, body)
 	if len(out) > 0 {
 		wrapper := &rich{Kids: out, Tag: "names"}

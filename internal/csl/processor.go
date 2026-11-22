@@ -393,7 +393,7 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 	it := cl.Items[ii]
 	r := p.citeRenderer(ci, ii, it, suppressAuthor)
 	nodes := r.layout()
-	if p.style.IsNote() {
+	if p.style.IsNote() && (ii == 0 || strings.TrimSpace(it.Prefix) != "") {
 		capitalizeLeadingTerm(nodes, it.Prefix)
 	}
 	rc := renderedCite{id: it.ID, item: it}

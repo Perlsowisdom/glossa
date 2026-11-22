@@ -266,9 +266,7 @@ func (r *renderer) textVariable(n *xnode) []*rich {
 	}
 	switch v {
 	case "page", "locator":
-		if v == "page" || r.cite == nil || r.cite.label == "" || r.cite.label == "page" {
-			val = formatPages(val, r.rangeFormat(), r.term("page-range-delimiter", "long", false))
-		}
+		val = formatPages(val, r.rangeFormat(), r.term("page-range-delimiter", "long", false))
 		return []*rich{leaf(val)}
 	case "citation-number", "year-suffix", "page-first", "first-reference-note-number", "citation-label":
 		return []*rich{leaf(val)}

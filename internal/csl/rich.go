@@ -2,6 +2,8 @@ package csl
 
 import (
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // rich is the rendered-text tree the engine builds: text with font styling, quotes and display
@@ -256,12 +258,54 @@ func htmlOf(toks []tok) string {
 	for _, t := range toks {
 		switch t.kind {
 		case 't':
-			b.WriteString(escHTML(t.s))
+			b.WriteString(supHTML(escHTML(t.s)))
 		case 'o', 'c':
 			b.WriteString(t.s)
 		}
 	}
 	return b.String()
+}
+
+// supHTML turns superscript and subscript characters into <sup> and <sub> tags.
+func supHTML(s string) string {
+	has := false
+	for _, r := range s {
+		if r > 0xA9 && scriptBase(r) != "" {
+			has = true
+			break
+		}
+	}
+	if !has {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if r > 0xA9 || r == 0xAA {
+			if base := scriptBase(r); base != "" {
+				tag := "sup"
+				if r >= 0x2080 && r <= 0x209C {
+					tag = "sub"
+				}
+				b.WriteString("<" + tag + ">" + base + "</" + tag + ">")
+				continue
+			}
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// scriptBase is the plain letter or digit behind a superscript or subscript character.
+func scriptBase(r rune) string {
+	switch {
+	case r == 0xAA || r == 0xB2 || r == 0xB3 || r == 0xB9 || r == 0xBA,
+		r >= 0x2B0 && r <= 0x2B8, r >= 0x2E0 && r <= 0x2E4, r >= 0x1D2C && r <= 0x1D6A,
+		r >= 0x2070 && r <= 0x209C:
+		if d := norm.NFKD.String(string(r)); d != string(r) {
+			return d
+		}
+	}
+	return ""
 }
 
 func runsOf(toks []tok) []Run {
