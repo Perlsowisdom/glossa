@@ -7,13 +7,15 @@ const labels = (q: string) => filterSlash(SLASH_ITEMS, q).map((i) => i.label);
 describe("slash menu", () => {
   it("lists every format and insert, alphabetically", () => {
     expect(labels("")).toEqual([
-      "Bulleted list", "Checkbox list", "Code", "Divider", "Handwriting", "Heading large", "Heading medium", "Heading small", "Highlight",
+      "Bibliography", "Bulleted list", "Checkbox list", "Citation", "Code", "Divider", "Handwriting", "Heading large", "Heading medium", "Heading small", "Highlight",
       "Link", "Link to a note or sermon", "Numbered list", "Quote", "Table", "Verse reference", "Verse text",
     ]);
   });
   it("keeps /verse, /quote, /highlight and /link as filter words", () => {
     expect(ids("verse")).toEqual(["verseref", "versequote"]);
     expect(ids("quote")).toEqual(["quote", "versequote"]);
+    expect(ids("cite")).toEqual(["citation"]);
+    expect(ids("biblio")).toEqual(["bibliography"]);
     expect(ids("highlight")).toEqual(["highlight"]);
     expect(ids("link")).toEqual(["link", "notelink"]);
   });

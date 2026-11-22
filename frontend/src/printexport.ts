@@ -61,6 +61,8 @@ export function openExport(req: ExportRequest) {
   const notes = check(opts.notes, false);
   const header = check(opts.header, true);
   const footer = check(opts.footer, true);
+  const hasText = req.sources.some((s) => s.kind === "note" || s.kind === "document");
+  const bibliography = check(opts.bibliography === "end", false);
   const layout = segmented<"side_by_side" | "one_after_another">({ label: "Bibles", options: [["side_by_side", "Side by side"], ["one_after_another", "One after another"]], value: opts.layout ?? "side_by_side", onChange: () => {} });
   const credits = segmented<"each" | "end">({ label: "Credits", options: [["each", "Under each piece"], ["end", "Together at the end"]], value: opts.credits ?? "each", onChange: () => {} });
   const more = h("details", { class: "more" }, h("summary", {}, "More options"),
@@ -72,7 +74,8 @@ export function openExport(req: ExportRequest) {
       passages.length ? h("label", { class: "check" }, numbers, " Verse numbers") : null,
       passages.length ? h("label", { class: "check" }, notes, " Include my notes") : null,
       h("label", { class: "check" }, header, " Title at the top of each page"),
-      h("label", { class: "check" }, footer, " Page numbers")));
+      h("label", { class: "check" }, footer, " Page numbers"),
+      hasText ? h("label", { class: "check" }, bibliography, " List the works cited at the end") : null));
 
   function options(): ExportOptions {
     const o: ExportOptions = {
@@ -81,8 +84,9 @@ export function openExport(req: ExportRequest) {
       credits: segmentedValue(credits) as ExportOptions["credits"],
     };
     if (parallel) o.layout = segmentedValue(layout) as ExportOptions["layout"];
+    if (hasText) o.bibliography = bibliography.checked ? "end" : "auto";
     try {
-      localStorage.setItem(OPTIONS_KEY, JSON.stringify({ ...o, notes: undefined }));
+      localStorage.setItem(OPTIONS_KEY, JSON.stringify({ ...o, notes: undefined, bibliography: undefined }));
     } catch {
       // only a convenience
     }

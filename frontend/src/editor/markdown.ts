@@ -10,6 +10,7 @@
 // An ink block is a fenced ```ink block of one line of JSON (ink.ts).
 // This file has no dependency on the editor, so it is tested on its own.
 
+import { BIBLIOGRAPHY_MARKER, citeMarkdown, parseCite, type CiteData } from "./citeformat";
 import { InkDoc, parseInk, serializeInk } from "./ink";
 
 export interface Span {
@@ -20,6 +21,7 @@ export interface Span {
   underline?: boolean;
   link?: string;
   br?: boolean; // a line break inside a block; text is ""
+  cite?: CiteData; // a citation (a chip in the editor); text is ""
 }
 
 export type Block =
@@ -29,6 +31,7 @@ export type Block =
   // A check list ("- [ ] " and "- [x] ") has checked, one flag per item.
   | { type: "list"; ordered: boolean; items: Span[][]; checked?: boolean[] }
   | { type: "divider" }
+  | { type: "bibliography" }
   | { type: "ink"; ink: InkDoc }
   // lines are the quotation's lines without their "> " (a bare ">" is ""); the last is the credit.
   | { type: "versequote"; lines: string[] }
@@ -97,6 +100,7 @@ function parseBlock(src: string): Block {
     const m = /^(#{1,6}) (\S.*)$/.exec(src);
     if (m) return { type: "heading", level: m[1].length, spans: parseInline(m[2]) };
     if (src === "---") return { type: "divider" };
+    if (src === BIBLIOGRAPHY_MARKER) return { type: "bibliography" };
   }
   if (lines.length > 1 && lines.every((l) => l === ">" || l.startsWith("> ")) && /^> — \S/.test(lines[lines.length - 1])) {
     return { type: "versequote", lines: lines.map((l) => l.slice(2)) };
@@ -205,7 +209,7 @@ export function parseInline(s: string, marks: Marks = {}): Span[] {
     else if (rest.startsWith("***")) m = emphasisAt(rest, "***", { ...marks, bold: true, italic: true }) ?? emphasisAt(rest, "**", { ...marks, bold: true });
     else if (rest.startsWith("**")) m = emphasisAt(rest, "**", { ...marks, bold: true });
     else if (rest[0] === "*") m = emphasisAt(rest, "*", { ...marks, italic: true });
-    else if (rest[0] === "[" && !marks.link) m = linkAt(rest, marks);
+    else if (rest[0] === "[" && !marks.link) m = citeAt(rest, marks) ?? linkAt(rest, marks);
     else if (rest.startsWith("<u>") && !marks.underline) m = underlineAt(rest, marks);
     if (m) {
       flush();
@@ -241,6 +245,12 @@ function emphasisAt(rest: string, mark: string, marks: Marks): { len: number; sp
   }
 }
 
+// citeAt reads a citation as one span that keeps the marks round it.
+function citeAt(rest: string, marks: Marks): { len: number; spans: Span[] } | null {
+  const c = parseCite(rest);
+  return c ? { len: c.len, spans: [{ text: "", ...marks, cite: c.cite }] } : null;
+}
+
 function linkAt(rest: string, marks: Marks): { len: number; spans: Span[] } | null {
   const m = /^\[([^\]\n]+)\]\(([^\s()]+)\)/.exec(rest);
   if (!m) return null;
@@ -271,6 +281,8 @@ function writeBlock(b: Block): string {
     case "list":
       if (b.checked) return b.items.map((it, i) => `- [${b.checked![i] ? "x" : " "}] ${writeInline(it)}`).join("\n");
       return b.items.map((it, i) => `${b.ordered ? `${i + 1}. ` : "- "}${writeInline(it)}`).join("\n");
+    case "bibliography":
+      return BIBLIOGRAPHY_MARKER;
     case "divider":
       return "---";
     case "ink":
@@ -300,6 +312,11 @@ function write(spans: Span[], used: Set<Mark>): string {
     const s = spans[i];
     if (s.br) {
       out += "\n";
+      i++;
+      continue;
+    }
+    if (s.cite) {
+      out += citeMarkdown(s.cite);
       i++;
       continue;
     }

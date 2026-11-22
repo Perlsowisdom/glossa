@@ -56,7 +56,7 @@ export default [
       }
       await t.page.click(`${t.root} [data-tool=insert]`);
       const names = await t.page.locator(".popover .insert-menu .im-name").allTextContents();
-      t.assert.deepEqual(names, ["Verse reference", "Verse text", "Highlight", "Link to a note or sermon"]);
+      t.assert.deepEqual(names, ["Verse reference", "Verse text", "Highlight", "Link to a note or sermon", "Citation", "Bibliography"]);
       await t.shot();
       await t.press("Escape");
     },

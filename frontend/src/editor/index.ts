@@ -11,7 +11,7 @@
 // `onVerseQuote` and `onVerseRef`. For sermons it also reads the headings as an outline, moves a
 // heading's section and changes a heading's level.
 
-import { $createParagraphNode, $getRoot, $isElementNode, $isParagraphNode, COMMAND_PRIORITY_HIGH, COMMAND_PRIORITY_LOW, createEditor as createLexical, DRAGOVER_COMMAND, DROP_COMMAND, KEY_BACKSPACE_COMMAND, KEY_DOWN_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, SELECTION_CHANGE_COMMAND } from "lexical";
+import { $createParagraphNode, $getNodeByKey, $getRoot, $isElementNode, $isParagraphNode, COMMAND_PRIORITY_HIGH, COMMAND_PRIORITY_LOW, createEditor as createLexical, DRAGOVER_COMMAND, DROP_COMMAND, KEY_BACKSPACE_COMMAND, KEY_DOWN_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND, SELECTION_CHANGE_COMMAND } from "lexical";
 import { createEmptyHistoryState, registerHistory } from "@lexical/history";
 import { externalURL, followsLink } from "./linkclick";
 import { $toggleLink, LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
@@ -21,6 +21,8 @@ import { $isHeadingNode, HeadingNode, QuoteNode, registerRichText } from "@lexic
 import { $isTableNode, TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import { parseMarkdown, toMarkdown } from "./markdown";
 import { DividerNode, RefChipNode, VerseQuoteNode } from "./nodes";
+import { $isCiteNode, BibliographyNode, CiteNode } from "./citenodes";
+import { registerCites } from "./citechips";
 import { InkNode } from "./inknode";
 import { registerTables } from "./table";
 import { structure } from "./structure";
@@ -39,7 +41,7 @@ export { fromBlocks, toBlocks } from "./convert";
 export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichEditor {
   const editor = createLexical({
     namespace: "glossa-notes",
-    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, DividerNode, InkNode, VerseQuoteNode, RefChipNode, TableNode, TableRowNode, TableCellNode,
+    nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, DividerNode, InkNode, VerseQuoteNode, RefChipNode, CiteNode, BibliographyNode, TableNode, TableRowNode, TableCellNode,
       ...(opts.nodes ?? [])],
     theme: {
       text: { underline: "rt-u", bold: "rt-b", italic: "rt-i", code: "rt-code" }, link: "rt-link",
@@ -83,6 +85,7 @@ export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichE
   let headingSig = "";
 
   load(source);
+  const cites = opts.cites ? registerCites(editor, opts.cites) : null;
 
   const keys = editorKeys(editor, opts, bar, (id, anchor) => runInsert(editor, opts, id, anchor));
   const off = [
@@ -134,6 +137,12 @@ export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichE
   // A chip or link opens what it names when clicked; with text selected, or Shift/Alt held, a click places the caret.
   const open = (href: string, label?: string) => (opts.onOpenLink ? opts.onOpenLink(href, label) : (location.hash = href));
   const onClick = (e: MouseEvent) => {
+    const cc = (e.target as Element).closest?.<HTMLElement>(".cite-chip");
+    if (cc && opts.cites) {
+      e.preventDefault();
+      editCite(cc);
+      return;
+    }
     const chip = (e.target as Element).closest?.<HTMLElement>(".ref-chip");
     if (chip?.dataset.href) {
       e.preventDefault();
@@ -154,6 +163,21 @@ export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichE
       if (rt?.BrowserOpenURL) rt.BrowserOpenURL(url);
       else window.open(url, "_blank", "noopener");
     }
+  };
+  // A click on a citation chip opens the picker on it: change the source or where in it, or remove it.
+  const editCite = (chip: HTMLElement) => {
+    const key = chip.dataset.nodeKey ?? "";
+    const cite = editor.getEditorState().read(() => {
+      const n = $getNodeByKey(key);
+      return $isCiteNode(n) ? n.getCite() : null;
+    });
+    if (!cite) return;
+    opts.cites!.pick(chip, cite, (c) => editor.update(() => {
+      const n = $getNodeByKey(key);
+      if (!$isCiteNode(n)) return;
+      if (c) n.setCite(c);
+      else n.remove();
+    }));
   };
   let hadSelection = false;
   content.addEventListener("mousedown", () => {
@@ -211,12 +235,14 @@ export function createEditor(host: HTMLElement, opts: EditorOptions = {}): RichE
     headingElement: (key) => editor.getElementByKey(key),
     revealHeading: (key) => revealHeading(editor, key),
     setFoldKey: (key) => struct.setKey(key),
+    refreshCites: (force) => cites?.refresh(force),
     moveSection: (key, before) => moveSection(editor, key, before),
     setHeadingLevel: (key, level) => setHeadingLevel(editor, key, level),
     addHeading: (level) => addHeading(editor, level),
     caretHeading: () => caretHeading(editor),
     destroy() {
       off.forEach((f) => f());
+      cites?.destroy();
       barSize.disconnect();
       bar.destroy();
       if (typeof extra === "function") extra();

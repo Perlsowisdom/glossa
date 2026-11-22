@@ -2,6 +2,7 @@
 
 
 import type { Klass, LexicalEditor, LexicalNode } from "lexical";
+import type { CiteHost } from "./citenodes";
 
 export interface HeadingInfo {
   key: string;
@@ -24,6 +25,8 @@ export interface EditorOptions {
   onHighlight?(anchor: HTMLElement, insert: (md: string) => void): void;
   // Insert → Note link: a picker of notes and sermons; insert takes the title and its address.
   onNoteLink?(anchor: HTMLElement, insert: (label: string, href: string) => void): void;
+  // Citations: pick a source, the short form of each, the bibliography. Without it the Citation and Bibliography inserts are not offered.
+  cites?: CiteHost;
   // parseRef checks a typed reference (Rom 8:28 then Tab becomes a chip).
   parseRef?(text: string): Promise<{ display: string; osis: string } | null>;
   // A verse, a highlight or a Related card dropped on the text: the Markdown to put there.
@@ -54,7 +57,8 @@ export interface RichEditor {
   addHeading(level?: number): void;
   caretHeading(): string | null; // the heading the caret is in or under
   setFoldKey(key: string): void; // once a new note has an id
+  refreshCites(force?: boolean): void; // draw the citations and bibliography again (force: the style changed)
 }
 
 // The things the Insert control and the slash menu put in, each when the host can do it.
-export type InsertId = "verseref" | "versequote" | "highlight" | "notelink";
+export type InsertId = "verseref" | "versequote" | "highlight" | "notelink" | "citation" | "bibliography";

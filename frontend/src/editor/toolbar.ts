@@ -119,7 +119,7 @@ export function toolbar(doc: Document, editor: LexicalEditor, opts: EditorOption
     { id: "ink", label: "Handwriting", icon: "pen", run: () => insertInk(editor, topBlock) },
     { id: "link", label: "Link", keys: `${MOD}K`, icon: "link", menu: true, run: (a) => askLink(a), active: () => { const u = linkUrl(); return !!u && !u.startsWith("#"); } },
     { id: "table", label: "Table", icon: "table", menu: true, run: (a) => askTable(a) },
-    ...(insertsOf(opts).length ? [{ id: "insert", label: "Insert a verse, a highlight or a link to a note", icon: "book-plus", cls: "t-insert", menu: true, run: (a: HTMLElement) => askInsert(a) } as Tool] : []),
+    ...(insertsOf(opts).length ? [{ id: "insert", label: "Insert a verse, a highlight, a link to a note or a citation", icon: "book-plus", cls: "t-insert", menu: true, run: (a: HTMLElement) => askInsert(a) } as Tool] : []),
   ];
 
   const sep = () => Object.assign(doc.createElement("span"), { className: "rich-sep" });

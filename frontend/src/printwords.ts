@@ -15,6 +15,8 @@ export interface ExportOptions {
   header?: boolean;
   footer?: boolean;
   credits?: "each" | "end";
+  cite_style?: string;
+  bibliography?: "auto" | "end" | "none";
 }
 
 export interface PieceInfo {

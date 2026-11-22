@@ -100,3 +100,17 @@ setting rows are per-device (above). No other table changes.
 - The group libraries of Zotero are not browsed yet; the user library (`users/0`, or the key's own user) is.
 - Open question for T40b: whether the engine should read `zotero.cached` directly or be handed items by the
   editor. This record only guarantees that the cached CSL-JSON is complete enough to render a citation.
+
+## Amendment: citation styles download (T40b part 2; still Proposed)
+
+ADR 0009's list of network features gains **downloading citation styles** from the Citation Style Language
+project's repository (`github.com/citation-style-language/styles`). It is not a connection (no sign-in, no key)
+but follows the same rule: **off until the person turns it on** (Settings → Citations, `cite.styles_enable`),
+stored as the per-device setting `connect.csl-styles` (under the `connect.` prefix, so it is not synced).
+`internal/cite` refuses to search or download while it is off. It reads the list of style names through GitHub's
+tree API and one raw style file at a time; the search words are matched locally and never sent. The bundled
+styles and everything else about citing work offline. Downloaded styles are saved unchanged to
+`<data>/styles/<id>.csl` with a `<id>.licence.txt` (licence, source, authors); a dependent style fetches its
+parent. `GLOSSA_CSL_LIST_URL` and `GLOSSA_CSL_RAW_URL` point the feature at test servers. `docs/privacy.md` has
+the section. No schema change: manual sources and kept Zotero items share `cite_items`; the default style is the
+setting `cite.style` and a document's own choice `cite.doc_style.<id>`.

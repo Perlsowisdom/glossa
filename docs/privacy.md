@@ -148,6 +148,25 @@ Nothing from your Glossa library (notes, documents, books) is sent to Zotero. Th
 title, authors and other details, as Zotero describes them) are kept in `library.db` so documents still show their
 citations without Zotero, and they sync with your other devices like the rest of your library (ADR 0013).
 
+## Citation styles (T40b)
+
+Off until you turn it on: the switch "Download more styles" in Settings → Citations, or `cite.styles_enable`.
+The citation styles that ship with Glossa (SBL, Chicago, APA) need no internet. When the switch is on:
+
+- **Searching** asks GitHub for the list of style names in the Citation Style Language project's public
+  repository (`api.github.com/repos/citation-style-language/styles/git/trees/...`, two plain requests, kept in
+  memory for an hour). **The words you search for are matched on this computer and are never sent.**
+- **Downloading** one style fetches its file from `raw.githubusercontent.com/citation-style-language/styles/`
+  (and, for a journal's style that follows another, the style it follows). Nothing else is sent: no account, no
+  information about you, your library or your documents. As with any web request, GitHub sees this computer's
+  internet address and a user agent of "Glossa".
+- Downloaded styles go to the `styles` folder of your data folder, unchanged, with a `.licence.txt` beside each
+  naming its licence (CC BY-SA 3.0 for the project's styles) and where it came from. Turning the switch off stops
+  all requests; the styles stay and keep working.
+
+Citing itself (library books, Bibles, Zotero items kept in your library, manual entries) never uses the network;
+Zotero is covered by its own section above and its own switch.
+
 ## Sync through a folder (T20)
 
 Glossa itself sends nothing over the network for sync, and has no server or account. When you set it up

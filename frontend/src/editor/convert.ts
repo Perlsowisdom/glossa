@@ -9,6 +9,7 @@ import { $createTableCellNode, $createTableNode, $createTableRowNode, $isTableCe
 import { Block, Span } from "./markdown";
 import { $createDividerNode, $createRefChipNode, $createVerseQuoteNode, $isDividerNode, $isRefChipNode, $isVerseQuoteNode, chipKind } from "./nodes";
 import { $createInkNode, $isInkNode } from "./inknode";
+import { $createBibliographyNode, $createCiteNode, $isBibliographyNode, $isCiteNode } from "./citenodes";
 
 // Lexical <-> blocks -----------------------------------------------------------------------------
 
@@ -27,6 +28,11 @@ export function spanNodes(spans: Span[]): LexicalNode[] {
     if (chipAt(spans, i)) {
       link = null;
       out.push($createRefChipNode(s.text, s.link!));
+      continue;
+    }
+    if (s.cite) {
+      link = null;
+      out.push($createCiteNode(s.cite));
       continue;
     }
     if (s.br) {
@@ -65,6 +71,8 @@ export function fromBlocks(blocks: Block[]): LexicalNode[] {
         b.items.forEach((it, i) => list.append($createListItemNode(b.checked ? b.checked[i] : undefined).append(...spanNodes(it))));
         return list;
       }
+      case "bibliography":
+        return $createBibliographyNode();
       case "divider":
         return $createDividerNode();
       case "ink":
@@ -98,6 +106,7 @@ function inline(parent: ElementNode, link?: string): Span[] {
       if (link) s.link = link;
       out.push(s);
     } else if ($isRefChipNode(c)) out.push({ text: c.getLabel(), link: c.getHref() });
+    else if ($isCiteNode(c)) out.push({ text: "", cite: c.getCite() });
     else if ($isLinkNode(c)) out.push(...inline(c, c.getURL()));
     else if ($isElementNode(c)) out.push(...inline(c, link));
     else out.push({ text: c.getTextContent(), ...(link ? { link } : {}) });
@@ -110,6 +119,7 @@ export function toBlocks(nodes: LexicalNode[]): Block[] {
     if ($isHeadingNode(n)) return { type: "heading", level: Number(n.getTag().slice(1)), spans: inline(n) };
     if ($isQuoteNode(n)) return { type: "quote", spans: inline(n) };
     if ($isDividerNode(n)) return { type: "divider" };
+    if ($isBibliographyNode(n)) return { type: "bibliography" };
     if ($isInkNode(n)) return { type: "ink", ink: n.getInk() };
     if ($isVerseQuoteNode(n)) return { type: "versequote", lines: n.getLines() };
     if ($isTableNode(n)) return tableBlock(n);

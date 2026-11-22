@@ -4,6 +4,8 @@
 import { $createParagraphNode, $createTextNode, $getRoot, $getSelection, $isParagraphNode, $isRangeSelection, LexicalEditor, LexicalNode } from "lexical";
 import { parseMarkdown } from "./markdown";
 import { $createDividerNode, $createRefChipNode } from "./nodes";
+import { $createBibliographyNode, $createCiteNode } from "./citenodes";
+import type { CiteData } from "./citeformat";
 import { MOD, topBlock } from "./common";
 import { type EditorOptions, type InsertId } from "./types";
 import { fromBlocks } from "./convert";
@@ -14,11 +16,14 @@ export const INSERTS: { id: InsertId; label: string; hint: string; glyph: string
   { id: "versequote", label: "Verse text", hint: "The verses, with the Bible's credit line", glyph: "❝" },
   { id: "highlight", label: "Highlight", hint: "Words you highlighted, with where they are", glyph: "▍" },
   { id: "notelink", label: "Link to a note or sermon", hint: "A chip that opens it", glyph: "¶" },
+  { id: "citation", label: "Citation", hint: "A source from your library, a Bible or Zotero", glyph: "❡" },
+  { id: "bibliography", label: "Bibliography", hint: "The list of the works you cite", glyph: "☰" },
 ];
 
 export function insertsOf(opts: EditorOptions) {
   const can: Record<InsertId, boolean> = {
     verseref: !!opts.onVerseRef, versequote: !!opts.onVerseQuote, highlight: !!opts.onHighlight, notelink: !!opts.onNoteLink,
+    citation: !!opts.cites, bibliography: !!opts.cites,
   };
   return INSERTS.filter((it) => can[it.id]);
 }
@@ -108,5 +113,50 @@ export function runInsert(editor: LexicalEditor, opts: EditorOptions, id: Insert
     case "notelink":
       opts.onNoteLink?.(anchor, (label, href) => insertChip(editor, label, href));
       break;
+    case "citation":
+      opts.cites?.pick(anchor, null, (c) => c && insertCite(editor, c));
+      break;
+    case "bibliography":
+      insertBibliography(editor);
+      break;
   }
+}
+
+// insertCite puts a citation chip where the caret is (in place of any selected words).
+export function insertCite(editor: LexicalEditor, cite: CiteData) {
+  editor.update(() => {
+    let s = $getSelection();
+    if (!$isRangeSelection(s)) {
+      $getRoot().selectEnd();
+      s = $getSelection();
+    }
+    if (!$isRangeSelection(s)) return;
+    const chip = $createCiteNode(cite);
+    const space = $createTextNode(" ");
+    s.insertNodes([chip, space]);
+    space.select(1, 1);
+  });
+  editor.focus();
+}
+
+// insertBibliography puts the bibliography block after the caret's block (in place of it when it is empty).
+export function insertBibliography(editor: LexicalEditor) {
+  editor.update(() => {
+    const b = topBlock();
+    const bib = $createBibliographyNode();
+    if (!b) {
+      $getRoot().append(bib);
+      return;
+    }
+    if ($isParagraphNode(b) && b.getTextContentSize() === 0) {
+      b.insertBefore(bib);
+      b.selectStart();
+    } else {
+      b.insertAfter(bib);
+      const p = $createParagraphNode();
+      bib.insertAfter(p);
+      p.select();
+    }
+  });
+  editor.focus();
 }

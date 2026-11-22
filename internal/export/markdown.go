@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/Perlsowisdom/glossa/internal/backup"
+	"github.com/Perlsowisdom/glossa/internal/cite"
 )
 
 // Notes are stored as the editor's Markdown (frontend/src/editor/markdown.ts). parseNote reads it
@@ -41,6 +42,9 @@ func parseBlock(src string) []Block {
 		}
 		if src == "---" {
 			return []Block{{Kind: Rule}}
+		}
+		if src == cite.BibliographyMarker {
+			return []Block{{Kind: Bibliography}}
 		}
 	}
 	if ink := parseInk(lines); ink != nil {
@@ -145,6 +149,8 @@ func parseInline(s string, marks Span) []Span {
 				u.Under = true
 				spans, n = parseInline(rest[3:3+end], u), end+7
 			}
+		case rest[0] == '[' && marks.Link == "" && citeAt(rest, marks, &spans, &n):
+			// a citation
 		case rest[0] == '[' && marks.Link == "":
 			if m := linkRe.FindStringSubmatch(rest); m != nil {
 				l := marks
@@ -212,6 +218,14 @@ func writeInline(spans []Span) string {
 			b.WriteString("\n")
 			continue
 		}
+		if s.Foot > 0 {
+			fmt.Fprintf(&b, "[^%d]", s.Foot)
+			continue
+		}
+		if s.Cite != nil {
+			b.WriteString(cite.Format(*s.Cite))
+			continue
+		}
 		t := s.Text
 		if s.Code {
 			t = wrapMark("`", t)
@@ -273,6 +287,9 @@ func Markdown(d Doc) []byte {
 			}
 		}
 	}
+	for _, n := range d.Notes {
+		blocks = append(blocks, fmt.Sprintf("[^%d]: %s", n.Num, oneLine(writeInline(n.Spans))))
+	}
 	if d.creditsAtEnd() {
 		if cs := d.credits(); len(cs) > 0 {
 			blocks = append(blocks, "## Credits")
@@ -329,6 +346,8 @@ func mdBlocks(bs []Block, opt Options) []string {
 			out = append(out, mdTable(b.Table, opt))
 		case Rule:
 			out = append(out, "---")
+		case Bibliography:
+			out = append(out, cite.BibliographyMarker)
 		case Handwriting:
 			out = append(out, b.Ink.Raw)
 		}
@@ -386,3 +405,16 @@ func checkMark(check, todo, done string) string {
 }
 
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// citeAt reads a citation at the start of rest (see package cite) into one span that keeps the marks
+// round it; the span's text is filled in when the document's citations are rendered.
+func citeAt(rest string, marks Span, spans *[]Span, n *int) bool {
+	c, used, ok := cite.ParseInline(rest)
+	if !ok {
+		return false
+	}
+	sp := marks
+	sp.Cite = &c
+	*spans, *n = []Span{sp}, used
+	return true
+}

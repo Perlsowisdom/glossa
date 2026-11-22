@@ -215,3 +215,9 @@ func (s *service) render(_ context.Context, _ *command.Env, p RenderParams) (Ren
 	}
 	return res, nil
 }
+
+// StyleByID loads a style by the id csl.styles lists: a bundled one, or a file in userStyles
+// (a dependent style gets its parent's rules).
+func StyleByID(userStyles, id string) (*Style, error) {
+	return (&service{userStyles: userStyles}).style(id)
+}
