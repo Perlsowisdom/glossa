@@ -20,6 +20,7 @@ import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { startFakeZotero } from "./fake-zotero.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repo = resolve(here, "..", "..");
@@ -223,6 +224,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     cpSync(SOURCE, lib, { recursive: true });
   }
   markUpdateQuestionAsked(join(lib, "library.db"));
+  // The app talks to this fake Zotero, never to the real one on this computer or on zotero.org.
+  const zotero = await startFakeZotero();
   const profile = join(run, "webview");
   mkdirSync(profile, { recursive: true });
 
@@ -242,6 +245,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         WEBVIEW2_USER_DATA_FOLDER: profile,
         // Keys the tests save go to their own keychain entries, never the person's.
         GLOSSA_KEYRING_SERVICE: keyring,
+        GLOSSA_ZOTERO_LOCAL_URL: zotero.localUrl,
+        GLOSSA_ZOTERO_WEB_URL: zotero.webUrl,
         // The occlusion and background flags keep the page painting and its timers running when another
         // window covers the app or the screen dims: a hidden page never finishes document.fonts.ready,
         // and every screenshot then waits "for fonts to load" until it times out.
@@ -316,6 +321,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     page: cur.page,
     browser: cur.browser,
     library: lib,
+    zotero,
     log: () => log,
     forget: () => { seen.length = 0; },
     // resize pins the page to w x h (the harness default is 1480 x 950).
@@ -328,6 +334,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       app.baseline = {
         update: await get("update.settings.get"), ccel: await get("ccel.settings"),
         assistant: await get("assistant.config.get"), sources: await get("bible.sources"),
+        connections: await get("connect.list"),
       };
     },
     // restoreSettings puts them back where a check left them different. A restart, or a command that fails, never stops it.
@@ -344,6 +351,15 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       if (b.assistant && a && !same(a.provider, b.assistant.provider)) await put("assistant.config.set", { provider: b.assistant.provider });
       const s = await app.run("bible.sources").catch(() => null);
       if (b.sources && s && s.enabled !== b.sources.enabled) await put("bible.sources", { enable: b.sources.enabled });
+      // Connections: the switch and key as found, and the fake Zotero answering again.
+      app.zotero.mode = "ok";
+      const conns = (await app.run("connect.list").catch(() => null)) ?? [];
+      for (const was of b.connections ?? []) {
+        const now = conns.find((x) => x.id === was.id);
+        if (!now) continue;
+        if (now.enabled !== was.enabled) await put(was.enabled ? "connect.enable" : "connect.disable", { id: was.id });
+        if (now.key_set && !was.key_set) await put("connect.clear_key", { id: was.id });
+      }
     },
     // run calls a command the way the interface does.
     run: (id, params = {}) => within(app.page.evaluate(async ([id, p]) => JSON.parse((await window.go.main.App.Run(id, JSON.stringify(p))) || "null"), [id, params]), 30000, `the command ${id}`),
@@ -390,6 +406,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       try {
         await quit(cur);
       } finally {
+        await zotero.close().catch(() => {});
         await removeRun(run);
       }
     },
