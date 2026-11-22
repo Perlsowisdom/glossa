@@ -158,15 +158,15 @@ func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withIn
 			maxN = n
 		}
 	}
-	level := map[string]int{}
 	lastGain, classes := 0, len(p.keyClasses(g))
+	snap := map[string]map[string]int{}
 	for extra := 0; extra <= maxN; extra++ {
 		if extra > 0 && !addNames {
 			break
 		}
 		for _, set := range p.colliding(g) {
 			for _, id := range set {
-				p.dis[id].extraNames, level[id] = extra, extra
+				p.dis[id].extraNames = extra
 				p.dis[id].given = map[string]int{}
 			}
 		}
@@ -174,6 +174,7 @@ func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withIn
 			return
 		}
 		if addGiven {
+			before := len(p.keyClasses(g))
 			for pass := 1; pass <= 2; pass++ {
 				if pass == 2 && withInit {
 					break
@@ -185,22 +186,35 @@ func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withIn
 					return
 				}
 			}
-			for _, set := range p.colliding(g) {
-				for _, id := range set {
-					p.dis[id].given = map[string]int{}
+			if len(p.keyClasses(g)) <= before {
+				for _, set := range p.colliding(g) {
+					for _, id := range set {
+						p.dis[id].given = map[string]int{}
+					}
 				}
 			}
 		}
 		if n := len(p.keyClasses(g)); n > classes {
 			classes, lastGain = n, extra
+			for _, id := range g {
+				snap[id] = copyGiven(p.dis[id].given)
+			}
 		}
 	}
 	for _, set := range p.colliding(g) {
 		for _, id := range set {
 			p.dis[id].extraNames = lastGain
-			p.dis[id].given = map[string]int{}
+			p.dis[id].given = copyGiven(snap[id])
 		}
 	}
+}
+
+func copyGiven(m map[string]int) map[string]int {
+	out := map[string]int{}
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 // firstNameList is the list of names an item is compared on: its author, or else the first

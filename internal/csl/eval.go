@@ -318,7 +318,7 @@ func (r *renderer) variable(v, form string) string {
 		}
 		return r.p.firstNoteStr(r.item.ID)
 	case "citation-label":
-		return r.p.citationLabel(r.item)
+		return r.p.citationLabel(r.item) + r.dis.yearSuffix
 	case "page-first":
 		return firstPage(r.item.Vars["page"])
 	case "title", "container-title":

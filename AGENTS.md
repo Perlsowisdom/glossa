@@ -70,6 +70,7 @@ Glossa is designed from public sources and open data only.
 | `internal/library` | Library folders, import, catalogue |
 | `internal/bible` | Bible modules (SWORD, STEPBible) |
 | `internal/search` | Per-folder indexes and merged search |
+| `internal/csl` | Citation engine (CSL 1.0.2): styles, locales, citations, bibliographies; bundled styles under `styles/` |
 | `internal/integrations` | API.Bible, Digital Bible Library |
 | `docs/` | ADRs, schema, specifications |
 
