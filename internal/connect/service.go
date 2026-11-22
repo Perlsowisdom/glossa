@@ -232,3 +232,10 @@ func (s *Service) test(ctx context.Context, env *command.Env, p IDParams) (TestO
 	}
 	return TestOutput{ID: p.ID, TestResult: res}, nil
 }
+
+// SaveSecret keeps a secret a connection received while signing in (not one the person pasted), for
+// example the key Any hands over once its code is typed. It goes to the keychain like any key.
+func (s *Service) SaveSecret(id, value string) error { return s.secrets.Set(keyName(id), value) }
+
+// DropSecret removes that secret from the keychain.
+func (s *Service) DropSecret(id string) error { return s.secrets.Delete(keyName(id)) }
