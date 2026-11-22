@@ -118,6 +118,36 @@ Before your first message to a provider (and again if its address changes), the 
 and where, and sends nothing until you press Send. What the provider does with it is governed by its own
 terms. Chats are kept in memory only, until you quit, unless you press "Save as note".
 
+## Connections: Zotero (T40a)
+
+Off until you turn it on: the switch "Use Zotero" in Settings → Connections, or `connect.enable {"id": "zotero"}`.
+Turning it off (`connect.disable`) stops every request; the copies of sources you cited stay in your library.
+Glossa only ever **reads** from Zotero. ADR 0014 has the design.
+
+Two places can answer, tried in this order:
+
+1. **The Zotero app on this computer.** Requests go to `http://localhost:23119/api/users/0/...` and never leave
+   this computer. Zotero answers only after you tick "Allow other applications on this computer to
+   communicate with Zotero" in its Settings → Advanced.
+2. **zotero.org**, only if you saved a Zotero key (Settings → Connections → More options) and the app could not
+   be reached. Requests are HTTPS `GET`s to `https://api.zotero.org` with the headers `Zotero-API-Key: <your key>`,
+   `Zotero-API-Version: 3` and `User-Agent: Glossa`, and no cookies. Zotero sees your IP address, your key (so which
+   account), and what you ask for: the page of your library or collection you open, your search words, and the
+   keys of items you cite or refresh.
+
+| When | Requests |
+| --- | --- |
+| You turn it on, press Test connection, or open Settings → Connections while it is on (`connect.test`) | The app: `GET .../items/top?limit=1&format=csljson`. If that fails and a key is saved: `GET https://api.zotero.org/keys/<your key>` (once per run, to learn your user ID), then `GET /users/<id>/items/top?limit=1&format=csljson` |
+| You browse or search your library (`zotero.items`, `zotero.search`, `zotero.collections`) | `GET .../items/top`, `.../collections/<key>/items/top` or `.../collections`, with `format`, `limit`, `start`, `sort`, `q` (your search words) |
+| You cite an item or open one (`zotero.cite`, `zotero.item`) | `GET .../items/<key>?format=csljson` |
+| You refresh the copies you kept (`zotero.refresh`) | `GET .../items?itemKey=<keys>&format=csljson` with `If-Modified-Since-Version`; Zotero answers "not modified" when nothing changed |
+
+When Zotero asks Glossa to slow down (`Backoff`, `Retry-After`), Glossa waits before asking again. Your key is kept
+in the system keychain (`connect.zotero.key`), never in `library.db`, a file or a log, and is never shown again.
+Nothing from your Glossa library (notes, documents, books) is sent to Zotero. The copies of sources you cited (their
+title, authors and other details, as Zotero describes them) are kept in `library.db` so documents still show their
+citations without Zotero, and they sync with your other devices like the rest of your library (ADR 0013).
+
 ## Sync through a folder (T20)
 
 Glossa itself sends nothing over the network for sync, and has no server or account. When you set it up
