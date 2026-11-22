@@ -138,9 +138,14 @@ export default [
         // The page fills the window, not the half its pane had in Study (a lone flex item with a
         // grow factor of 0.5 takes only half the space).
         const w = await page.evaluate(() => {
-          const grid = document.querySelector(".study-grid")?.getBoundingClientRect().width ?? 0;
-          const pane = document.querySelector(".study-grid .grid-pane")?.getBoundingClientRect().width ?? 0;
-          return { grid, pane };
+          const g = document.querySelector(".study-grid");
+          const panes = [...(g?.querySelectorAll(".grid-pane") ?? [])].filter((p) => p.getClientRects().length);
+          return {
+            grid: g?.getBoundingClientRect().width ?? 0,
+            pane: Math.max(0, ...panes.map((p) => p.getBoundingClientRect().width)),
+            panes: panes.map((p) => [Math.round(p.getBoundingClientRect().width), p.style.flexGrow, p.parentElement?.className]),
+            mode: g?.dataset.mode,
+          };
         });
         t.assert.ok(w.grid > 0 && w.pane >= w.grid - 2, `Read mode page fills the width: ${JSON.stringify(w)}`);
         await t.shot("topbar-05-read.png");
