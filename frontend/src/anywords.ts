@@ -73,6 +73,6 @@ export function whatIs(kind: "note" | "sermon"): string {
 export function pageLine(p: AnyPage): string {
   const bits: string[] = [];
   if (p.linked_to) bits.push(p.linked_to === "note" ? "Already a note" : "Already a sermon");
-  if (p.snippet) bits.push(p.snippet.replace(/\s+/g, " ").slice(0, 120));
+  if (p.snippet) bits.push(p.snippet.replace(/[*_#`>]+/g, "").replace(/\s+/g, " ").trim().slice(0, 120));
   return bits.join(" · ");
 }
