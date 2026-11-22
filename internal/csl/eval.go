@@ -48,6 +48,7 @@ type renderer struct {
 
 	called, nonEmpty int // group suppression counters
 	condSeen         int
+	subCfg           *namesCfg // names settings a cs:names inside cs:substitute inherits
 
 	firstNames *rich  // first names node rendered (for subsequent-author-substitute)
 	keyEl      *xnode // the sort key being evaluated
@@ -86,7 +87,7 @@ func (r *renderer) render(n *xnode) []*rich {
 	case "date":
 		return r.date(n)
 	case "names":
-		return r.names(n, nil)
+		return r.names(n, r.subCfg)
 	case "group":
 		return r.group(n)
 	case "choose":
@@ -117,7 +118,7 @@ func (r *renderer) group(n *xnode) []*rich {
 	r.called, r.nonEmpty = 0, 0
 	var units [][]*rich
 	for _, k := range n.Kids {
-		units = append(units, r.render(k))
+		units = append(units, r.units(k)...)
 	}
 	called, non := r.called, r.nonEmpty
 	r.called, r.nonEmpty = c0+called, n0
@@ -423,17 +424,42 @@ func labelPlural(mode, v, val string) bool {
 // ---- choose ----
 
 func (r *renderer) choose(n *xnode) []*rich {
+	if b := r.pick(n); b != nil {
+		return r.children(b)
+	}
+	return nil
+}
+
+// pick chooses the branch of a cs:choose to render.
+func (r *renderer) pick(n *xnode) *xnode {
 	for _, b := range n.Kids {
 		switch b.Name {
 		case "if", "else-if":
 			if r.test(b) {
-				return r.children(b)
+				return b
 			}
 		case "else":
-			return r.children(b)
+			return b
 		}
 	}
 	return nil
+}
+
+// units renders an element as the units a group delimits. A cs:choose is transparent: what its
+// chosen branch renders counts as the group's own children.
+func (r *renderer) units(n *xnode) [][]*rich {
+	if n.Name != "choose" {
+		return [][]*rich{r.render(n)}
+	}
+	b := r.pick(n)
+	if b == nil {
+		return nil
+	}
+	var out [][]*rich
+	for _, k := range b.Kids {
+		out = append(out, r.units(k)...)
+	}
+	return out
 }
 
 func (r *renderer) test(b *xnode) bool {

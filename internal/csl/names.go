@@ -129,6 +129,9 @@ func (r *renderer) suppressAuthorNow(vars []string) bool {
 }
 
 func (r *renderer) substitute(n, sub *xnode, cfg *namesCfg) []*rich {
+	savedCfg := r.subCfg
+	r.subCfg = cfg
+	defer func() { r.subCfg = savedCfg }()
 	for _, k := range sub.Kids {
 		var rendered []string
 		saved := r.track
@@ -171,6 +174,10 @@ func (r *renderer) nameVariables(vars []string, cfg *namesCfg) [][]*rich {
 	var units [][]*rich
 	var live []string
 	for _, v := range vars {
+		if v == "editor-translator" {
+			units = append(units, r.editorTranslator(cfg))
+			continue
+		}
 		if r.suppressed[v] {
 			continue
 		}
@@ -186,6 +193,21 @@ func (r *renderer) nameVariables(vars []string, cfg *namesCfg) [][]*rich {
 		units = append(units, r.nameList(v, v, cfg))
 	}
 	return units
+}
+
+// editorTranslator handles the editor-translator pseudo-variable some styles use: it renders the
+// names once, with the combined label, when the editors and translators are the same people, and
+// leaves the separate variables to render themselves otherwise.
+func (r *renderer) editorTranslator(cfg *namesCfg) []*rich {
+	ed, tr := r.item.Names["editor"], r.item.Names["translator"]
+	if len(ed) == 0 || !sameNames(ed, tr) || r.suppressed["editor"] || r.suppressed["translator"] {
+		return nil
+	}
+	out := r.nameList("editor", "editor-translator", cfg)
+	if !allEmpty(out) {
+		r.suppressed["editor"], r.suppressed["translator"] = true, true
+	}
+	return out
 }
 
 func sameNames(a, b []Name) bool {
