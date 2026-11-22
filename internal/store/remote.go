@@ -26,7 +26,7 @@ func perDeviceTable(name string) bool { return name == "files" || name == "libra
 
 // perDeviceSettings are settings that only mean something on the device that made them. A name
 // ending in a dot is a prefix.
-var perDeviceSettings = []string{"device_id", "library.search_roots", "library.scanned_at.", "backup.schedule"}
+var perDeviceSettings = []string{"device_id", "library.search_roots", "library.scanned_at.", "backup.schedule", "connect."}
 
 func perDeviceObject(typ, id string) bool {
 	if perDeviceTable(typ) {
@@ -48,7 +48,8 @@ func perDeviceObject(typ, id string) bool {
 
 // syncableSQL is a WHERE condition on the changes table that leaves out per-device objects.
 const syncableSQL = `object_type NOT IN ('files', 'library_folders') AND NOT (object_type = 'settings' AND
-	(object_id IN ('["device_id"]', '["library.search_roots"]', '["backup.schedule"]') OR object_id LIKE '["library.scanned\_at.%' ESCAPE '\'))`
+	(object_id IN ('["device_id"]', '["library.search_roots"]', '["backup.schedule"]') OR object_id LIKE '["library.scanned\_at.%' ESCAPE '\'
+	OR object_id LIKE '["connect.%'))`
 
 // SetNow replaces the wall clock this store's hybrid clock reads, so tests can simulate a device
 // whose clock is wrong. The function returns UTC milliseconds.
