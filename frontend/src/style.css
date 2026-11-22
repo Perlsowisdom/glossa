@@ -1799,3 +1799,4 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
 .cite-style-menu button.on::before { content: "✓ "; }
 .insert-menu .im-glyph.g-citation { color: var(--accent); }
 .slash-glyph.g-citation { color: var(--accent); }
+.cite-pop, .cite-pop .pick-list { overflow-x: hidden; }

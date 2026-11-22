@@ -20,6 +20,7 @@ import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import { startFakeStyles } from "./fake-styles.mjs";
 import { startFakeZotero } from "./fake-zotero.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -226,6 +227,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   markUpdateQuestionAsked(join(lib, "library.db"));
   // The app talks to this fake Zotero, never to the real one on this computer or on zotero.org.
   const zotero = await startFakeZotero();
+  // Downloaded citation styles come from this fake, never from GitHub.
+  const styles = await startFakeStyles();
   const profile = join(run, "webview");
   mkdirSync(profile, { recursive: true });
 
@@ -247,6 +250,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_KEYRING_SERVICE: keyring,
         GLOSSA_ZOTERO_LOCAL_URL: zotero.localUrl,
         GLOSSA_ZOTERO_WEB_URL: zotero.webUrl,
+        GLOSSA_CSL_LIST_URL: styles.listUrl,
+        GLOSSA_CSL_RAW_URL: styles.rawUrl,
         // The occlusion and background flags keep the page painting and its timers running when another
         // window covers the app or the screen dims: a hidden page never finishes document.fonts.ready,
         // and every screenshot then waits "for fonts to load" until it times out.
@@ -322,6 +327,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     browser: cur.browser,
     library: lib,
     zotero,
+    styles,
     log: () => log,
     forget: () => { seen.length = 0; },
     // resize pins the page to w x h (the harness default is 1480 x 950).
@@ -334,7 +340,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       app.baseline = {
         update: await get("update.settings.get"), ccel: await get("ccel.settings"),
         assistant: await get("assistant.config.get"), sources: await get("bible.sources"),
-        connections: await get("connect.list"),
+        connections: await get("connect.list"), cite: await get("cite.style"), citeOnline: await get("cite.styles_online"),
       };
     },
     // restoreSettings puts them back where a check left them different. A restart, or a command that fails, never stops it.
@@ -360,6 +366,11 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         if (now.enabled !== was.enabled) await put(was.enabled ? "connect.enable" : "connect.disable", { id: was.id });
         if (now.key_set && !was.key_set) await put("connect.clear_key", { id: was.id });
       }
+      // Citations: the default style and the switch for downloading styles, as found.
+      const cs = await app.run("cite.style").catch(() => null);
+      if (b.cite && cs && cs.default !== b.cite.default) await put("cite.set_style", { style: b.cite.default });
+      const co = await app.run("cite.styles_online").catch(() => null);
+      if (b.citeOnline && co && co.enabled !== b.citeOnline.enabled) await put(b.citeOnline.enabled ? "cite.styles_enable" : "cite.styles_disable", {});
     },
     // run calls a command the way the interface does.
     run: (id, params = {}) => within(app.page.evaluate(async ([id, p]) => JSON.parse((await window.go.main.App.Run(id, JSON.stringify(p))) || "null"), [id, params]), 30000, `the command ${id}`),
@@ -407,6 +418,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         await quit(cur);
       } finally {
         await zotero.close().catch(() => {});
+        await styles.close().catch(() => {});
         await removeRun(run);
       }
     },

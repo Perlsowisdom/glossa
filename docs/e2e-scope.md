@@ -49,3 +49,9 @@ kept check goes through the same path; **minor** = a detail of a control another
 | Toolbar file (sticky toolbar jump, strip names, popovers): all three | layout-sanity (toolbar and popovers in a short window are audited); scroll logic is vitest |
 | Top bar: another pane swaps controls; section number; reference field; narrow bar | layout-sanity (top bar audited narrow); dup |
 | Updates: refused while off | Go (`internal/update`) |
+
+## Added: citations (T40b part 2)
+
+`cite.e2e.mjs` (2 checks): cite a library book and a Zotero item (fake Zotero), chips, bibliography, export
+footnotes, switching the style; Settings → Citations with the download switch (fake styles server). The rest
+(rendering per style, ibid., Markdown round trip, downloads) is Go and vitest.
