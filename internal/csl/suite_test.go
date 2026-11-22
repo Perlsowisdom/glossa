@@ -54,15 +54,15 @@ func loadLocales(t testing.TB) *Locales {
 }
 
 type suiteCite struct {
-	ID             string `json:"id"`
-	Locator        any    `json:"locator"`
-	Label          string `json:"label"`
-	Prefix         string `json:"prefix"`
-	Suffix         string `json:"suffix"`
-	SuppressAuthor bool   `json:"suppress-author"`
-	AuthorOnly     bool   `json:"author-only"`
-	Position       *int   `json:"position"`
-	NearNote       *bool  `json:"near-note"`
+	ID             flexString `json:"id"`
+	Locator        any        `json:"locator"`
+	Label          string     `json:"label"`
+	Prefix         string     `json:"prefix"`
+	Suffix         string     `json:"suffix"`
+	SuppressAuthor bool       `json:"suppress-author"`
+	AuthorOnly     bool       `json:"author-only"`
+	Position       *int       `json:"position"`
+	NearNote       *bool      `json:"near-note"`
 }
 
 func (c suiteCite) item() CiteItem {
@@ -73,7 +73,7 @@ func (c suiteCite) item() CiteItem {
 	case float64:
 		loc = fmt.Sprint(int(v))
 	}
-	return CiteItem{ID: c.ID, Locator: loc, Label: c.Label, Prefix: c.Prefix, Suffix: c.Suffix,
+	return CiteItem{ID: string(c.ID), Locator: loc, Label: c.Label, Prefix: c.Prefix, Suffix: c.Suffix,
 		SuppressAuthor: c.SuppressAuthor, AuthorOnly: c.AuthorOnly, Position: c.Position, NearNote: c.NearNote}
 }
 
@@ -100,7 +100,7 @@ func suiteClusters(fx fixture) (clusters []Cluster, tracking bool, err error) {
 			for _, ci := range c.Items {
 				cl.Items = append(cl.Items, ci.item())
 			}
-			clusters = append(clusters, cl)
+			clusters = placeCluster(clusters, cl, step)
 		}
 		return clusters, true, nil
 	}
@@ -351,4 +351,86 @@ func TestCSLSuite(t *testing.T) {
 	if out := os.Getenv("CSL_SUITE_FAILURES"); out != "" {
 		_ = os.WriteFile(out, []byte(sb.String()+"\n"+strings.Join(failed, "\n")), 0o644)
 	}
+}
+
+// TestSuiteOne runs a single fixture and prints it: CSL_FIXTURE=name go test -run TestSuiteOne -v
+func TestSuiteOne(t *testing.T) {
+	name := os.Getenv("CSL_FIXTURE")
+	if name == "" {
+		t.Skip("set CSL_FIXTURE")
+	}
+	b, err := os.ReadFile("testdata/test-suite/humans/" + name + ".txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := parseFixture(name, string(b))
+	got, err := runWithTimeout(fx, loadLocales(t))
+	cs := fx.sections["CSL"]
+	if os.Getenv("CSL_SHOWCSL") == "" {
+		cs = "(set CSL_SHOWCSL=1)"
+	}
+	t.Logf("\nCSL:\n%s\nINPUT:\n%s\nCITES:\n%s%s\nwant: %q\ngot:  %q\nerr: %v", cs, fx.sections["INPUT"],
+		fx.sections["CITATION-ITEMS"], fx.sections["CITATIONS"], expectedResult(fx), got, err)
+}
+
+type flexString string
+
+func (f *flexString) UnmarshalJSON(b []byte) error {
+	var s string
+	if json.Unmarshal(b, &s) == nil {
+		*f = flexString(s)
+		return nil
+	}
+	*f = flexString(strings.Trim(string(b), "\""))
+	return nil
+}
+
+// placeCluster applies one processCitationCluster step: the cluster replaces one with the same
+// ID, or is inserted after the last of the citations listed as before it; the listed citations
+// bring their current note numbers.
+func placeCluster(clusters []Cluster, cl Cluster, step []json.RawMessage) []Cluster {
+	var pre, post [][]any
+	if len(step) > 1 {
+		_ = json.Unmarshal(step[1], &pre)
+	}
+	if len(step) > 2 {
+		_ = json.Unmarshal(step[2], &post)
+	}
+	var kept []Cluster
+	for _, c := range clusters {
+		if c.ID != cl.ID {
+			kept = append(kept, c)
+		}
+	}
+	clusters = kept
+	setNote := func(list [][]any) {
+		for _, pr := range list {
+			if len(pr) < 2 {
+				continue
+			}
+			id, _ := pr[0].(string)
+			n, _ := pr[1].(float64)
+			for i := range clusters {
+				if clusters[i].ID == id {
+					clusters[i].NoteIndex = int(n)
+				}
+			}
+		}
+	}
+	setNote(pre)
+	setNote(post)
+	pos := 0
+	for i, c := range clusters {
+		for _, pr := range pre {
+			if id, _ := pr[0].(string); id == c.ID {
+				pos = i + 1
+			}
+		}
+	}
+	if len(pre) == 0 && len(post) == 0 {
+		pos = len(clusters)
+	}
+	out := append([]Cluster{}, clusters[:pos]...)
+	out = append(out, cl)
+	return append(out, clusters[pos:]...)
 }

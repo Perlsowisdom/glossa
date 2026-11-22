@@ -496,7 +496,7 @@ func (r *renderer) renderName(nm Name, o nameOpts, idx int, inverted bool) *rich
 		}
 	}
 	given := nm.Given
-	if given != "" && hasInit {
+	if given != "" && hasInit && nm.Family != "" {
 		given = initials(given, initWith, initialize, o.hyphen)
 	}
 	family := nm.Family
@@ -676,13 +676,14 @@ func initials(given, with string, initialize, hyphen bool) string {
 func makePiece(w string, initialize, hadPeriod, hyphen bool) namePiece {
 	r, _ := utf8.DecodeRuneInString(w)
 	switch {
+	case hadPeriod:
+		return namePiece{w, true, hyphen}
+	case utf8.RuneCountInString(w) == 1 && !unicode.IsLower(r):
+		return namePiece{w, true, hyphen}
 	case initialize && unicode.IsLetter(r) && !unicode.IsLower(r):
 		return namePiece{string(r), true, hyphen}
-	case !initialize && utf8.RuneCountInString(w) == 1 && unicode.IsUpper(r):
-		return namePiece{w, true, hyphen}
-	}
-	if hadPeriod {
-		w += "."
+	case initialize && hyphen && unicode.IsLower(r):
+		return namePiece{"", false, true} // a lowercase part after a hyphen adds nothing
 	}
 	return namePiece{w, false, hyphen}
 }

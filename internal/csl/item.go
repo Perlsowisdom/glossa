@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Perlsowisdom/glossa/internal/connect/csljson"
 )
@@ -140,6 +142,7 @@ func parseNames(raw json.RawMessage) []Name {
 			DroppingParticle: str("dropping-particle"), NonDropping: str("non-dropping-particle"),
 			CommaSuffix: boolean("comma-suffix"), StaticOrdering: boolean("static-ordering"),
 			Literal: str("literal")}
+		n.normalise()
 		if n.Literal == "" && n.Family == "" && n.Given == "" {
 			if s := str("name"); s != "" {
 				n.Literal = s
@@ -304,4 +307,55 @@ func parseNumericDate(s string) *Date {
 		}
 	}
 	return nil
+}
+
+// normalise splits particles and suffixes out of family and given names the way people write
+// them, when the data does not already do so: "van Gogh", "al-One", "Ludwig van", "John, Jr.".
+func (n *Name) normalise() {
+	if n.Literal != "" || n.StaticOrdering {
+		return
+	}
+	if n.NonDropping == "" && n.DroppingParticle == "" {
+		words := strings.Fields(n.Family)
+		k := 0
+		for k < len(words)-1 && isLowerWord(words[k]) {
+			k++
+		}
+		if k > 0 {
+			n.NonDropping = strings.Join(words[:k], " ")
+			n.Family = strings.Join(words[k:], " ")
+		} else if i := strings.IndexByte(n.Family, '-'); i > 0 && i+1 < len(n.Family) && isLowerWord(n.Family[:i]) {
+			if r, _ := utf8.DecodeRuneInString(n.Family[i+1:]); unicode.IsUpper(r) {
+				n.NonDropping, n.Family = n.Family[:i+1], n.Family[i+1:]
+			}
+		}
+		gw := strings.Fields(n.Given)
+		j := len(gw)
+		for j > 1 && isLowerWord(gw[j-1]) {
+			j--
+		}
+		if j < len(gw) {
+			n.DroppingParticle = strings.Join(gw[j:], " ")
+			n.Given = strings.Join(gw[:j], " ")
+		}
+	}
+	if n.Suffix == "" {
+		if i := strings.LastIndex(n.Given, ","); i > 0 {
+			rest := strings.TrimSpace(n.Given[i+1:])
+			switch strings.TrimSuffix(rest, ".") {
+			case "Jr", "Sr":
+				n.Suffix, n.Given, n.CommaSuffix = rest, strings.TrimSpace(n.Given[:i]), true
+			case "II", "III", "IV", "V", "VI":
+				n.Suffix, n.Given = rest, strings.TrimSpace(n.Given[:i])
+			}
+		}
+	}
+}
+
+func isLowerWord(w string) bool {
+	if w == "" {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(w)
+	return unicode.IsLower(r)
 }

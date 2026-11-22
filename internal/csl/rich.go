@@ -2,7 +2,6 @@ package csl
 
 import (
 	"strings"
-	"unicode/utf8"
 )
 
 // rich is the rendered-text tree the engine builds: text with font styling, quotes and display
@@ -97,6 +96,7 @@ type tok struct {
 	n          *rich
 	s          string
 	quoteClose bool
+	quoteOpen  bool
 	eff        effStyle
 }
 
@@ -120,9 +120,9 @@ func (f *flattener) walk(n *rich) {
 	if n.Quote {
 		f.depth++
 		if f.depth%2 == 1 {
-			f.toks = append(f.toks, tok{kind: 't', s: f.q.open})
+			f.toks = append(f.toks, tok{kind: 't', s: f.q.open, quoteOpen: true})
 		} else {
-			f.toks = append(f.toks, tok{kind: 't', s: f.q.openInner})
+			f.toks = append(f.toks, tok{kind: 't', s: f.q.openInner, quoteOpen: true})
 		}
 	}
 	opened := n.styled()
@@ -179,71 +179,12 @@ func toggle(v, inherited, on string) string {
 	return v
 }
 
-func isPunct(r rune) bool { return strings.ContainsRune(".,;:!?", r) }
-
-// tidy moves punctuation into closing quotes (when asked) and removes doubled punctuation and
-// spaces where one piece of text meets the next.
-func tidy(toks []tok, punctInQuote bool) []tok {
-	if punctInQuote {
-		toks = moveIntoQuotes(toks)
-	}
-	var last rune
-	for i := range toks {
-		t := &toks[i]
-		if t.kind != 't' {
-			continue
-		}
-		s := t.s
-		for s != "" {
-			r, w := utf8.DecodeRuneInString(s)
-			drop := false
-			switch {
-			case last == ' ' && r == ' ':
-				drop = true
-			case isPunct(r) && r == last:
-				drop = true
-			case r == '.' && (last == '?' || last == '!'):
-				drop = true
-			}
-			if !drop {
-				break
-			}
-			s = s[w:]
-		}
-		t.s = s
-		if s != "" {
-			last, _ = utf8.DecodeLastRuneInString(s)
-		}
-	}
-	return toks
-}
-
-func moveIntoQuotes(toks []tok) []tok {
-	for i := range toks {
-		if toks[i].kind != 't' || !toks[i].quoteClose {
-			continue
-		}
-		for j := i + 1; j < len(toks); j++ {
-			if toks[j].kind != 't' || toks[j].s == "" {
-				continue
-			}
-			r, w := utf8.DecodeRuneInString(toks[j].s)
-			if r == '.' || r == ',' {
-				toks[j].s = toks[j].s[w:]
-				toks[i].s = string(r) + toks[i].s
-			}
-			break
-		}
-	}
-	return toks
-}
-
 func finalize(root []*rich, q quotes, punctInQuote bool) Output {
 	f := &flattener{q: q}
 	for _, n := range root {
 		f.walk(n)
 	}
-	toks := tidy(f.toks, punctInQuote)
+	toks := tidy(f.toks, q, punctInQuote)
 	return Output{Text: textOf(toks), HTML: htmlOf(toks), Runs: runsOf(toks)}
 }
 

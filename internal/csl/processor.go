@@ -166,7 +166,7 @@ func (p *Processor) BibliographyFiltered(keep func(*Item) bool) []Entry {
 		r := newRenderer(p, p.style.bibliography, true, it)
 		r.dis = *p.disFor(id)
 		root := r.layout()
-		node := &rich{Kids: root}
+		node := &rich{Kids: p.wrapLayoutBib(root)}
 		nodes = append(nodes, node)
 		firsts = append(firsts, r.firstNames)
 		ents = append(ents, Entry{ID: id})
@@ -385,6 +385,7 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 	it := cl.Items[ii]
 	r := p.citeRenderer(ci, ii, it, suppressAuthor)
 	nodes := r.layout()
+	capitalizeLeadingTerm(nodes, it.Prefix)
 	rc := renderedCite{id: it.ID, item: it}
 	if r.firstNames != nil {
 		rc.authKey = r.firstNames.plain()
@@ -394,11 +395,11 @@ func (p *Processor) renderCite(ci, ii int, suppressAuthor bool) renderedCite {
 		pre, suf := it.Prefix, it.Suffix
 		var u []*rich
 		if pre != "" {
-			u = append(u, leaf(spaced(pre, true)))
+			u = append(u, parseMarkup(spaced(pre, true))...)
 		}
 		u = append(u, nodes...)
 		if suf != "" {
-			u = append(u, leaf(spaced(suf, false)))
+			u = append(u, parseMarkup(spaced(suf, false))...)
 		}
 		nodes = u
 	}
@@ -444,7 +445,12 @@ func (p *Processor) renderCluster(ci int) Citation {
 	sorted = dropEmpty(sorted)
 	units := p.collapse(ci, cl, order, sorted)
 	delim := lay.a("delimiter")
-	body := join(units, delim)
+	var body []*rich
+	if len(units) == len(sorted) {
+		body = joinCites(units, delim, sorted)
+	} else {
+		body = join(units, delim)
+	}
 	node := &rich{Kids: body}
 	wrapped := p.wrapLayout(lay, node)
 	pos := make([]string, len(cl.Items))
@@ -466,6 +472,10 @@ func dropEmpty(cs []renderedCite) []renderedCite {
 		}
 	}
 	return out
+}
+
+func (p *Processor) wrapLayoutBib(root []*rich) []*rich {
+	return p.wrapLayout(p.style.bibliography.layout, &rich{Kids: root})
 }
 
 // wrapLayout applies the layout element's own affixes and font to the whole citation.
@@ -537,4 +547,62 @@ func (p *Processor) citationLabel(it *Item) string {
 		s += fmt.Sprintf("%02d", ((d.Y%100)+100)%100)
 	}
 	return s
+}
+
+// capitalizeLeadingTerm capitalises a term that starts a cite, or follows a prefix that ends a
+// sentence ("Ibid." not "ibid.").
+func capitalizeLeadingTerm(nodes []*rich, prefix string) {
+	if !sentenceEnd(prefix) {
+		return
+	}
+	if l := firstLeaf(nodes); l != nil && l.Tag == "term" {
+		l.Text = upperFirst(l.Text)
+	}
+}
+
+func firstLeaf(nodes []*rich) *rich {
+	for _, n := range nodes {
+		if n.Text != "" {
+			return n
+		}
+		if l := firstLeaf(n.Kids); l != nil {
+			return l
+		}
+	}
+	return nil
+}
+
+func sentenceEnd(s string) bool {
+	s = strings.TrimRight(s, "  \"'”’)]")
+	return s == "" || strings.HasSuffix(s, ".") || strings.HasSuffix(s, "!") || strings.HasSuffix(s, "?")
+}
+
+// joinCites joins the cites with the layout delimiter, leaving the delimiter out where a cite's
+// own prefix or suffix punctuation already separates it from its neighbour.
+func joinCites(units [][]*rich, delim string, cites []renderedCite) []*rich {
+	var out []*rich
+	first := true
+	var prevSuffix string
+	for i, u := range units {
+		if allEmpty(u) {
+			continue
+		}
+		if !first && delim != "" {
+			d := delim
+			pre := strings.TrimSpace(cites[i].item.Prefix)
+			switch {
+			case pre != "" && strings.ContainsRune(",;:.", rune(pre[0])):
+				d = ""
+			case prevSuffix != "" && strings.ContainsRune(",;:.!?", rune(prevSuffix[len(prevSuffix)-1])):
+				d = strings.TrimLeft(d, ",;:.")
+			}
+			if d != "" {
+				out = append(out, leaf(d))
+			}
+		}
+		out = append(out, u...)
+		first = false
+		prevSuffix = strings.TrimSpace(cites[i].item.Suffix)
+	}
+	return out
 }

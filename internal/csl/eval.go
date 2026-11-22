@@ -214,7 +214,9 @@ func (r *renderer) termText(n *xnode) []*rich {
 	if !ok {
 		return nil
 	}
-	return parseMarkupText(s)
+	l := leaf(s)
+	l.Tag = "term"
+	return []*rich{l}
 }
 
 func parseMarkupText(s string) []*rich {
@@ -299,6 +301,9 @@ func (r *renderer) variable(v, form string) string {
 	case "year-suffix":
 		return r.dis.yearSuffix
 	case "first-reference-note-number":
+		if r.cite != nil && r.cite.position == posFirst {
+			return ""
+		}
 		return r.p.firstNoteStr(r.item.ID)
 	case "citation-label":
 		return r.p.citationLabel(r.item)
