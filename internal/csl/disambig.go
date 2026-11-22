@@ -71,7 +71,7 @@ func (p *Processor) disambiguate() {
 		return
 	}
 	if addNames || addGiven {
-		p.phaseNamesGiven(addNames, addGiven, addSuffix)
+		p.phaseNamesGiven(addNames, addGiven)
 	}
 	if p.style.usesDisamb {
 		p.phaseCondition()
@@ -91,89 +91,116 @@ func maxNames(it *Item) int {
 	return n
 }
 
-// phaseNamesGiven works on each group of items whose names read the same. It tries the given
-// names of the names shown, then shows one more name and tries again. If a year suffix can finish
-// the job, expansions that did not separate a group from other items are undone.
-func (p *Processor) phaseNamesGiven(addNames, addGiven, addSuffix bool) {
+// phaseNamesGiven works on each group of items whose names read the same. It shows one more name
+// at a time, and tries the given names of the names shown, for the items that still read the same
+// as another. Items that cannot be told apart go back to the state that separated most of the
+// group from other items (often the style's own).
+func (p *Processor) phaseNamesGiven(addNames, addGiven bool) {
 	rule := p.disambRule()
 	primary := strings.HasPrefix(rule, "primary-name")
 	withInit := strings.HasSuffix(rule, "with-initials")
-	base := map[string]string{}
-	for _, id := range p.order {
-		base[id] = p.disKey(id, true)
-	}
 	for _, g := range p.ambiguous(true) {
-		if p.resolveGroup(g, addNames, addGiven, primary, withInit) {
-			continue
-		}
-		if !addSuffix {
-			continue
-		}
-		shared := false
-		in := map[string]bool{}
-		for _, id := range g {
-			in[id] = true
-		}
-		for _, other := range p.order {
-			if !in[other] && base[other] == base[g[0]] {
-				shared = true
-			}
-		}
-		if !shared {
-			for _, id := range g {
-				p.dis[id].extraNames = 0
-				p.dis[id].given = map[string]int{}
-			}
-		}
+		p.resolveGroup(g, addNames, addGiven, primary, withInit)
 	}
 }
 
-func (p *Processor) groupResolved(g []string) bool {
-	count := map[string]int{}
+// keyClasses groups ids by what they read like now.
+func (p *Processor) keyClasses(ids []string) map[string][]string {
+	by := map[string][]string{}
 	for _, id := range p.order {
-		count[p.disKey(id, true)]++
+		by[p.disKey(id, true)] = append(by[p.disKey(id, true)], id)
 	}
-	for _, id := range g {
-		if count[p.disKey(id, true)] > 1 {
-			return false
+	in := map[string]bool{}
+	for _, id := range ids {
+		in[id] = true
+	}
+	out := map[string][]string{}
+	for k, list := range by {
+		for _, id := range list {
+			if in[id] {
+				out[k] = list
+				break
+			}
 		}
 	}
-	return true
+	return out
 }
 
-func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withInit bool) bool {
+// colliding returns the sets of group items that still read like each other (or like an item
+// outside the group).
+func (p *Processor) colliding(ids []string) [][]string {
+	var out [][]string
+	for _, list := range p.keyClasses(ids) {
+		if len(list) > 1 {
+			out = append(out, list)
+		}
+	}
+	return out
+}
+
+func (p *Processor) shownCount(it *Item, extra int) int {
+	n := len(firstNameList(it))
+	min := atoiDefault(p.cOpt("et-al-min"), 0)
+	if min == 0 || n < min {
+		return n
+	}
+	s := atoiDefault(p.cOpt("et-al-use-first"), 1) + extra
+	if s > n {
+		s = n
+	}
+	return s
+}
+
+func (p *Processor) resolveGroup(g []string, addNames, addGiven, primary, withInit bool) {
 	maxN := 0
 	for _, id := range g {
 		if n := maxNames(p.items[id]); n > maxN {
 			maxN = n
 		}
 	}
+	level := map[string]int{}
+	lastGain, classes := 0, len(p.keyClasses(g))
 	for extra := 0; extra <= maxN; extra++ {
 		if extra > 0 && !addNames {
 			break
 		}
-		for _, id := range g {
-			p.dis[id].extraNames = extra
-			p.dis[id].given = map[string]int{}
-		}
-		if extra > 0 && p.groupResolved(g) {
-			return true
-		}
-		if !addGiven {
-			continue
-		}
-		p.expandGiven(g, primary, p.style.usesInitWith || withInit, 1)
-		if p.groupResolved(g) {
-			return true
-		}
-		if !withInit {
-			p.expandGiven(g, primary, false, 2)
-			if p.groupResolved(g) {
-				return true
+		for _, set := range p.colliding(g) {
+			for _, id := range set {
+				p.dis[id].extraNames, level[id] = extra, extra
+				p.dis[id].given = map[string]int{}
 			}
 		}
+		if len(p.colliding(g)) == 0 {
+			return
+		}
+		if addGiven {
+			for pass := 1; pass <= 2; pass++ {
+				if pass == 2 && withInit {
+					break
+				}
+				for _, set := range p.colliding(g) {
+					p.expandGiven(set, primary, p.style.usesInitWith || withInit, pass, extra)
+				}
+				if len(p.colliding(g)) == 0 {
+					return
+				}
+			}
+			for _, set := range p.colliding(g) {
+				for _, id := range set {
+					p.dis[id].given = map[string]int{}
+				}
+			}
+		}
+		if n := len(p.keyClasses(g)); n > classes {
+			classes, lastGain = n, extra
+		}
 	}
-	return false
+	for _, set := range p.colliding(g) {
+		for _, id := range set {
+			p.dis[id].extraNames = lastGain
+			p.dis[id].given = map[string]int{}
+		}
+	}
 }
 
 // firstNameList is the list of names an item is compared on: its author, or else the first
@@ -200,10 +227,12 @@ func initialOf(g string) string {
 	return string(r)
 }
 
-func (p *Processor) expandGiven(group []string, primary, initialsOK bool, forced int) {
+// expandGiven adds given names to the names shown that differ between the items of a set of
+// colliding items: initials at level 1 (when the style has them), full given names at level 2.
+func (p *Processor) expandGiven(set []string, primary, initialsOK bool, pass, extra int) {
 	maxLen := 0
-	for _, id := range group {
-		if n := len(firstNameList(p.items[id])); n > maxLen {
+	for _, id := range set {
+		if n := p.shownCount(p.items[id], extra); n > maxLen {
 			maxLen = n
 		}
 	}
@@ -211,12 +240,12 @@ func (p *Processor) expandGiven(group []string, primary, initialsOK bool, forced
 		if primary && i > 0 {
 			break
 		}
-		distinct := map[string]Name{}
+		distinct := map[string]bool{}
 		inits := map[string]bool{}
-		for _, id := range group {
+		for _, id := range set {
 			l := firstNameList(p.items[id])
-			if i < len(l) {
-				distinct[nameKey(l[i])] = l[i]
+			if i < len(l) && i < p.shownCount(p.items[id], extra) {
+				distinct[nameKey(l[i])] = true
 				inits[l[i].Family+"|"+initialOf(l[i].Given)] = true
 			}
 		}
@@ -224,12 +253,12 @@ func (p *Processor) expandGiven(group []string, primary, initialsOK bool, forced
 			continue
 		}
 		level := 2
-		if forced == 1 && initialsOK && len(inits) == len(distinct) {
+		if pass == 1 && initialsOK && len(inits) == len(distinct) {
 			level = 1
 		}
-		for _, id := range group {
+		for _, id := range set {
 			l := firstNameList(p.items[id])
-			if i < len(l) {
+			if i < len(l) && i < p.shownCount(p.items[id], extra) {
 				p.dis[id].given[nameKey(l[i])] = level
 			}
 		}

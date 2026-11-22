@@ -48,6 +48,7 @@ type renderer struct {
 
 	called, nonEmpty int // group suppression counters
 	condSeen         int
+	suffixDone       bool      // the year suffix has been put after a year
 	subCfg           *namesCfg // names settings a cs:names inside cs:substitute inherits
 
 	firstNames *rich  // first names node rendered (for subsequent-author-substitute)

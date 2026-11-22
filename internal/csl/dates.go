@@ -30,8 +30,9 @@ func (r *renderer) date(n *xnode) []*rich {
 	}
 	parts := r.dateParts(n)
 	suffix := ""
-	if v == "issued" && !r.p.style.usesSuffix {
+	if v == "issued" && !r.p.style.usesSuffix && !r.suffixDone {
 		suffix = r.dis.yearSuffix
+		r.suffixDone = suffix != ""
 	}
 	delim := n.a("delimiter")
 	if delim == "" && n.has("form") {

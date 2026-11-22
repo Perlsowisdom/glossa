@@ -568,6 +568,9 @@ func (p *Processor) disambRule() string {
 }
 
 func (p *Processor) citationLabel(it *Item) string {
+	if l := it.Vars["citation-label"]; l != "" {
+		return l
+	}
 	names := it.Names["author"]
 	if len(names) == 0 {
 		names = it.Names["editor"]
@@ -578,7 +581,7 @@ func (p *Processor) citationLabel(it *Item) string {
 	var s string
 	switch {
 	case len(names) == 1:
-		s = prefixRunes(names[0].Family, 3)
+		s = prefixRunes(names[0].Family, 4)
 	case len(names) == 2:
 		s = prefixRunes(names[0].Family, 2) + prefixRunes(names[1].Family, 2)
 	case len(names) == 3:
@@ -586,10 +589,9 @@ func (p *Processor) citationLabel(it *Item) string {
 			s += prefixRunes(n.Family, 1)
 		}
 	case len(names) > 3:
-		for _, n := range names[:3] {
+		for _, n := range names[:4] {
 			s += prefixRunes(n.Family, 1)
 		}
-		s += "+"
 	}
 	if d := it.Dates["issued"]; d != nil && d.Y != 0 {
 		s += fmt.Sprintf("%02d", ((d.Y%100)+100)%100)
