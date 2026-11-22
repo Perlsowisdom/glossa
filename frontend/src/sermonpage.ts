@@ -23,6 +23,7 @@ import { folderName, loadFolders, moveMenu, workChanged } from "./work";
 import { deleteSermon } from "./views/notes";
 import { editorInserts } from "./insertpop";
 import { citeStyleMenu } from "./citepicker";
+import { anyHook } from "./anyaction";
 
 const SAVE_AFTER = 1000;
 
@@ -211,11 +212,14 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
     moveMenu(b, msg, { kind: "sermon", id: d.id, title: d.title || untitled(d.kind), folder_id: d.folder_id });
   }
 
+  const anyLink = anyHook("sermon");
+
   function menu(b: HTMLElement) {
     actionsMenu(b, "Sermon actions", [
       ...(o.more ?? []),
       ["Move to folder…", () => void moveTo(b)],
       ["Citation style…", () => setTimeout(() => { if (d) void citeStyleMenu(b, d.id, () => editor?.refreshCites(true), (w) => msg.info(w)); }, 0)],
+      anyLink.entry(d?.id ?? null, msg, save),
       ["Print or export…", () => printBtn.click()],
       "-",
       ["Delete", () => void remove(), "danger"],
@@ -238,6 +242,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
     const got = await msg.attempt(() => run<SermonDoc>("document.get", { id: o.id }));
     if (!got || !alive) return;
     d = got;
+    void anyLink.refresh(got.id);
     try { folded = !o.fresh && localStorage.getItem(FOLD_KEY) === "1"; } catch { folded = false; }
     title = got.title === untitled(got.kind) && o.fresh ? "" : got.title;
     passages = (got.passages?.length ? got.passages : got.passage ? [got.passage] : [])

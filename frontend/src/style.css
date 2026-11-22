@@ -1800,3 +1800,27 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
 .insert-menu .im-glyph.g-citation { color: var(--accent); }
 .slash-glyph.g-citation { color: var(--accent); }
 .cite-pop, .cite-pop .pick-list { overflow-x: hidden; }
+
+/* Any (a connection): its card, the question about two versions, and the page picker */
+.any-card { display: flex; flex-direction: column; gap: 10px; max-width: 34rem; }
+.any-card .hint { margin: 0; }
+.any-code { width: 7rem; font-size: 1.2rem; letter-spacing: .3em; text-align: center; }
+dialog.any-dialog { width: min(640px, calc(100vw - 24px)); max-height: calc(100vh - 32px); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg); color: var(--fg); padding: 16px 20px; overflow: auto; }
+dialog.any-dialog::backdrop { background: rgb(0 0 0 / .35); }
+dialog.any-dialog h3 { margin: 0 0 6px; }
+.any-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0; }
+.any-side { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 0; background: var(--panel); }
+.any-side h4 { margin: 0 0 4px; font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: none; }
+.any-side p { margin: 0 0 4px; overflow-wrap: anywhere; }
+.any-side-title { font-weight: 600; }
+.any-side-text { font-size: .9rem; color: var(--muted); }
+.any-choices { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.any-choice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.any-choice .hint { margin: 0; flex: 1 1 14rem; }
+.any-pages { margin: 10px 0; display: flex; flex-direction: column; }
+.any-page { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.any-page-text { display: flex; flex-direction: column; min-width: 0; }
+.any-page-text strong, .any-page-text .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
+.any-search { width: 100%; }
+@media (max-width: 560px) { .any-sides { grid-template-columns: 1fr; } }

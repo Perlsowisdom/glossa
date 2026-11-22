@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { startFakeStyles } from "./fake-styles.mjs";
 import { startFakeZotero } from "./fake-zotero.mjs";
+import { startFakeAny } from "./fake-any.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repo = resolve(here, "..", "..");
@@ -227,6 +228,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   markUpdateQuestionAsked(join(lib, "library.db"));
   // The app talks to this fake Zotero, never to the real one on this computer or on zotero.org.
   const zotero = await startFakeZotero();
+  // ... and this fake Any, never the Any app on port 31009.
+  const anyApp = await startFakeAny();
   // Downloaded citation styles come from this fake, never from GitHub.
   const styles = await startFakeStyles();
   const profile = join(run, "webview");
@@ -250,6 +253,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_KEYRING_SERVICE: keyring,
         GLOSSA_ZOTERO_LOCAL_URL: zotero.localUrl,
         GLOSSA_ZOTERO_WEB_URL: zotero.webUrl,
+        GLOSSA_ANY_URL: anyApp.url,
         GLOSSA_CSL_LIST_URL: styles.listUrl,
         GLOSSA_CSL_RAW_URL: styles.rawUrl,
         // The occlusion and background flags keep the page painting and its timers running when another
@@ -327,6 +331,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     browser: cur.browser,
     library: lib,
     zotero,
+    any: anyApp,
     styles,
     log: () => log,
     forget: () => { seen.length = 0; },
@@ -359,12 +364,13 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       if (b.sources && s && s.enabled !== b.sources.enabled) await put("bible.sources", { enable: b.sources.enabled });
       // Connections: the switch and key as found, and the fake Zotero answering again.
       app.zotero.mode = "ok";
+      app.any.reset();
       const conns = (await app.run("connect.list").catch(() => null)) ?? [];
       for (const was of b.connections ?? []) {
         const now = conns.find((x) => x.id === was.id);
         if (!now) continue;
         if (now.enabled !== was.enabled) await put(was.enabled ? "connect.enable" : "connect.disable", { id: was.id });
-        if (now.key_set && !was.key_set) await put("connect.clear_key", { id: was.id });
+        if (now.key_set && !was.key_set) await put(was.id === "any" ? "any.unpair" : "connect.clear_key", was.id === "any" ? {} : { id: was.id });
       }
       // Citations: the default style and the switch for downloading styles, as found.
       const cs = await app.run("cite.style").catch(() => null);
@@ -418,6 +424,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         await quit(cur);
       } finally {
         await zotero.close().catch(() => {});
+        await anyApp.close().catch(() => {});
         await styles.close().catch(() => {});
         await removeRun(run);
       }

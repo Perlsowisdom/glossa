@@ -167,6 +167,29 @@ The citation styles that ship with Glossa (SBL, Chicago, APA) need no internet. 
 Citing itself (library books, Bibles, Zotero items kept in your library, manual entries) never uses the network;
 Zotero is covered by its own section above and its own switch.
 
+## Connections: Any (T40c)
+
+Off until you turn it on: the switch "Use Any" in Settings → Connections, or `connect.enable {"id": "any"}`. ADR 0014
+has the design.
+
+**Everything stays on this computer.** Glossa only talks to the Any app running on this computer, at
+`http://127.0.0.1:31009` (the address Any listens on for other programs), and refuses any address that is not
+on this computer. Nothing is sent over the internet by Glossa, and nothing goes to anyone but Any. Any then syncs
+its own data as it always does; that is Any's business.
+
+| When | Sent to the Any app on this computer |
+| --- | --- |
+| You turn it on, press Test connection, or open Settings → Connections while it is on (`connect.test`) | `GET /v1/spaces` with your key (or without one, to learn whether you are signed in) |
+| You sign in (`any.pair_start`, `any.pair_finish`) | `POST /v1/auth/challenges` with the name "Glossa"; Any shows a 4-digit code; then `POST /v1/auth/api_keys` with that code |
+| You pick a space or open the page picker (`any.spaces`, `any.pages`, `any.search`) | `GET /v1/spaces`; `POST /v1/spaces/<space>/search` with the words you type |
+| You send a note or sermon (`any.send`) | `GET`/`POST /v1/spaces/<space>/properties` (to make a "Passages" property once), then `POST` (first time) or `PATCH` (after) `/v1/spaces/<space>/objects`: the title, the Markdown text and the passages as plain references; then `GET` the page back |
+| You bring a page in (`any.import`) | `GET /v1/spaces/<space>/objects/<id>` |
+
+Every request carries the header `Anytype-Version: 2025-11-08` and, after you sign in, `Authorization: Bearer <key>`.
+The key is kept in the system keychain (`connect.any.key`), never in `library.db`, a file or a log, and is never
+shown again; "Sign out of Any" removes it. The links between your notes and Any's pages are kept in `library.db` on
+this device only and are not synced to your other devices.
+
 ## Sync through a folder (T20)
 
 Glossa itself sends nothing over the network for sync, and has no server or account. When you set it up

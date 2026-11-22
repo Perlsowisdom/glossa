@@ -22,7 +22,9 @@ func localOnlyTable(name string) bool {
 // perDeviceTable is a table whose rows describe one device: paths on its disks. Writes to it are
 // logged like any other, but never sent to another device, and changes for it that arrive are
 // ignored. What travels for books is shared_files instead (ADR 0013, T20b).
-func perDeviceTable(name string) bool { return name == "files" || name == "library_folders" }
+func perDeviceTable(name string) bool {
+	return name == "files" || name == "library_folders" || name == "any_links"
+}
 
 // perDeviceSettings are settings that only mean something on the device that made them. A name
 // ending in a dot is a prefix.
@@ -47,7 +49,7 @@ func perDeviceObject(typ, id string) bool {
 }
 
 // syncableSQL is a WHERE condition on the changes table that leaves out per-device objects.
-const syncableSQL = `object_type NOT IN ('files', 'library_folders') AND NOT (object_type = 'settings' AND
+const syncableSQL = `object_type NOT IN ('files', 'library_folders', 'any_links') AND NOT (object_type = 'settings' AND
 	(object_id IN ('["device_id"]', '["library.search_roots"]', '["backup.schedule"]') OR object_id LIKE '["library.scanned\_at.%' ESCAPE '\'
 	OR object_id LIKE '["connect.%'))`
 

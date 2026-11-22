@@ -34,6 +34,7 @@ function joinAnd(parts: string[]): string {
 
 // whatItDoes: "Zotero lets you bring in your sources and cite them in your writing."
 export function whatItDoes(c: ConnectionInfo): string {
+  if (c.id === "any") return "Any lets you send notes and sermons to a space in the Any app, and bring its pages in as notes.";
   const parts = (["import", "export", "cite"] as Capability[]).filter((k) => c.capabilities.includes(k)).map((k) => DOES[k]);
   return parts.length ? `${c.name} lets you ${joinAnd(parts)}.` : `${c.name} is a link to another program.`;
 }

@@ -18,6 +18,7 @@ import { folderName, loadFolders, moveMenu, workChanged } from "./work";
 import { editedText } from "./workwords";
 import { editorInserts } from "./insertpop";
 import { citeStyleMenu } from "./citepicker";
+import { anyHook } from "./anyaction";
 import { registerDoc } from "./activedoc";
 
 const SAVE_AFTER = 900;
@@ -161,6 +162,8 @@ export function notePage(o: NotePageOptions): NotePage {
     moveMenu(b, msg, { kind: "note", id: note.id, title: noteName(note), folder_id: note.folder_id });
   }
 
+  const anyLink = anyHook("note");
+
   function menu(b: HTMLElement) {
     const n = note;
     actionsMenu(b, "Note actions", [
@@ -168,6 +171,7 @@ export function notePage(o: NotePageOptions): NotePage {
       ["Move to folder…", () => void moveTo(b)],
       ["Turn into…", () => setTimeout(() => turnMenu(b), 0)],
       ["Citation style…", () => setTimeout(() => { if (n) void citeStyleMenu(b, n.id, () => editor?.refreshCites(true), (w) => msg.info(w)); else msg.info("Write something first."); }, 0)],
+      anyLink.entry(n?.id ?? null, msg, save),
       ["Print or export…", () => { if (n) openExport({ title: noteName(n), sources: [{ kind: "note", id: n.id }] }); else msg.info("Write something first."); }],
       ["History", () => { if (n) void drawer.open(n); else msg.info("A new note has no history yet."); }],
       "-",
@@ -239,6 +243,7 @@ export function notePage(o: NotePageOptions): NotePage {
       }
       const made = !note;
       note = got;
+      if (made) void anyLink.refresh(got.id);
       status.set("saved", got.updated_at);
       if (made || noteName(got) !== before) {
         o.onSaved?.(got);
@@ -264,6 +269,7 @@ export function notePage(o: NotePageOptions): NotePage {
   function fill(n: Note) {
     note = n;
     title = n.title;
+    void anyLink.refresh(n.id);
     tags = [...n.tags];
     ref = n.ref ?? null;
     folder = n.folder_id ?? "";

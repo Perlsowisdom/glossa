@@ -4,6 +4,7 @@
 // onto a folder does), edits its details, shows its history or deletes it to the bin.
 
 import { Message, Note, run } from "../api";
+import { importFromAny } from "../anyaction";
 import { openInStudy } from "../document/open";
 import { emptyInk, serializeInk } from "../editor/ink";
 import { button, clear, h, select } from "../dom";
@@ -283,6 +284,8 @@ export function notesSectionView() {
     const body = h("div", { class: "menu-list" }, choices.map((c) =>
       button("", () => (c.kind === "note" ? edit(null) : c.kind === "handwritten" ? void newHandwritten() : void newSermon()), {})));
     [...body.querySelectorAll("button")].forEach((b, i) => b.append(icon(choices[i].kind === "note" ? "notes" : choices[i].kind === "handwritten" ? "pen" : "sermon"), h("span", {}, choices[i].label)));
+    body.append(h("div", { class: "menu-sep", role: "separator" }), button("", () => setTimeout(() => void importFromAny(() => { void refresh(); }), 0), { class: "import-any" }));
+    body.lastElementChild!.append(icon("link"), h("span", {}, "Import from Any…"));
     openPopover(newBtn, body, { label: "New", menu: true });
   });
 
