@@ -1,0 +1,1 @@
+# Fixtures that must pass: they exercise features the bundled styles use.
