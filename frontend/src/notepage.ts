@@ -17,6 +17,7 @@ import { openExport } from "./printexport";
 import { folderName, loadFolders, moveMenu, workChanged } from "./work";
 import { editedText } from "./workwords";
 import { editorInserts } from "./insertpop";
+import { citeStyleMenu } from "./citepicker";
 import { registerDoc } from "./activedoc";
 
 const SAVE_AFTER = 900;
@@ -166,6 +167,7 @@ export function notePage(o: NotePageOptions): NotePage {
       ...(o.more ?? []).map(([l, fn]): [string, () => void] => [l, fn]),
       ["Move to folder…", () => void moveTo(b)],
       ["Turn into…", () => setTimeout(() => turnMenu(b), 0)],
+      ["Citation style…", () => setTimeout(() => { if (n) void citeStyleMenu(b, n.id, () => editor?.refreshCites(true), (w) => msg.info(w)); else msg.info("Write something first."); }, 0)],
       ["Print or export…", () => { if (n) openExport({ title: noteName(n), sources: [{ kind: "note", id: n.id }] }); else msg.info("Write something first."); }],
       ["History", () => { if (n) void drawer.open(n); else msg.info("A new note has no history yet."); }],
       "-",

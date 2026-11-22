@@ -163,3 +163,44 @@ describe("tables", () => {
     }
   });
 });
+
+describe("citations and the bibliography", () => {
+  const md = "Grace is plain [@lib:01HXABC, p. 12]. Also **bold [see @zotero:ABCD2345, ch. 3, for more]** and a [link](#passage/Rom.8.28).\n\n"
+    + "- a list item [-@manual:01HX]\n- [@bible:kjv, John 3:16]\n\n<!-- bibliography -->";
+  it("reads citations as their own pieces of a line", () => {
+    const [p] = parseMarkdown("One [@lib:AAA, p. 3] two.");
+    expect(p).toEqual({ type: "paragraph", spans: [
+      { text: "One " }, { text: "", cite: { key: "lib:AAA", label: "page", locator: "3" } }, { text: " two." }] });
+  });
+  it("keeps the marks round a citation", () => {
+    const [p] = parseMarkdown("**a [@lib:AAA] b**");
+    expect(p).toMatchObject({ type: "paragraph" });
+    const spans = (p as { spans: { text: string; bold?: boolean; cite?: unknown }[] }).spans;
+    expect(spans.map((s) => [s.text, !!s.bold, !!s.cite])).toEqual([["a ", true, false], ["", true, true], [" b", true, false]]);
+  });
+  it("round-trips exactly, and reads the marker as a block", () => {
+    expect(round(md)).toBe(md);
+    expect(parseMarkdown(md).map((b) => b.type)).toEqual(["paragraph", "list", "bibliography"]);
+  });
+  it("leaves links, brackets and other text as they were", () => {
+    for (const s of ["a [link](http://x) and [@nokind:abc] and [plain] and email me@example.org", "[text](#passage/Rom.8.28)",
+      "[see @lib:ABC](http://x)", "<!-- not bibliography -->", "<!-- bibliography --> extra"]) {
+      expect(round(s)).toBe(s);
+      expect(JSON.stringify(parseMarkdown(s))).not.toContain('"cite"');
+    }
+  });
+  it("round-trips a citation with every part, and escapes brackets in the words", () => {
+    const back = "\x5c";
+    const s = `[see also @zotero:ABCD2345, v. 5, for ${back}[more${back}], and ${back}${back} more]`;
+    const [p] = parseMarkdown(s);
+    const c = (p as { spans: { cite?: { suffix?: string; prefix?: string; label?: string } }[] }).spans[0].cite!;
+    expect(c).toMatchObject({ prefix: "see also", label: "verse", suffix: `for [more], and ${back} more` });
+    expect(round(s)).toBe(s);
+  });
+  it("is the same form the Go side reads (internal/cite)", () => {
+    // The same strings are checked in internal/cite/goldens_test.go.
+    expect(round("[@lib:A, pp. 1,3]")).toBe("[@lib:A, pp. 1,3]");
+    expect(round("[@bible:kjv, Rom 8:28-30]")).toBe("[@bible:kjv, Rom 8:28-30]");
+    expect(round("[-@lib:A, p. 4]")).toBe("[-@lib:A, p. 4]");
+  });
+});

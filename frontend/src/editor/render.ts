@@ -5,6 +5,7 @@ import { h } from "../dom";
 import { Block, Span, parseMarkdown } from "./markdown";
 import { inkView } from "./inknode";
 import { verseQuoteEl } from "./versequote";
+import { citeStandIn, knownCiteLabel } from "./citenodes";
 
 export function renderMarkdown(md: string): HTMLElement {
   return h("div", { class: "md" }, parseMarkdown(md).map(block));
@@ -22,6 +23,8 @@ function block(b: Block): Node {
           h("span", { class: "md-box", role: "img", "aria-label": b.checked![i] ? "Done" : "Not done" }, b.checked![i] ? "☑" : "☐"), " ", inline(it))));
       }
       return h(b.ordered ? "ol" : "ul", {}, b.items.map((it) => h("li", {}, inline(it))));
+    case "bibliography":
+      return h("p", { class: "md-bib" }, "Bibliography (filled in when the note is exported)");
     case "divider":
       return h("hr", { class: "md-hr" });
     case "ink":
@@ -39,6 +42,7 @@ function block(b: Block): Node {
 function inline(spans: Span[]): Node[] {
   return spans.map((s) => {
     if (s.br) return h("br");
+    if (s.cite) return h("span", { class: "md-cite", title: "A citation" }, knownCiteLabel(s.cite) ?? citeStandIn(s.cite));
     let n: Node = document.createTextNode(s.text);
     if (s.code) n = h("code", {}, n);
     if (s.underline) n = h("u", {}, n);

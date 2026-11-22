@@ -8,7 +8,7 @@ import { filterSlash, SLASH_ITEMS, SlashId, slashQuery, tableSize } from "./slas
 import { insertTable } from "./table";
 import { topBlock } from "./common";
 import { type EditorOptions, type InsertId } from "./types";
-import { insertDivider, INSERTS, insertsOf } from "./insert";
+import { insertBibliography, insertDivider, INSERTS, insertsOf } from "./insert";
 
 // Slash menu ---------------------------------------------------------------------------------------
 
@@ -194,9 +194,13 @@ export function slashMenu(doc: Document, editor: LexicalEditor, content: HTMLEle
       case "ink":
         insertInk(editor, topBlock);
         break;
+      case "bibliography":
+        insertBibliography(editor);
+        break;
       case "verseref":
       case "versequote":
       case "highlight":
+      case "citation":
       case "notelink": {
         // The popover opens where the caret is, on an anchor that goes when it closes.
         const r = caretRect();

@@ -25,6 +25,7 @@ func Register(r *command.Registry, userStyles string) *Resolver {
 	s := &service{rs: rs}
 	r.Add(
 		command.Define("cite.sources", "Search what can be cited: library books, installed Bibles, Zotero items (when Zotero is on, and the ones kept from earlier citations) and manual entries.", false, s.sources),
+		command.Define("cite.source", "Say what one source is: its title and who wrote it, or why it cannot be found.", false, s.source),
 		command.Define("cite.keep", "Make sure a source can be cited later without the program it came from (a Zotero item is kept in the library). Call it when a citation is added.", true, s.keep),
 		command.Define("cite.manual_save", "Add a source by hand, or change one you added. Returns the source to cite.", true, s.manualSave),
 		command.Define("cite.manual_list", "List the sources added by hand.", false, s.manualList),
@@ -241,4 +242,15 @@ func (s *service) setStyle(ctx context.Context, env *command.Env, p SetStylePara
 		return StyleResult{}, err
 	}
 	return s.style(ctx, env, StyleParams{ID: p.ID})
+}
+
+// SourceResult is one source.
+type SourceResult struct {
+	Source
+	Gone string `json:"gone,omitempty" desc:"Set when the source cannot be found, and why"`
+}
+
+func (s *service) source(ctx context.Context, env *command.Env, p KeyParams) (SourceResult, error) {
+	src, gone := s.rs.Describe(ctx, env, p.Key)
+	return SourceResult{Source: src, Gone: gone}, nil
 }

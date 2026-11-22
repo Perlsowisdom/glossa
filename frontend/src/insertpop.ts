@@ -11,6 +11,7 @@ import type { EditorOptions } from "./editor";
 import type { HighlightRow } from "./highlightspanel";
 import { highlightQuoteLines, highlightText, type CharRange } from "./insertwords";
 import { parseStyle } from "./markingwords";
+import { citeHost } from "./citepicker";
 import { closePopover, openPopover } from "./popover";
 import { setPassage, state } from "./state";
 import { verseQuoteFor } from "./docpage";
@@ -226,9 +227,10 @@ export async function dropToMarkdown(data: Record<string, string>, say: (why: st
 
 // editorInserts is what a writing page hands its editor for the Insert control.
 export function editorInserts(o: { say(why: string): void; passage(): string; self?(): string | undefined; quote(anchor: HTMLElement): void }):
-  Pick<EditorOptions, "onHighlight" | "onNoteLink" | "parseRef" | "onDrop" | "onOpenLink" | "onVerseQuote"> {
+  Pick<EditorOptions, "onHighlight" | "onNoteLink" | "parseRef" | "onDrop" | "onOpenLink" | "onVerseQuote" | "cites"> {
   return {
     onVerseQuote: o.quote,
+    cites: citeHost({ docId: () => o.self?.() }),
     onHighlight: (anchor, insert) => highlightPicker(anchor, insert),
     onNoteLink: (anchor, insert) => noteLinkPicker(anchor, insert, o.self),
     parseRef,

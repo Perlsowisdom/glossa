@@ -574,3 +574,29 @@ func ManualEntries(ctx context.Context, env *command.Env) []Source {
 	sort.SliceStable(out, func(i, j int) bool { return strings.ToLower(out[i].Title) < strings.ToLower(out[j].Title) })
 	return out
 }
+
+// Describe says what a source key names, for showing a citation being edited. A source that cannot be
+// found has Gone set.
+func (r *Resolver) Describe(ctx context.Context, env *command.Env, key string) (Source, string) {
+	it, ok := r.Resolve(ctx, env, []string{key})[key]
+	if !ok {
+		return Source{Key: key, Kind: KindOf(key)}, "unknown source"
+	}
+	s := Source{Key: key, Kind: KindOf(key)}
+	switch {
+	case it.Gone != "":
+		s.Title = "Missing source"
+		return s, it.Gone
+	case it.Bible != nil:
+		s.Title, s.Detail = it.Bible.Name, it.Bible.Abbreviation+" · Bible version"
+		if s.Title == "" {
+			s.Title = it.Bible.Abbreviation
+		}
+	default:
+		raw, _ := json.Marshal(it.CSL)
+		var c csljson.Item
+		_ = json.Unmarshal(raw, &c)
+		s.Title, s.Detail = c.Title, detail(authorsOf(c), c.Year())
+	}
+	return s, ""
+}

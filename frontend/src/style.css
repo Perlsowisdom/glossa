@@ -1759,3 +1759,43 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
 .connection-status.bad { color: var(--warn); }
 .connection-key { max-width: 28rem; margin-top: 8px; }
 .connection-key .hint { margin: 0 0 8px; }
+
+/* Citations (T40b): the chip in the text, the bibliography block, and the picker. */
+.rich-text .cite-chip, .md .md-cite { display: inline-flex; align-items: baseline; gap: 4px; padding: 0 8px 1px; margin: 0 1px; border-radius: 999px;
+  background: var(--chip-bg); border: 1px solid var(--chip-line); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: .82em;
+  line-height: 1.5; color: var(--fg); cursor: pointer; user-select: none; vertical-align: baseline; max-width: 100%; }
+.rich-text .cite-chip:hover { border-color: var(--chip-line-hover); background: var(--ghost-hover); }
+.cite-chip-mark { font-size: .9em; color: var(--muted); }
+.cite-chip-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34em; }
+.md .md-cite { cursor: default; }
+.md .md-bib { color: var(--muted); font-size: .85em; border-top: 1px solid var(--line); padding-top: 4px; }
+.cite-bib { position: relative; margin: 14px 0; padding: 8px 14px 6px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.cite-bib-title { margin: 4px 0 6px; font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.cite-bib-entry { margin: 0 0 6px; padding-left: 2em; text-indent: -2em; font-size: .92em; line-height: 1.45; }
+.cite-bib-empty { margin: 0 0 6px; color: var(--muted); font-size: .88em; font-style: italic; }
+.cite-bib .vq-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: var(--muted); opacity: 0; transition: opacity .12s, background-color .12s; }
+.cite-bib:hover .vq-remove, .cite-bib .vq-remove:focus-visible { opacity: 1; }
+.cite-bib .vq-remove:hover { background: var(--ghost-hover); color: var(--fg); border: 0; }
+.cite-pop { width: 380px; max-width: calc(100vw - 24px); }
+.cite-kind { width: 20px; font-size: .85rem; }
+.cite-kind.k-bible { color: var(--verse); }
+.cite-row .pick-where { overflow-wrap: anywhere; }
+.cite-foot { border-top: 1px solid var(--line); padding-top: 6px; }
+.cite-form { display: flex; flex-direction: column; gap: 8px; }
+.cite-form input[type="text"], .cite-form select { width: 100%; }
+.cite-chosen { display: flex; align-items: flex-start; gap: 9px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.cite-chosen .pick-main { flex: 1; }
+.cite-where { display: flex; gap: 8px; }
+.cite-where .cite-label { flex: none; width: 8.5em; }
+.cite-where input { flex: 1; min-width: 0; }
+.cite-more summary { cursor: pointer; color: var(--muted); font-size: .82rem; margin: 2px 0 6px; }
+.cite-more label { display: flex; flex-direction: column; gap: 3px; font-size: .78rem; color: var(--muted); margin-bottom: 8px; }
+.cite-more label.cite-check { flex-direction: row; align-items: center; gap: 8px; }
+.cite-two > * { flex: 1; min-width: 0; }
+.cite-actions { justify-content: space-between; }
+.cite-style-menu .menu-list, .cite-style-menu { min-width: 240px; max-height: 60vh; overflow: auto; }
+.cite-style-menu button.on { color: var(--accent); font-weight: 600; }
+.cite-style-menu button.on::before { content: "✓ "; }
+.insert-menu .im-glyph.g-citation { color: var(--accent); }
+.slash-glyph.g-citation { color: var(--accent); }

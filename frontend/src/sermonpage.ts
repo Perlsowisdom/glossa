@@ -22,6 +22,7 @@ import type { SermonDoc } from "./views/sermons";
 import { folderName, loadFolders, moveMenu, workChanged } from "./work";
 import { deleteSermon } from "./views/notes";
 import { editorInserts } from "./insertpop";
+import { citeStyleMenu } from "./citepicker";
 
 const SAVE_AFTER = 1000;
 
@@ -214,6 +215,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
     actionsMenu(b, "Sermon actions", [
       ...(o.more ?? []),
       ["Move to folder…", () => void moveTo(b)],
+      ["Citation style…", () => setTimeout(() => { if (d) void citeStyleMenu(b, d.id, () => editor?.refreshCites(true), (w) => msg.info(w)); }, 0)],
       ["Print or export…", () => printBtn.click()],
       "-",
       ["Delete", () => void remove(), "danger"],

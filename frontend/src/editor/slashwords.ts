@@ -4,7 +4,7 @@
 // every format and insert, in alphabetical order.
 
 export type SlashId =
-  | "bullets" | "checks" | "code" | "divider" | "h1" | "h2" | "h3" | "highlight" | "ink" | "link" | "notelink" | "numbers" | "quote"
+  | "bibliography" | "bullets" | "checks" | "citation" | "code" | "divider" | "h1" | "h2" | "h3" | "highlight" | "ink" | "link" | "notelink" | "numbers" | "quote"
   | "table" | "verseref" | "versequote";
 
 export interface SlashItem {
@@ -19,8 +19,10 @@ export interface SlashItem {
 export const MAX_TABLE = 10;
 
 const ITEMS: SlashItem[] = [
+  { id: "bibliography", label: "Bibliography", hint: "The list of the works you cite", icon: "☰", also: ["references", "works", "sources"] },
   { id: "bullets", label: "Bulleted list", hint: "A simple list", icon: "•", also: ["unordered", "list"] },
   { id: "checks", label: "Checkbox list", hint: "Things to tick off", icon: "☐", also: ["todo", "task", "check", "list"] },
+  { id: "citation", label: "Citation", hint: "A source from your library, a Bible or Zotero", icon: "❡", also: ["cite", "source", "footnote", "reference"] },
   { id: "code", label: "Code", hint: "Words in a fixed-width face", icon: "<>", also: ["monospace", "inline"] },
   { id: "divider", label: "Divider", hint: "A line across the page", icon: "—", also: ["line", "rule", "separator"] },
   { id: "ink", label: "Handwriting", hint: "Write or draw with a pen, a mouse or a finger", icon: "✎", also: ["ink", "draw", "sketch", "pen", "write", "scribble"] },
@@ -31,7 +33,7 @@ const ITEMS: SlashItem[] = [
   { id: "link", label: "Link", hint: "A link to a web address", icon: "↗", also: ["url", "web", "address"] },
   { id: "notelink", label: "Link to a note or sermon", hint: "A chip that opens it", icon: "¶", also: ["note", "sermon"] },
   { id: "numbers", label: "Numbered list", hint: "A list with numbers", icon: "1.", also: ["ordered", "list"] },
-  { id: "quote", label: "Quote", hint: "Someone else's words", icon: "”", also: ["citation", "blockquote"] },
+  { id: "quote", label: "Quote", hint: "Someone else's words", icon: "”", also: ["blockquote"] },
   { id: "table", label: "Table", hint: "Rows and columns: /table3x2 makes 3 rows by 2 columns", icon: "▦", also: ["grid", "rows", "columns"] },
   { id: "verseref", label: "Verse reference", hint: "A chip that opens the passage", icon: "✦", also: ["reference", "ref", "chip"] },
   { id: "versequote", label: "Verse text", hint: "Bible text, with its credit line", icon: "❝", also: ["quote", "verses", "bible", "scripture", "passage"] },

@@ -15,6 +15,7 @@ import { railControls } from "../shell/rail";
 import { APP_THEMES, ToolId, moveTool, showTool, toolLabel } from "../shellwords";
 import { prefs, setPrefs } from "../state";
 import { commandsView } from "./commands";
+import { citationsSection } from "./citations";
 import { connectionsSection } from "./connections";
 import { dataSection } from "./data";
 import { logosSection } from "./logos";
@@ -44,6 +45,7 @@ const GROUPS: { label: string; pages: Page[] }[] = [
       { id: "data", label: "Your data", make: dataPage },
       { id: "sync", label: "Sync", make: syncPage },
       { id: "connections", label: "Connections", make: connectionsPage },
+      { id: "citations", label: "Citations", make: citationsPage },
       { id: "updates", label: "Updates", make: updatesPage },
     ],
   },
@@ -240,12 +242,13 @@ function privacyPage(): PageView {
 
   // Both status commands read local settings only; neither uses the network.
   async function show() {
-    const [key, cat, ai, ccel, conns] = await Promise.all([
+    const [key, cat, ai, ccel, conns, styles] = await Promise.all([
       run<KeyStatus>("apibible.status").catch(() => null),
       run<{ enabled: boolean }>("bible.sources").catch(() => null),
       run<AssistantConfig>("assistant.config.get").catch(() => null),
       run<{ enabled: boolean; works: number }>("ccel.settings").catch(() => null),
       run<ConnectionInfo[]>("connect.list").catch(() => [] as ConnectionInfo[]),
+      run<{ enabled: boolean; sends: string }>("cite.styles_online").catch(() => null),
     ]);
     const aiOn = !!ai && ai.provider !== "off";
     const on = (yes: boolean | undefined) => (yes ? badge("On", "ok") : badge("Off"));
@@ -269,6 +272,8 @@ function privacyPage(): PageView {
           },
         })),
       ...conns.flatMap((c) => [h("dt", {}, c.name), h("dd", {}, on(c.enabled), " ", c.sends, " Turn it on or off in Connections.")]),
+      h("dt", {}, "Citation styles"),
+      h("dd", {}, on(styles?.enabled), " ", styles?.sends ?? "", " Turn it on or off in Citations."),
       h("dt", {}, "Bibles online"),
       h("dd", {}, on(key?.key_set), " Reads Bibles from API.Bible with your own key. Set it in Bibles online."),
       h("dt", {}, "Assistant"),
@@ -341,6 +346,14 @@ function connectionsPage(): PageView {
   const s = connectionsSection();
   return {
     el: pageEl("Connections", "Link Glossa to programs and services you already use, such as Zotero. Each one is off until you turn it on, and says exactly what it sends.", s.el),
+    show: s.show, focus: s.focus,
+  };
+}
+
+function citationsPage(): PageView {
+  const s = citationsSection();
+  return {
+    el: pageEl("Citations", "The style that notes and sermons cite in, and more styles to download. Downloading is off until you turn it on, and says exactly what it sends.", s.el),
     show: s.show, focus: s.focus,
   };
 }
