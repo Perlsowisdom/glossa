@@ -172,15 +172,12 @@ async function saveNow(page, root) {
 }
 
 // stubDialogs stands in for the two system dialogs a test cannot answer: the save dialog answers
-// with a path in the exports folder, and the print dialog only counts that it was asked for.
+// with a path in the exports folder, and the system opener (Print opens a PDF) only records the file it was given.
 async function stubDialogs(page, dir) {
   await page.evaluate((dir) => {
     window.__printed = 0;
-    window.print = () => {
-      window.__printed++;
-      window.__printedText = document.getElementById("print-root")?.textContent ?? "";
-      window.dispatchEvent(new Event("afterprint"));
-    };
+    window.__printedPath = "";
+    window.go.main.App.OpenFile = async (path) => { window.__printed++; window.__printedPath = path; };
     window.go.main.App.SaveFile = async (_title, name) => `${dir}\\${name}`;
   }, dir);
 }
@@ -450,9 +447,9 @@ export default [
       const paper = await dlg.locator(".paper").textContent();
       for (const want of ["Love without pretence", "Hold on to what is good", "Love in the church", NETFREE_CREDIT, "Duty"]) t.assert.ok(paper.includes(want), `the preview has "${want}"`);
       await t.shot("m2-09a-preview.png");
-      await dlg.locator(".export-actions button", { hasText: /^Print$/ }).click();
+      await dlg.locator(".export-actions button", { hasText: /^Open PDF to print$/ }).click();
       await page.waitForFunction(() => window.__printed === 1, null, { timeout: 10000 });
-      t.assert.ok((await page.evaluate(() => window.__printedText)).includes(NETFREE_CREDIT), "the printed page has the credit line");
+      t.assert.ok(squash(pdfText(readFileSync(await page.evaluate(() => window.__printedPath)))).includes(squash(NETFREE_CREDIT)), "the printed PDF has the credit line");
 
       const files = {};
       for (const [label, ext] of [["Web page", "html"], ["Word", "docx"], ["PDF", "pdf"]]) {

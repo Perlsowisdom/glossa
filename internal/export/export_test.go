@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ledongthuc/pdf"
 
@@ -503,5 +504,34 @@ func TestQuotationsInASermonAddUpAndAreCounted(t *testing.T) {
 	e.must("export.preview", map[string]any{"sources": []map[string]any{{"kind": "note", "id": note.ID}}, "format": "md"}, &pv)
 	if len(pv.Cuts) != 1 {
 		t.Errorf("a note quoting the Bible should be cut: %+v", pv.Cuts)
+	}
+}
+
+// A PDF made to print goes to the temporary print folder, counts as a print, and bad combinations are refused.
+func TestMakeForPrinting(t *testing.T) {
+	e := setup(t)
+	var res export.MakeResult
+	e.must("export.make", map[string]any{"sources": passage, "format": "pdf", "print": true}, &res)
+	if filepath.Dir(res.Path) != filepath.Join(e.data, "print") || filepath.Ext(res.Path) != ".pdf" {
+		t.Errorf("print file went to %s", res.Path)
+	}
+	data, err := os.ReadFile(res.Path)
+	if err != nil || !bytes.HasPrefix(data, []byte("%PDF-")) {
+		t.Errorf("not a PDF: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(e.data, "exports")); err == nil {
+		t.Errorf("a print must not fill the exports folder")
+	}
+	// Files older than a day are swept the next time one is made.
+	old := filepath.Join(e.data, "print", "old.pdf")
+	os.WriteFile(old, []byte("x"), 0o644)
+	past := time.Now().Add(-48 * time.Hour)
+	os.Chtimes(old, past, past)
+	e.must("export.make", map[string]any{"sources": passage, "format": "pdf", "print": true}, &res)
+	if _, err := os.Stat(old); err == nil {
+		t.Errorf("an old print file should be removed")
+	}
+	if err := e.run("export.make", map[string]any{"sources": passage, "format": "docx", "print": true}, nil); err == nil {
+		t.Errorf("print is only for a PDF")
 	}
 }

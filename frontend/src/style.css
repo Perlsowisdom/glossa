@@ -822,12 +822,6 @@ details.more summary { cursor: pointer; color: var(--accent); }
 .paper { background: #fff; color: #111; box-shadow: 0 1px 6px rgb(0 0 0 / .25); margin: 12px auto; width: min(210mm, 100%);
   min-height: 120mm; padding: 18mm 16mm; box-sizing: border-box; }
 .paper.letter { width: min(215.9mm, 100%); }
-#print-root { display: none; }
-@media print {
-  body.printing > *:not(#print-root) { display: none !important; }
-  body.printing #print-root { display: block; }
-  body.printing { background: #fff; }
-}
 
 /* Settings (views/settings.ts) */
 .settings-body { display: grid; grid-template-columns: minmax(170px, 210px) minmax(0, 1fr); gap: 28px; align-items: start; }
