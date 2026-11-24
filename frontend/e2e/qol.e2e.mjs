@@ -108,4 +108,68 @@ export default [
       await dlg.locator("button[aria-label=Close]").click();
     },
   },
+  // ---- 2. The right sidebar --------------------------------------------------------------------
+  {
+    row: "Right sidebar: closes and reopens from a visible button on every page, and is remembered",
+    shot: "qol-sidebar.png",
+    timeout: 180000,
+    async run(t) {
+      const { page } = t;
+      const open = () => page.locator("#rightbar").isVisible().catch(() => false);
+      const control = () => page.locator("button[aria-controls=rightbar]:visible").first();
+      const settle = async (want) => { try { await page.locator("#rightbar").waitFor({ state: want ? "visible" : "hidden", timeout: 4000 }); } catch { /* reported below */ } };
+      const problems = [];
+      for (const hash of ["#reader", "#library", "#bibles", "#search", "#notes", "#settings/appearance", "#settings/model", "#settings/data"]) {
+        await page.evaluate((x) => { location.hash = x; }, hash);
+        await page.locator(".view:visible").first().waitFor({ timeout: 15000 });
+        await t.settled();
+        if (!(await open())) { await page.keyboard.press("Control+Period"); await settle(true); }
+        if (!(await control().count())) { problems.push(`${hash}: no button to close the sidebar`); await page.keyboard.press("Control+Period"); await settle(false); continue; }
+        await control().click();
+        await settle(false);
+        if (await open()) problems.push(`${hash}: the button did not close the sidebar`);
+        await control().click();
+        await settle(true);
+        if (!(await open())) problems.push(`${hash}: the button did not open the sidebar again`);
+        await control().click();
+        await settle(false);
+      }
+      t.assert.deepEqual(problems, [], problems.join("; "));
+
+      // Remembered: open on Library, reload, still open there and on another page; close, reload, still closed.
+      await page.evaluate(() => { location.hash = "#library"; });
+      await page.locator(".view:visible").first().waitFor();
+      await control().click();
+      await settle(true);
+      await page.reload();
+      await page.waitForSelector(".shell");
+      t.assert.ok(await open(), "open after a reload on Library");
+      await page.evaluate(() => { location.hash = "#settings/model"; });
+      await page.locator(".settings-section:visible").first().waitFor();
+      t.assert.ok(await open(), "open on Settings too");
+      await control().click();
+      await settle(false);
+      await page.reload();
+      await page.waitForSelector(".shell");
+      t.assert.ok(!(await open()), "closed after a reload");
+    },
+  },
+  {
+    row: "Right sidebar: Library and Settings with it open and closed, at 1536 x 816 and 900 x 700, light and dark",
+    shot: "qol-sidebar-fit.png",
+    timeout: 180000,
+    async run(t) {
+      const { page } = t;
+      const open = () => page.locator("#rightbar").isVisible().catch(() => false);
+      for (const [hash, name] of [["#library", "library"], ["#settings/model", "settings"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash);
+        await page.locator(".view:visible").first().waitFor();
+        for (const want of [true, false]) {
+          if ((await open()) !== want) await page.locator("button[aria-controls=rightbar]:visible").first().click();
+          await page.waitForTimeout(300);
+          await looks(t, `sidebar-${name}-${want ? "open" : "closed"}`);
+        }
+      }
+    },
+  },
 ];

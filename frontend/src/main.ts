@@ -158,6 +158,7 @@ function boot(tries = 10) {
     go: (p) => goPlace(p),
     search: (q) => searchFor(q),
     settings: (page) => show(page ? `settings/${page}` : "settings", true),
+    toggleSidebar: () => sidebar().toggle(),
   });
   const side = sidebar();
   shell.append(theRail.edge, theRail.reveal, theRail.el, main, side.el);
