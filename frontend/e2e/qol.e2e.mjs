@@ -172,4 +172,35 @@ export default [
       }
     },
   },
+  // ---- 3. Assistant settings and the assistant sidebar -------------------------------------------
+  {
+    row: "Assistant: changing the provider in Settings updates the open AI chat sidebar at once",
+    shot: "qol-assistant-sync.png",
+    timeout: 120000,
+    async run(t) {
+      const { page, app } = t;
+      await app.run("assistant.config.set", { provider: "off" });
+      await page.evaluate(() => { location.hash = "#reader"; });
+      await page.locator(".view:visible").first().waitFor();
+      if (!(await page.locator("#rightbar").isVisible().catch(() => false))) await page.keyboard.press("Control+Period");
+      await page.locator("#rightbar [role=tab]", { hasText: "AI chat" }).click();
+      const bar = page.locator("#rightbar");
+      await bar.locator(".chat-off").waitFor({ timeout: 10000 });
+      // The sidebar stays open on the AI chat tool while Settings changes the provider.
+      await page.evaluate(() => { location.hash = "#settings/model"; });
+      const sec = page.locator(".settings-section:visible");
+      await sec.locator(".provider-row button", { hasText: "Change" }).click();
+      await sec.locator(".provider-chip[data-id=claude-code][data-state=ready]").waitFor();
+      await sec.locator(".provider-chip[data-id=claude-code]").click();
+      await sec.locator(".provider-current", { hasText: "Claude Code" }).waitFor();
+      await bar.locator(".chat-input").waitFor({ timeout: 5000 });
+      t.assert.ok((await bar.locator(".chat-provider").textContent()).includes("Claude Code"), "the sidebar names the new provider");
+      await looks(t, "assistant-sync-on");
+      // Turning it off shows the off panel again, also without leaving Settings.
+      await sec.locator(".provider-chip[data-id=off]").click();
+      await bar.locator(".chat-off").waitFor({ timeout: 5000 });
+      await looks(t, "assistant-sync-off");
+      await page.keyboard.press("Control+Period");
+    },
+  },
 ];
