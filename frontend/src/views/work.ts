@@ -267,6 +267,9 @@ export function workSide(go: (target: string) => void): WorkSide {
     workChanged();
   }
 
+  // The "went to the bin" notice is a passing one; it must not stay on every page of My work.
+  let notice = 0;
+
   async function remove(f: FolderNode) {
     const r = await msg.attempt(() => run<{ folders: number; notes: number; documents: number }>("folder.delete", { id: f.id }));
     if (!r) return;
@@ -280,6 +283,8 @@ export function workSide(go: (target: string) => void): WorkSide {
       }, { class: "link" }));
     msg.el.className = "msg ok";
     msg.el.setAttribute("role", "status");
+    const mine = ++notice;
+    setTimeout(() => { if (mine === notice) msg.clear(); }, 15000);
     const shown = scope.kind === "folder" ? scope.id : "";
     if (view === "notes" && shown && (shown === f.id || f.children.some((c) => c.id === shown))) go("notes");
     await loadFolders();

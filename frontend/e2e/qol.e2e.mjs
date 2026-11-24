@@ -203,4 +203,40 @@ export default [
       await page.keyboard.press("Control+Period");
     },
   },
+  // ---- Found in the audit (docs/qol-audit.md) ----------------------------------------------------
+  {
+    row: "My work: the 'went to the bin' notice after deleting a folder goes away by itself",
+    shot: "qol-bin-notice.png",
+    timeout: 90000,
+    async run(t) {
+      const { page, app } = t;
+      const f = await app.run("folder.create", { name: "Notice folder" });
+      await page.evaluate(() => { location.hash = "#notes"; });
+      await page.locator("button[aria-label='Actions for Notice folder']").click();
+      await page.locator(".popover button", { hasText: "Delete folder" }).click();
+      const notice = page.locator(".work-col .msg, .work-side .msg, aside .msg", { hasText: "went to the bin" }).first();
+      await notice.waitFor({ timeout: 5000 });
+      await page.evaluate(() => { location.hash = "#lists"; });
+      await notice.waitFor({ timeout: 2000 }); // still there for a moment, on the next page too
+      await page.waitForFunction(() => ![...document.querySelectorAll(".msg")].some((e) => e.textContent.includes("went to the bin")), null, { timeout: 25000 });
+      await app.run("bin.restore", { kind: "folder", id: f.id }).catch(() => {});
+    },
+  },
+  {
+    row: "Lists: deleting a list says it goes to the bin (where it does go)",
+    shot: "qol-list-delete.png",
+    async run(t) {
+      const { page, app } = t;
+      await app.run("list.create", { kind: "verses", name: "Words list" });
+      await page.evaluate(() => { location.hash = "#notes"; });
+      await page.waitForTimeout(300);
+      await page.evaluate(() => { location.hash = "#lists"; });
+      await page.locator("main button", { hasText: "Words list" }).first().click();
+      let said = "";
+      page.once("dialog", (d) => { said = d.message(); void d.dismiss(); });
+      await page.locator("main button", { hasText: "Delete list" }).first().click();
+      await page.waitForTimeout(500);
+      t.assert.ok(/bin/.test(said) && !/change history/.test(said), `the question says where the list goes: ${said}`);
+    },
+  },
 ];
