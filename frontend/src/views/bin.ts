@@ -1,4 +1,4 @@
-// The Bin: deleted notes, sermons, lists, reading plans and folders wait here. Restore brings one back (a folder
+// The Bin: deleted notes, sermons, lists, reading plans, collections and folders wait here. Restore brings one back (a folder
 // with everything deleted with it); "Delete for good" asks first, then removes it and its text from
 // the history too (bin.purge).
 
@@ -10,7 +10,7 @@ import { ask } from "../ask";
 import { emptyState, loadFolders, onWorkChanged, workChanged } from "../work";
 import { BinEntry, binContents, binKind, binTitle, purgeQuestion } from "../workwords";
 
-const ICON: Record<BinEntry["kind"], string> = { folder: "folder", note: "notes", document: "sermon", list: "list", plan: "plan" };
+const ICON: Record<BinEntry["kind"], string> = { folder: "folder", note: "notes", document: "sermon", list: "list", plan: "plan", collection: "library" };
 
 export function binView() {
   const msg = new Message();
@@ -25,7 +25,7 @@ export function binView() {
     if (!got) return;
     sub.textContent = got.length
       ? `${got.length} ${got.length === 1 ? "thing" : "things"}, most recently deleted first. Restore puts each back where it was.`
-      : "Deleted notes, sermons, lists, reading plans and folders wait here until you restore them.";
+      : "Deleted notes, sermons, lists, reading plans, collections and folders wait here until you restore them.";
     clear(list, got.length === 0
       ? h("li", { class: "work-empty" }, emptyState("bin", "The bin is empty", "Anything you delete in My work comes here first, so nothing is lost by mistake."))
       : got.map(row));
@@ -37,7 +37,7 @@ export function binView() {
       h("span", { class: `bin-icon kind-${e.kind}` }, icon(ICON[e.kind])),
       h("div", { class: "bin-main" },
         h("strong", { class: e.title ? "" : "untitled" }, binTitle(e)),
-        h("span", { class: "hint" }, [binKind(e), e.kind === "folder" ? inside : "", `Deleted ${formatTime(e.deleted_at)}`].filter(Boolean).join(" · "))),
+        h("span", { class: "hint" }, [binKind(e), e.kind === "folder" || e.kind === "collection" ? inside : "", `Deleted ${formatTime(e.deleted_at)}`].filter(Boolean).join(" · "))),
       h("div", { class: "bin-actions" },
         button("Restore", () => void restore(e), { "aria-label": `Restore ${binTitle(e)}` }),
         button("Delete for good", () => void purge(e), { class: "danger", "aria-label": `Delete ${binTitle(e)} for good` })));

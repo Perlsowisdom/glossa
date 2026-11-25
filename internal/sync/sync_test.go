@@ -681,3 +681,56 @@ func TestPlanBinRestoreAndPurgePropagate(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectionBinRestoreAndPurgePropagate(t *testing.T) {
+	folder := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	a.connect(folder)
+	b.connect(folder)
+	a.at(1000).write("collection.create", func(tx *store.Tx) error {
+		if err := tx.Create("items", store.Row{"id": "I1", "kind": "book", "title": "A book", "source": "import", "created_at": int64(1), "updated_at": int64(1)}); err != nil {
+			return err
+		}
+		if err := tx.Create("collections", store.Row{"id": "C1", "name": "Reformed", "kind": "manual", "position": int64(1), "created_at": int64(1), "updated_at": int64(1)}); err != nil {
+			return err
+		}
+		return tx.Create("collection_items", store.Row{"collection_id": "C1", "item_id": "I1", "position": int64(1)})
+	})
+	a.sync()
+	b.at(1500).sync()
+	count := func(d *dev, q string) int {
+		var n int
+		if err := d.st.QueryRow(context.Background(), q).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	a.at(2000).write("collection.delete", func(tx *store.Tx) error { return tx.Delete("collections", store.ByID("C1")) })
+	a.sync()
+	b.at(2500).sync()
+	if count(b, `SELECT COUNT(*) FROM collections WHERE deleted_at IS NOT NULL`) != 1 {
+		t.Fatal("B should have the collection in its bin")
+	}
+	a.at(3000).write("bin.restore", func(tx *store.Tx) error {
+		return tx.Update("collections", store.ByID("C1"), store.Row{"deleted_at": nil})
+	})
+	a.sync()
+	b.at(3500).sync()
+	if count(b, `SELECT COUNT(*) FROM collections WHERE deleted_at IS NULL`) != 1 || count(b, `SELECT COUNT(*) FROM collection_items`) != 1 {
+		t.Fatal("B should have the collection back with its book")
+	}
+	a.at(4000).write("collection.delete", func(tx *store.Tx) error { return tx.Delete("collections", store.ByID("C1")) })
+	a.at(4500).write("bin.purge", func(tx *store.Tx) error {
+		if err := tx.Purge("collection_items", store.Row{"collection_id": "C1", "item_id": "I1"}); err != nil {
+			return err
+		}
+		return tx.Purge("collections", store.ByID("C1"))
+	})
+	a.sync()
+	b.at(5000).sync()
+	for _, q := range []string{`collections`, `collection_items`} {
+		if n := count(b, `SELECT COUNT(*) FROM `+q); n != 0 {
+			t.Fatalf("B still has %d rows in %s after the purge", n, q)
+		}
+	}
+}

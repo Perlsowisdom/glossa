@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -38,6 +39,10 @@ type Store struct {
 	device string
 	clock  *Clock
 	tables map[string]table
+
+	delMu   sync.Mutex
+	lastDel int64
+	wall    func() int64 // the clock deleted_at reads; nil means the real one
 }
 
 // Open opens or creates library.db at path and brings its schema up to date.
@@ -205,3 +210,27 @@ func (s *Store) loadDevice() error {
 }
 
 func nowMS() int64 { return time.Now().UnixMilli() }
+
+// deletedMS stamps a soft delete. It is strictly later than the one before it, so a thing deleted
+// on its own just before its folder can never tie with the folder (a tie reads as "deleted with it").
+// Things deleted together are stamped in order, so each is no earlier than the first.
+func (s *Store) deletedMS() int64 {
+	s.delMu.Lock()
+	defer s.delMu.Unlock()
+	t := nowMS()
+	if s.wall != nil {
+		t = s.wall()
+	}
+	if t <= s.lastDel {
+		t = s.lastDel + 1
+	}
+	s.lastDel = t
+	return t
+}
+
+// SetDeleteClock replaces the clock soft deletes read, so tests can freeze it.
+func (s *Store) SetDeleteClock(now func() int64) {
+	s.delMu.Lock()
+	s.wall = now
+	s.delMu.Unlock()
+}

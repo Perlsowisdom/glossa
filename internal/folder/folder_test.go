@@ -355,3 +355,30 @@ func TestPlanGoesToBinRestoresAndPurges(t *testing.T) {
 		t.Fatalf("purge a live plan: %v", err)
 	}
 }
+
+// A note deleted on its own, then its folder, must not come back with the folder even when the
+// clock has not moved (a deleted_at tie is how "deleted together" is told).
+func TestNoteDeletedJustBeforeItsFolderStaysSeparateOnAFrozenClock(t *testing.T) {
+	e := setup(t)
+	e.st.SetDeleteClock(func() int64 { return 1_800_000_000_000 })
+	var f Folder
+	e.must("folder.create", map[string]any{"name": "Series"}, &f)
+	var early, with core.Note
+	e.must("note.create", map[string]any{"body": "alone", "folder_id": f.ID}, &early)
+	e.must("note.create", map[string]any{"body": "with", "folder_id": f.ID}, &with)
+	e.must("note.delete", map[string]any{"id": early.ID}, nil)
+	var del Deleted
+	e.must("folder.delete", map[string]any{"id": f.ID}, &del)
+	if del.Notes != 1 {
+		t.Fatalf("deleted = %+v", del)
+	}
+	bin := binOf(e)
+	if len(bin) != 1 || bin[0].Kind != "folder" || bin[0].Notes != 1 {
+		t.Fatalf("bin = %+v", bin)
+	}
+	e.must("bin.restore", map[string]any{"kind": "folder", "id": f.ID}, nil)
+	bin = binOf(e)
+	if len(bin) != 1 || bin[0].Kind != "note" || bin[0].ID != early.ID {
+		t.Fatalf("after restore the note deleted on its own should still be in the bin: %+v", bin)
+	}
+}

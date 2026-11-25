@@ -4,20 +4,24 @@
 import { Message } from "./api";
 import { backNotice, binNotice, NOTICE_MS } from "./deletewords";
 import { button, clear } from "./dom";
+import { workChanged } from "./work";
 
 const timers = new WeakMap<Message, number>();
 
 // binned shows the notice in msg. undo brings the thing back (it returns undefined when that failed).
+// Whatever was deleted, My work's Bin count changes, so the column hears of it here, once, for every kind.
 export function binned(msg: Message, name: string, undo: () => Promise<unknown>, after: () => void, extra = ""): void {
   clear(msg.el, `${binNotice(name, extra)} `, button("Undo", async () => {
     if (await msg.attempt(undo) === undefined) return;
     msg.ok(backNotice(name));
     expire(msg);
     after();
+    workChanged();
   }, { class: "link" }));
   msg.el.className = "msg ok";
   msg.el.setAttribute("role", "status");
   expire(msg);
+  workChanged();
 }
 
 // expire clears what msg shows after a while, unless something newer has replaced it.

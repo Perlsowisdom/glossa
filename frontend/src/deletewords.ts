@@ -1,4 +1,4 @@
-// The words for deleting. Everything the bin holds (notes, sermons, folders, lists, reading plans) is deleted at
+// The words for deleting. Everything the bin holds (notes, sermons, folders, lists, reading plans, collections) is deleted at
 // once and the notice offers Undo. "For good" is only said in the Bin, of what is really removed (ADR 0010).
 
 // binNotice: `"Name" went to the bin.`; extra names what went with it ("and its 2 notes").

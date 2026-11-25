@@ -114,6 +114,7 @@ export default [
     shot: "qol2-delete.png",
     timeout: 240000,
     async run(t) {
+      await t.reset(); // its own data, whatever ran before it (or nothing did)
       const { page, app } = t;
       const bin = (name) => page.locator(".msg", { hasText: `"${name}" went to the bin.` }).filter({ has: page.locator("button", { hasText: "Undo" }) }).first();
       const go = async (hash, sel) => { await page.evaluate((x) => { location.hash = x; }, hash); await page.locator(sel).first().waitFor({ timeout: 10000 }); };
@@ -154,7 +155,8 @@ export default [
       await go("#lists", "main");
       await bin("Gone list").locator("button", { hasText: "Undo" }).click();
       await page.locator(".msg", { hasText: "\"Gone list\" is back." }).first().waitFor({ timeout: 5000 });
-      await go("#sermons", ".sermon-table");
+      // The only sermon is in the bin, so the page shows its empty state, not the table.
+      await go("#sermons", "main");
       await bin("Gone sermon").locator("button", { hasText: "Undo" }).click();
       await page.locator(".msg", { hasText: "\"Gone sermon\" is back." }).first().waitFor({ timeout: 5000 });
       await go("#notes", ".work-side");

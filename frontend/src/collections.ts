@@ -5,6 +5,7 @@
 import { CollectionNode, CollectionRule, Folder, Message, RulePreview, Vocabulary, run } from "./api";
 import { segmented, segmentedValue } from "./controls";
 import { button, clear, field, h, select } from "./dom";
+import { binned } from "./deletenotice";
 import {
   LANGUAGE_CHOICES, LICENCE_CHOICES, countText, find, formFromRule, indent, matchText, mine, ruleFromForm, ruleIsEmpty,
   ruleSummary, searchChoices, without,
@@ -215,30 +216,14 @@ export function collectionsSidebar(d: SidebarDeps) {
   }
 
   async function remove(n: CollectionNode) {
-    const inner = collect(n);
+    const inner = collect(n).length - 1;
     if (!(await msg.attempt(() => run("collection.delete", { id: n.id })))) return;
     current = null;
     await reload();
     d.picked(null);
-    undoLink(n.name, inner);
-  }
-
-  // undoLink offers to bring back what was just deleted, from the change history.
-  function undoLink(name: string, ids: string[]) {
-    const undo = button("Undo", async () => {
-      for (const id of ids) {
-        const h = await msg.attempt(() => run<{ id: string; op: string }[]>("history.list", { object_type: "collections", object_id: id }));
-        const before = h && h.length >= 2 ? h[h.length - 2] : undefined;
-        if (before) await msg.attempt(() => run("history.restore", { object_type: "collections", object_id: id, change_id: before.id }));
-      }
-      msg.clear();
-      d.say(`Brought back ${name}.`);
-      await reload();
-      d.changed();
-    }, { class: "link" });
-    const inside = ids.length > 1 ? ` and the ${ids.length - 1} ${ids.length === 2 ? "collection" : "collections"} inside it` : "";
-    msg.info(`Deleted ${name}${inside}. Your books are not deleted. `);
-    msg.el.append(undo);
+    // The same notice as everything else the bin holds; the books stay where they are.
+    binned(msg, n.name, () => run("bin.restore", { kind: "collection", id: n.id }), () => { void reload().then(() => d.changed()); },
+      inner ? `and the ${inner} ${inner === 1 ? "collection" : "collections"} inside it` : "");
   }
 
   const collect = (n: CollectionNode): string[] => [n.id, ...(n.children ?? []).flatMap(collect)];

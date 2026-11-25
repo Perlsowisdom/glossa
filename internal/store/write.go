@@ -108,7 +108,7 @@ func (t *Tx) Delete(name string, key Row) error {
 	where, args := keyClause(tb, key)
 	if tb.soft {
 		q := fmt.Sprintf("UPDATE %s SET deleted_at = ? WHERE %s", name, where)
-		_, err = t.tx.ExecContext(t.ctx, q, append([]any{nowMS()}, args...)...)
+		_, err = t.tx.ExecContext(t.ctx, q, append([]any{t.s.deletedMS()}, args...)...)
 	} else {
 		_, err = t.tx.ExecContext(t.ctx, fmt.Sprintf("DELETE FROM %s WHERE %s", name, where), args...)
 	}

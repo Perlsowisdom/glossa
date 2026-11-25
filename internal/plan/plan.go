@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -70,6 +71,21 @@ type Plan struct {
 	Behind    int      `json:"behind" desc:"Days whose date has passed without being read"`
 	Finish    string   `json:"finish,omitempty" desc:"Expected finish date; when behind, the date if reading carries on from today"`
 	Finished  bool     `json:"finished"`
+}
+
+// livePlan refuses a plan that does not exist or is in the bin, before anything is written.
+func livePlan(ctx context.Context, env *command.Env, id string) error {
+	var gone sql.NullInt64
+	err := env.Store.QueryRow(ctx, `SELECT deleted_at FROM reading_plans WHERE id = ?`, id).Scan(&gone)
+	if errors.Is(err, sql.ErrNoRows) {
+		return command.Errorf("not_found", "no reading plan %s", id)
+	} else if err != nil {
+		return err
+	}
+	if gone.Valid {
+		return command.Errorf("not_found", "that reading plan is in the bin; restore it first")
+	}
+	return nil
 }
 
 func (s *service) loadPlan(ctx context.Context, env *command.Env, id, today string) (Plan, error) {
@@ -320,6 +336,9 @@ func (s *service) mark(ctx context.Context, env *command.Env, p MarkParams) (Pla
 	if err != nil {
 		return Plan{}, err
 	}
+	if err := livePlan(ctx, env, p.PlanID); err != nil {
+		return Plan{}, err
+	}
 	days, err := s.loadDays(ctx, env, p.PlanID)
 	if err != nil {
 		return Plan{}, err
@@ -382,6 +401,9 @@ type UnmarkParams struct {
 
 func (s *service) unmark(ctx context.Context, env *command.Env, p UnmarkParams) (Plan, error) {
 	if err := needStore(env); err != nil {
+		return Plan{}, err
+	}
+	if err := livePlan(ctx, env, p.PlanID); err != nil {
 		return Plan{}, err
 	}
 	err := env.Store.Write(ctx, "plan.unmark", func(tx *store.Tx) error {
@@ -450,6 +472,9 @@ type IDParams struct {
 
 func (s *service) delete(ctx context.Context, env *command.Env, p IDParams) (struct{}, error) {
 	if err := needStore(env); err != nil {
+		return struct{}{}, err
+	}
+	if err := livePlan(ctx, env, p.ID); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, env.Store.Write(ctx, "plan.delete", func(tx *store.Tx) error {

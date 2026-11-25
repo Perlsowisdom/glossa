@@ -106,3 +106,35 @@ light and dark (`plan-bin-notice`, `plan-in-bin`, `sync-strength`, `own-dialog`;
 One full run (no `--no-build`, layout-sanity included): 95 passed, 0 failed of 95 checks (six new: the plan bin, the
 strength line, the native-box check, the source check, and the two Settings layout rows). `gofmt`, `go vet ./...` and
 `go test ./...` were clean; vitest 384 tests passed.
+
+## Items 1 to 6 of batch 4, and 16 to 20 above, fixed in pass 4 (branch m3/qol4)
+
+Each has a check, run first against the old code and seen to fail (item 20 is a new check for something that worked; it was
+shown able to fail by putting the browser's `confirm()` back). Real-app checks are in `frontend/e2e/qol4.e2e.mjs`.
+Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 816 and 900 x 700, light and dark
+(`bin-count`, `collection-bin-notice`, `collection-in-bin`).
+
+| # | Severity | Cause | Fix | Check (failed first) |
+| --- | --- | --- | --- | --- |
+| Bin count (batch 4) | annoying | The Bin entry in My work only counted again when a notes, sermons or folder action told it to. Deleting a reading plan or a list from its own page did not, so the entry said 29 while the Bin page (which asks again every time) said 30. | The shared delete notice (`binned`) tells the column on every delete and every Undo, for every kind, and the column counts again each time it is shown. Both numbers still come from `bin.list`. | Real app "Bin: the count beside Bin ... agrees with the Bin page" (read 0 beside a bin of 1). |
+| 16 | cosmetic | Collections had no bin type; Delete said `Deleted X. Undo` and undid from the change history. | `collection` is a bin kind: `collection.delete` already soft-deleted (`collections.deleted_at` existed), so `bin.list` shows it (with the collections inside it), `bin.restore` brings it back with them, and `bin.purge` removes the collections, their book links and the history values (ADR 0010). **No schema change, no new migration.** Sync carries delete, restore and purge like the other kinds. The Library uses the shared notice and Undo; the Bin names it "Collection". | Go `TestCollectionGoesToBinRestoresAndPurges`, sync `TestCollectionBinRestoreAndPurgePropagate`, vitest, and real app "Collections: Delete goes to the bin ..." (old build showed the old notice). |
+| 17 | cosmetic | "Deleted together" is inferred from `deleted_at >= the folder's`, and `deleted_at` was the clock in whole milliseconds, so a note deleted just before its folder, in the same millisecond, tied with it and came back with it. This was a real (rare) behaviour bug, not only a test problem. | Soft deletes are stamped strictly later than the previous one (`Store.deletedMS`), so a tie cannot happen; things deleted together are stamped in order, each no earlier than the first. | `TestNoteDeletedJustBeforeItsFolderStaysSeparateOnAFrozenClock` (a frozen delete clock: failed before, deterministic); `TestDeleteFolderGoesToBinWithItsContents` run with `-count=200`: all pass. |
+| 18 | cosmetic | `plan.mark` and `plan.unmark` wrote to a plan in the bin; `plan.delete` of a binned plan wrote again. `plan.reschedule` already refused. | A plan in the bin is refused before anything is written ("that reading plan is in the bin; restore it first"). | Go `TestNothingInTheBinCanBeWrittenTo`: every write command for plans, notes, sermons, folders, lists and collections on something in the bin must fail and write no change (failed for plan.mark, plan.unmark, plan.delete; the other kinds already refused). |
+| 19 | cosmetic | After the sermon went to the bin the check waited for the sermons table, which only exists when a sermon is left; an earlier check usually left one. | The check starts with `t.reset()`, makes its own data and waits for the page, not the table. | Run alone with a word filter: timed out before, passes after. |
+| 20 | cosmetic | Nothing covered Sync, Forget this device. | New two-app check: the app's own question, Cancel changes nothing, Forget removes the device from the folder and the list, and the forgotten device's sync is refused. Temporary folders only. | "Sync, Forget this device ..." in `qol4.e2e.mjs`. |
+
+## New things noticed in pass 4 (not fixed)
+
+| # | Severity | Steps | What happens | What should happen |
+| --- | --- | --- | --- | --- |
+| 21 | cosmetic | Open the Library with no books, with the Collections column showing | The "Traditions and rules" fold sits in the middle of the page, under the empty state, apart from its column. | Keep it with the Collections column or hide it when there is nothing to describe. |
+| 22 | cosmetic | A bin of more than 500 things | `bin.list` stops at 500 by default, so the Bin entry and the Bin page both say 500 (they agree, but are wrong). | Count separately from the list, or page the list. |
+| 23 | cosmetic | A device that has not sent any change yet, in the folder | It is not listed under Devices (a device shows up when it has written a file), so it cannot be forgotten. | List a device as soon as it has joined. |
+| 24 | cosmetic | Design | Which things were deleted with a folder or collection is worked out from times, not stored. Fixed so ties cannot happen (17), but a stored "deleted with" link would be sturdier. | A column or change field naming the deletion batch. Needs a schema change and an ADR. |
+
+### After pass 4
+
+One full run (no `--no-build`, layout-sanity included): 97 passed, 1 failed of 98 checks. The failure was the new bin-count
+check itself (its Undo selector matched a hidden notice from another page); the selector was scoped to that notice and the
+file's check then passed on its own. The batch 2 delete check was also run alone with a word filter and passed. `gofmt`,
+`go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
