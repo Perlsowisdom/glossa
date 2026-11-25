@@ -28,7 +28,7 @@ func register(r *command.Registry, s *service) {
 		command.Define("plan.mark", "Mark days of a plan as read. With no day given, today's reading, or else the first one not yet read.", true, s.mark),
 		command.Define("plan.unmark", "Mark a day of a plan as not read.", true, s.unmark),
 		command.Define("plan.reschedule", "Spread the days not yet read over the coming days, starting today.", true, s.reschedule),
-		command.Define("plan.delete", "Delete a reading plan. It can be restored from its history.", true, s.delete),
+		command.Define("plan.delete", "Delete a reading plan. It waits in the bin (bin.list) until restored or deleted for good.", true, s.delete),
 	)
 }
 

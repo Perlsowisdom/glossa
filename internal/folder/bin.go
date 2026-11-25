@@ -11,11 +11,11 @@ import (
 )
 
 // Kinds of thing the bin holds, and the table each lives in.
-var binTables = map[string]string{"folder": "folders", "note": "notes", "document": "documents", "list": "lists"}
+var binTables = map[string]string{"folder": "folders", "note": "notes", "document": "documents", "list": "lists", "plan": "reading_plans"}
 
 // BinEntry is one thing in the bin.
 type BinEntry struct {
-	Kind      string `json:"kind" enum:"folder,note,document,list"`
+	Kind      string `json:"kind" enum:"folder,note,document,list,plan"`
 	ID        string `json:"id"`
 	Title     string `json:"title" desc:"Its name or title; empty for an untitled note"`
 	Sort      string `json:"sort,omitempty" desc:"A document's kind (sermon, lesson or study) or a list's kind (verses, words or excerpts)"`
@@ -45,6 +45,8 @@ SELECT 'document', d.id, d.title, d.kind, d.deleted_at, 0, 0, 0
 	WHERE d.deleted_at IS NOT NULL AND (f.id IS NULL OR f.deleted_at IS NULL)
 UNION ALL
 SELECT 'list', l.id, l.name, l.kind, l.deleted_at, 0, 0, 0 FROM lists l WHERE l.deleted_at IS NOT NULL
+UNION ALL
+SELECT 'plan', p.id, p.name, '', p.deleted_at, 0, 0, 0 FROM reading_plans p WHERE p.deleted_at IS NOT NULL
 ORDER BY 5 DESC, 2 LIMIT ?`
 
 type BinListParams struct {
@@ -75,7 +77,7 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 }
 
 type BinParams struct {
-	Kind string `json:"kind" required:"true" enum:"folder,note,document,list"`
+	Kind string `json:"kind" required:"true" enum:"folder,note,document,list,plan"`
 	ID   string `json:"id" required:"true"`
 }
 
@@ -85,13 +87,14 @@ type Restored struct {
 	Notes     int `json:"notes"`
 	Documents int `json:"documents"`
 	Lists     int `json:"lists"`
+	Plans     int `json:"plans"`
 }
 
 // deletedRow reads a row in the bin and its deleted_at.
 func deletedRow(ctx context.Context, env *command.Env, p BinParams) (int64, error) {
 	table, ok := binTables[p.Kind]
 	if !ok {
-		return 0, command.Errorf("bad_params", "kind must be folder, note, document or list")
+		return 0, command.Errorf("bad_params", "kind must be folder, note, document, list or plan")
 	}
 	var at sql.NullInt64
 	err := env.Store.QueryRow(ctx, `SELECT deleted_at FROM `+table+` WHERE id = ?`, p.ID).Scan(&at)
@@ -177,6 +180,8 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 			got.Documents++
 		case "list":
 			got.Lists++
+		case "plan":
+			got.Plans++
 		}
 		return nil
 	})
@@ -200,7 +205,8 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		return Purged{}, err
 	}
 	var out Purged
-	var folders, notes, docs, entries, lists []string
+	var folders, notes, docs, entries, lists, plans []string
+	var planRows []planRow
 	switch p.Kind {
 	case "folder":
 		var subs []string
@@ -212,13 +218,18 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		notes = []string{p.ID}
 	case "document":
 		docs = []string{p.ID}
+	case "plan":
+		plans = []string{p.ID}
+		if planRows, err = planChildren(ctx, env, p.ID); err != nil {
+			return Purged{}, err
+		}
 	case "list":
 		if entries, err = ids(ctx, env, `SELECT id FROM list_entries WHERE list_id = ?`, p.ID); err != nil {
 			return Purged{}, err
 		}
 		lists = []string{p.ID}
 	}
-	out = Purged{Folders: len(folders), Notes: len(notes), Documents: len(docs), Lists: len(lists)}
+	out = Purged{Folders: len(folders), Notes: len(notes), Documents: len(docs), Lists: len(lists), Plans: len(plans)}
 
 	// A note's tags and every place it was ever attached go with it, as do a list entry's places.
 	tags := map[string][]string{}
@@ -272,11 +283,16 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 				}
 			}
 		}
+		for _, r := range planRows {
+			if err := tx.Purge(r.table, r.key); err != nil {
+				return err
+			}
+		}
 		// Children first, so no foreign key ever points at a removed row.
 		for _, x := range []struct {
 			table string
 			ids   []string
-		}{{"notes", notes}, {"documents", docs}, {"list_entries", entries}, {"lists", lists}, {"folders", folders}, {"anchors", anchors}} {
+		}{{"notes", notes}, {"documents", docs}, {"list_entries", entries}, {"lists", lists}, {"reading_plans", plans}, {"folders", folders}, {"anchors", anchors}} {
 			for _, id := range x.ids {
 				if err := tx.Purge(x.table, store.ByID(id)); err != nil {
 					return err
@@ -356,6 +372,49 @@ func unusedAnchors(ctx context.Context, env *command.Env, places map[string]bool
 		}
 		if exists == 1 && used == 0 {
 			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+// planRow is one row that belongs to a reading plan: a scheduled day, a reading, or a day marked read.
+type planRow struct {
+	table string
+	key   store.Row
+}
+
+// planChildren lists the rows of a plan's days, readings and progress, which go when the plan does.
+func planChildren(ctx context.Context, env *command.Env, id string) ([]planRow, error) {
+	var out []planRow
+	for _, q := range []struct {
+		table, cols string
+	}{{"plan_progress", "day_no"}, {"plan_schedule", "day_no"}, {"plan_days", "day_no, verse_start"}} {
+		rows, err := env.Store.Query(ctx, `SELECT `+q.cols+` FROM `+q.table+` WHERE plan_id = ?`, id)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			key := store.Row{"plan_id": id}
+			var day int64
+			if q.table == "plan_days" {
+				var start sql.NullInt64
+				if err = rows.Scan(&day, &start); err == nil {
+					key["verse_start"] = start.Int64
+				}
+			} else {
+				err = rows.Scan(&day)
+			}
+			if err != nil {
+				rows.Close()
+				return nil, err
+			}
+			key["day_no"] = day
+			out = append(out, planRow{q.table, key})
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return nil, err
 		}
 	}
 	return out, nil

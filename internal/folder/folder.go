@@ -28,7 +28,7 @@ func Register(r *command.Registry) {
 		command.Define("folder.move", "Move a folder to the top or inside another top-level folder, optionally to a position among its neighbours.", true, move),
 		command.Define("folder.delete", "Delete a folder with its subfolders, notes and sermons. They wait in the bin together until restored.", true, del),
 		command.Define("folder.list", "List the folders, top-level ones first in their order, each with how many notes and documents it holds.", false, list),
-		command.Define("bin.list", "List what is in the bin: deleted folders, notes, sermons and lists, most recently deleted first.", false, binList),
+		command.Define("bin.list", "List what is in the bin: deleted folders, notes, sermons, lists and reading plans, most recently deleted first.", false, binList),
 		command.Define("bin.restore", "Bring something back from the bin. A folder comes back with what was deleted with it.", true, binRestore),
 		command.Define("bin.purge", "Delete something in the bin for good. Its text is also removed from the change history. This cannot be undone.", true, binPurge),
 	)
