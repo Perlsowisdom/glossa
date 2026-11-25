@@ -9,6 +9,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/library"
 	"github.com/Perlsowisdom/glossa/internal/lists"
 	"github.com/Perlsowisdom/glossa/internal/plan"
+	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
 func (e *env) changeCount() int {
@@ -96,5 +97,92 @@ func TestNothingInTheBinCanBeWrittenTo(t *testing.T) {
 		if after := e.changeCount(); after != before {
 			t.Errorf("%s %v on something in the bin wrote %d changes before it failed", w.id, w.params, after-before)
 		}
+	}
+}
+
+func TestCollectionGoesToBinRestoresAndPurges(t *testing.T) {
+	e := setup(t)
+	library.Register(e.r)
+	ctx := context.Background()
+	var book string
+	if err := e.st.Write(ctx, "test.seed", func(tx *store.Tx) error {
+		book = store.NewID()
+		return tx.Create("items", store.Row{"id": book, "kind": "book", "title": "A book", "source": "import", "created_at": int64(1), "updated_at": int64(1)})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var top, inner, alone library.CollectionResult
+	e.must("collection.create", map[string]any{"name": "Reformed", "item_ids": []string{book}}, &top)
+	e.must("collection.create", map[string]any{"name": "Puritans", "parent_id": top.ID, "item_ids": []string{book}}, &inner)
+	e.must("collection.create", map[string]any{"name": "Alone"}, &alone)
+	e.must("collection.delete", map[string]any{"id": alone.ID}, nil)
+	e.must("collection.delete", map[string]any{"id": top.ID}, nil)
+
+	bin := binOf(e)
+	if len(bin) != 2 {
+		t.Fatalf("bin = %+v", bin)
+	}
+	var got BinEntry
+	for _, b := range bin {
+		if b.ID == top.ID {
+			got = b
+		}
+	}
+	if got.Kind != "collection" || got.Title != "Reformed" || got.Collections != 1 {
+		t.Fatalf("the bin entry for the collection = %+v", got)
+	}
+
+	var back Restored
+	e.must("bin.restore", map[string]any{"kind": "collection", "id": top.ID}, &back)
+	if back.Collections != 2 {
+		t.Fatalf("restored = %+v", back)
+	}
+	var tree library.ListResult
+	e.must("collection.list", map[string]any{}, &tree)
+	var names []string
+	var walk func(ns []*library.Node)
+	walk = func(ns []*library.Node) {
+		for _, n := range ns {
+			if n.Kind != "builtin" {
+				names = append(names, n.Name)
+				if n.Name == "Reformed" && n.Count != 1 {
+					t.Errorf("the books stayed in the restored collection: %d", n.Count)
+				}
+			}
+			walk(n.Children)
+		}
+	}
+	walk(tree.Tree)
+	if len(names) != 2 {
+		t.Fatalf("collections after restore = %v", names)
+	}
+	if bin = binOf(e); len(bin) != 1 || bin[0].ID != alone.ID {
+		t.Fatalf("bin after restore = %+v", bin)
+	}
+
+	// Delete for good removes the collection, the ones inside it and what they held, with their history values.
+	e.must("collection.delete", map[string]any{"id": top.ID}, nil)
+	var gone Purged
+	e.must("bin.purge", map[string]any{"kind": "collection", "id": top.ID}, &gone)
+	if gone.Collections != 2 {
+		t.Fatalf("purged = %+v", gone)
+	}
+	for _, q := range []string{
+		`SELECT COUNT(*) FROM collections WHERE id IN ('` + top.ID + `', '` + inner.ID + `')`,
+		`SELECT COUNT(*) FROM collection_items WHERE collection_id IN ('` + top.ID + `', '` + inner.ID + `')`,
+		`SELECT COUNT(*) FROM changes WHERE object_type IN ('collections', 'collection_items') AND object_id LIKE '%` + top.ID + `%' AND (before_json IS NOT NULL OR after_json IS NOT NULL)`,
+	} {
+		var c int
+		if err := e.st.QueryRow(ctx, q).Scan(&c); err != nil || c != 0 {
+			t.Fatalf("%s = %d, %v", q, c, err)
+		}
+	}
+	if err := e.run("bin.purge", map[string]any{"kind": "collection", "id": alone.ID}, &gone); err != nil {
+		t.Fatal(err)
+	}
+	var live library.CollectionResult
+	e.must("collection.create", map[string]any{"name": "Live"}, &live)
+	if err := e.run("bin.purge", map[string]any{"kind": "collection", "id": live.ID}, nil); code(err) != "bad_params" {
+		t.Fatalf("purge a live collection: %v", err)
 	}
 }

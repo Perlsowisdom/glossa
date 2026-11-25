@@ -11,11 +11,11 @@ import (
 )
 
 // Kinds of thing the bin holds, and the table each lives in.
-var binTables = map[string]string{"folder": "folders", "note": "notes", "document": "documents", "list": "lists", "plan": "reading_plans"}
+var binTables = map[string]string{"folder": "folders", "note": "notes", "document": "documents", "list": "lists", "plan": "reading_plans", "collection": "collections"}
 
 // BinEntry is one thing in the bin.
 type BinEntry struct {
-	Kind      string `json:"kind" enum:"folder,note,document,list,plan"`
+	Kind      string `json:"kind" enum:"folder,note,document,list,plan,collection"`
 	ID        string `json:"id"`
 	Title     string `json:"title" desc:"Its name or title; empty for an untitled note"`
 	Sort      string `json:"sort,omitempty" desc:"A document's kind (sermon, lesson or study) or a list's kind (verses, words or excerpts)"`
@@ -23,6 +23,8 @@ type BinEntry struct {
 	Folders   int    `json:"folders,omitempty" desc:"A folder: subfolders deleted with it"`
 	Notes     int    `json:"notes,omitempty" desc:"A folder: notes deleted with it"`
 	Documents int    `json:"documents,omitempty" desc:"A folder: documents deleted with it"`
+	// Collections counts the collections inside a deleted collection that went with it.
+	Collections int `json:"collections,omitempty" desc:"A collection: collections inside it deleted with it"`
 }
 
 // Things inside a deleted folder are listed with the folder, not on their own.
@@ -47,6 +49,10 @@ UNION ALL
 SELECT 'list', l.id, l.name, l.kind, l.deleted_at, 0, 0, 0 FROM lists l WHERE l.deleted_at IS NOT NULL
 UNION ALL
 SELECT 'plan', p.id, p.name, '', p.deleted_at, 0, 0, 0 FROM reading_plans p WHERE p.deleted_at IS NOT NULL
+UNION ALL
+SELECT 'collection', c.id, c.name, '', c.deleted_at, 0, 0, 0
+	FROM collections c LEFT JOIN collections p ON p.id = c.parent_id
+	WHERE c.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
 ORDER BY 5 DESC, 2 LIMIT ?`
 
 type BinListParams struct {
@@ -73,11 +79,24 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 		}
 		out = append(out, e)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].Kind != "collection" {
+			continue
+		}
+		inside, err := collectionContents(ctx, env, out[i].ID, out[i].DeletedAt)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Collections = len(inside)
+	}
+	return out, nil
 }
 
 type BinParams struct {
-	Kind string `json:"kind" required:"true" enum:"folder,note,document,list,plan"`
+	Kind string `json:"kind" required:"true" enum:"folder,note,document,list,plan,collection"`
 	ID   string `json:"id" required:"true"`
 }
 
@@ -88,13 +107,15 @@ type Restored struct {
 	Documents int `json:"documents"`
 	Lists     int `json:"lists"`
 	Plans     int `json:"plans"`
+	// Collections counts every collection brought back or removed, the one asked for included.
+	Collections int `json:"collections"`
 }
 
 // deletedRow reads a row in the bin and its deleted_at.
 func deletedRow(ctx context.Context, env *command.Env, p BinParams) (int64, error) {
 	table, ok := binTables[p.Kind]
 	if !ok {
-		return 0, command.Errorf("bad_params", "kind must be folder, note, document, list or plan")
+		return 0, command.Errorf("bad_params", "kind must be folder, note, document, list, plan or collection")
 	}
 	var at sql.NullInt64
 	err := env.Store.QueryRow(ctx, `SELECT deleted_at FROM `+table+` WHERE id = ?`, p.ID).Scan(&at)
@@ -124,6 +145,22 @@ func folderContents(ctx context.Context, env *command.Env, id string, since int6
 	return
 }
 
+// collectionContents finds the collections inside one that were deleted with it at or after since,
+// at any depth, parents before the collections inside them.
+func collectionContents(ctx context.Context, env *command.Env, id string, since int64) ([]string, error) {
+	var out []string
+	for next := []string{id}; len(next) > 0; {
+		subs, err := ids(ctx, env, `SELECT id FROM collections WHERE parent_id IN (`+marks(next)+`) AND deleted_at >= ?`,
+			append(anys(next), since)...)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, subs...)
+		next = subs
+	}
+	return out, nil
+}
+
 func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, error) {
 	if err := needStore(env); err != nil {
 		return Restored{}, err
@@ -132,9 +169,14 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 	if err != nil {
 		return Restored{}, err
 	}
-	var subs, notes, docs []string
+	var subs, notes, docs, colls []string
 	if p.Kind == "folder" {
 		if subs, notes, docs, err = folderContents(ctx, env, p.ID, since); err != nil {
+			return Restored{}, err
+		}
+	}
+	if p.Kind == "collection" {
+		if colls, err = collectionContents(ctx, env, p.ID, since); err != nil {
 			return Restored{}, err
 		}
 	}
@@ -156,6 +198,10 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 			if f, ok := cur["folder_id"].(string); ok && !folderLive(tx, f) {
 				fields["folder_id"] = nil
 			}
+		case "collection":
+			if parent, ok := cur["parent_id"].(string); ok && !collectionLive(tx, parent) {
+				fields["parent_id"] = nil
+			}
 		}
 		if err := tx.Update(table, store.ByID(p.ID), fields); err != nil {
 			return err
@@ -163,14 +209,14 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 		for _, x := range []struct {
 			table string
 			ids   []string
-		}{{"folders", subs}, {"notes", notes}, {"documents", docs}} {
+		}{{"folders", subs}, {"notes", notes}, {"documents", docs}, {"collections", colls}} {
 			for _, id := range x.ids {
 				if err := tx.Update(x.table, store.ByID(id), store.Row{"deleted_at": nil}); err != nil {
 					return err
 				}
 			}
 		}
-		got = Restored{Folders: len(subs), Notes: len(notes), Documents: len(docs)}
+		got = Restored{Folders: len(subs), Notes: len(notes), Documents: len(docs), Collections: len(colls)}
 		switch p.Kind {
 		case "folder":
 			got.Folders++
@@ -182,10 +228,17 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 			got.Lists++
 		case "plan":
 			got.Plans++
+		case "collection":
+			got.Collections++
 		}
 		return nil
 	})
 	return got, err
+}
+
+func collectionLive(tx *store.Tx, id string) bool {
+	row, err := tx.Get("collections", store.ByID(id))
+	return err == nil && row["deleted_at"] == nil
 }
 
 func folderLive(tx *store.Tx, id string) bool {
@@ -205,7 +258,7 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		return Purged{}, err
 	}
 	var out Purged
-	var folders, notes, docs, entries, lists, plans []string
+	var folders, notes, docs, entries, lists, plans, colls []string
 	var planRows []planRow
 	switch p.Kind {
 	case "folder":
@@ -223,13 +276,33 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		if planRows, err = planChildren(ctx, env, p.ID); err != nil {
 			return Purged{}, err
 		}
+	case "collection":
+		inside, err := collectionContents(ctx, env, p.ID, since)
+		if err != nil {
+			return Purged{}, err
+		}
+		colls = []string{p.ID}
+		colls = append(colls, inside...)
+		for _, c := range colls {
+			books, err := ids(ctx, env, `SELECT item_id FROM collection_items WHERE collection_id = ?`, c)
+			if err != nil {
+				return Purged{}, err
+			}
+			for _, b := range books {
+				planRows = append(planRows, planRow{"collection_items", store.Row{"collection_id": c, "item_id": b}})
+			}
+		}
+		// The collections inside go before the one that holds them.
+		for i, j := 0, len(colls)-1; i < j; i, j = i+1, j-1 {
+			colls[i], colls[j] = colls[j], colls[i]
+		}
 	case "list":
 		if entries, err = ids(ctx, env, `SELECT id FROM list_entries WHERE list_id = ?`, p.ID); err != nil {
 			return Purged{}, err
 		}
 		lists = []string{p.ID}
 	}
-	out = Purged{Folders: len(folders), Notes: len(notes), Documents: len(docs), Lists: len(lists), Plans: len(plans)}
+	out = Purged{Folders: len(folders), Notes: len(notes), Documents: len(docs), Lists: len(lists), Plans: len(plans), Collections: len(colls)}
 
 	// A note's tags and every place it was ever attached go with it, as do a list entry's places.
 	tags := map[string][]string{}
@@ -253,7 +326,14 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 	}
 	// Anything else still filed in a purged folder (deleted on its own before the folder was)
 	// stays, at the top.
-	var strayNotes, strayDocs []string
+	var strayNotes, strayDocs, strayColls []string
+	if len(colls) > 0 {
+		// A collection deleted on its own earlier stays, at the top.
+		if strayColls, err = ids(ctx, env, `SELECT id FROM collections WHERE parent_id IN (`+marks(colls)+`) AND id NOT IN (`+marks(colls)+`)`,
+			append(anys(colls), anys(colls)...)...); err != nil {
+			return Purged{}, err
+		}
+	}
 	if len(folders) > 0 {
 		args := append(anys(folders), since)
 		q := ` WHERE folder_id IN (` + marks(folders) + `) AND (deleted_at IS NULL OR deleted_at < ?)`
@@ -276,6 +356,11 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 				}
 			}
 		}
+		for _, id := range strayColls {
+			if err := tx.Update("collections", store.ByID(id), store.Row{"parent_id": nil}); err != nil {
+				return err
+			}
+		}
 		for _, n := range notes {
 			for _, t := range tags[n] {
 				if err := tx.Purge("note_tags", store.Row{"note_id": n, "tag": t}); err != nil {
@@ -292,7 +377,7 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		for _, x := range []struct {
 			table string
 			ids   []string
-		}{{"notes", notes}, {"documents", docs}, {"list_entries", entries}, {"lists", lists}, {"reading_plans", plans}, {"folders", folders}, {"anchors", anchors}} {
+		}{{"notes", notes}, {"documents", docs}, {"list_entries", entries}, {"lists", lists}, {"reading_plans", plans}, {"collections", colls}, {"folders", folders}, {"anchors", anchors}} {
 			for _, id := range x.ids {
 				if err := tx.Purge(x.table, store.ByID(id)); err != nil {
 					return err
