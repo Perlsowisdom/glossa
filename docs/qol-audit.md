@@ -100,3 +100,9 @@ light and dark (`plan-bin-notice`, `plan-in-bin`, `sync-strength`, `own-dialog`;
 | 18 | cosmetic | `plan.mark`, `plan.unmark` or `plan.reschedule` with the id of a plan in the bin | The write happens, then the command answers "no reading plan". | Refuse before writing. Command-line and MCP only. |
 | 19 | cosmetic | The batch 2 "Delete ..." check, run alone with a word filter | It needs the Sermons table an earlier check leaves behind and times out. It passes in the file or the full run. | Make it set up what it needs. |
 | 20 | cosmetic | Sync, Forget this device | The question is now the app's own dialog but only the code and the vitest grep cover it: it needs a second device. | A two-device check (the `sync` file already has both). |
+
+### After pass 3
+
+One full run (no `--no-build`, layout-sanity included): 95 passed, 0 failed of 95 checks (six new: the plan bin, the
+strength line, the native-box check, the source check, and the two Settings layout rows). `gofmt`, `go vet ./...` and
+`go test ./...` were clean; vitest 384 tests passed.
