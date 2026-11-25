@@ -6,6 +6,7 @@
 import { Message, TagCount, run } from "../api";
 import { button, clear, h } from "../dom";
 import { icon } from "../icons";
+import { binned } from "../deletenotice";
 import { openPopover } from "../popover";
 import { loadPref, savePref } from "../state";
 import { carriesItem, droppedItem, folders, loadFolders, moveItem, onWorkChanged, workChanged } from "../work";
@@ -267,24 +268,11 @@ export function workSide(go: (target: string) => void): WorkSide {
     workChanged();
   }
 
-  // The "went to the bin" notice is a passing one; it must not stay on every page of My work.
-  let notice = 0;
-
   async function remove(f: FolderNode) {
     const r = await msg.attempt(() => run<{ folders: number; notes: number; documents: number }>("folder.delete", { id: f.id }));
     if (!r) return;
     const what = [r.notes ? `${r.notes} ${r.notes === 1 ? "note" : "notes"}` : "", r.documents ? `${r.documents} ${r.documents === 1 ? "sermon" : "sermons"}` : ""].filter(Boolean).join(" and ");
-    clear(msg.el, `"${f.name}"${what ? ` and its ${what}` : ""} went to the bin. `,
-      button("Undo", async () => {
-        if (await msg.attempt(() => run("bin.restore", { kind: "folder", id: f.id })) === undefined) return;
-        msg.ok(`"${f.name}" is back.`);
-        await loadFolders();
-        workChanged();
-      }, { class: "link" }));
-    msg.el.className = "msg ok";
-    msg.el.setAttribute("role", "status");
-    const mine = ++notice;
-    setTimeout(() => { if (mine === notice) msg.clear(); }, 15000);
+    binned(msg, f.name, () => run("bin.restore", { kind: "folder", id: f.id }), () => void loadFolders().then(workChanged), what ? `and its ${what}` : "");
     const shown = scope.kind === "folder" ? scope.id : "";
     if (view === "notes" && shown && (shown === f.id || f.children.some((c) => c.id === shown))) go("notes");
     await loadFolders();

@@ -53,6 +53,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
     const strength = h("p", { class: "sync-strength hint", "aria-live": "polite" });
     let timer = 0;
     pw.addEventListener("input", () => {
+      warning.hidden = !pw.value;
       clearTimeout(timer);
       timer = window.setTimeout(async () => {
         if (!pw.value) return void clear(strength);
@@ -62,6 +63,10 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       }, 150);
     });
 
+    // The warning is for after a password is chosen; it shows once something is typed.
+    const warning = h("div", { class: "sync-warning", role: "note", hidden: true },
+      h("strong", {}, "Keep this password safe."),
+      " If you lose it, Glossa cannot read the synced copy in the folder, and nobody can recover it for you. Nothing on this device is lost: your notes, highlights and books here stay as they are.");
     const go = h("button", { type: "submit", class: "primary" }, "Continue");
     const form = h("form", { class: "sync-setup", "aria-label": "Set up sync" },
       h("div", { class: "field" },
@@ -71,9 +76,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       field("Password", pw, "At least 10 characters. Everything in the folder is encrypted with it, so the sync service never sees your notes or books."),
       strength,
       againField,
-      h("div", { class: "sync-warning", role: "note" },
-        h("strong", {}, "Keep this password safe."),
-        " If you lose it, Glossa cannot read the synced copy in the folder, and nobody can recover it for you. Nothing on this device is lost: your notes, highlights and books here stay as they are."),
+      warning,
       h("div", { class: "settings-card" },
         settingRow("Remember on this device", "Saves the password in this computer's credential store so sync carries on after a restart. Off: Glossa asks for it each time it starts.", remember, "sync-remember")),
       field("This device's name", name, "Shown on your other devices, for example next to a note changed on both."),

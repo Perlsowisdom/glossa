@@ -25,5 +25,5 @@ export function sermonDoc(host: DocHost): DocView {
     more: [["Show in My work", () => navigate(`sermons/${id}`)]],
   });
   el.append(page.el);
-  return { el, focus: () => page.focus(), destroy: () => page.destroy() };
+  return { el, focus: () => page.focus(), menu: { print: () => page.print() }, destroy: () => page.destroy() };
 }

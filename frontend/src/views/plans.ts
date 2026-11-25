@@ -4,6 +4,7 @@
 import { printExportButton } from "../printexport";
 import { ItemSummary, Message, run } from "../api";
 import { button, clear, field, h, select } from "../dom";
+import { forGoodNotice, forGoodQuestion } from "../deletewords";
 import { chip } from "../controls";
 import { todayBlock, openReading } from "../plancard";
 import {
@@ -103,10 +104,10 @@ export function plansView() {
   }
 
   async function remove(p: PlanInfo) {
-    if (!confirm(`Delete "${p.name}"? Your progress is kept in its history.`)) return;
+    if (!confirm(forGoodQuestion(p.name, "Reading plans"))) return;
     if ((await msg.attempt(() => run("plan.delete", { id: p.id }))) !== undefined) {
       if (open === p.id) open = null;
-      msg.ok(`Deleted ${p.name}.`);
+      msg.ok(forGoodNotice(p.name));
       refresh();
     }
   }

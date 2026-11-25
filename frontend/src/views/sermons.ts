@@ -175,6 +175,9 @@ export function sermonsView() {
     index.hidden = true;
     detail.hidden = false;
     el.closest("main")?.scrollTo({ top: 0 });
+    // The open sermon is part of the address, so a reload and Back or Forward come back to it.
+    if (sermonAddress(location.hash)?.id !== id) location.hash = `#sermons/${encodeURIComponent(id)}`;
+    else if (fresh) history.replaceState(null, "", `#sermons/${encodeURIComponent(id)}`);
   }
 
   async function closePage(_show: boolean) {
@@ -192,6 +195,7 @@ export function sermonsView() {
     detail.hidden = true;
     index.hidden = false;
     clear(detail);
+    if (sermonAddress(location.hash)) location.hash = "#sermons";
     await refresh();
     table.querySelector<HTMLElement>("tr.on")?.focus();
   }
@@ -208,16 +212,17 @@ export function sermonsView() {
   return {
     el,
     focus: () => (page ? page.focus() : query.focus()),
-    show: async (again?: boolean) => {
+    // Ctrl+P prints the sermon that is open.
+    print: () => page?.print(),
+    show: async () => {
       // #sermons/<id> opens one document's builder, so links and scripts can point at it.
       const asked = sermonAddress(location.hash);
       if (asked) {
-        history.replaceState(null, "", "#sermons");
         await openBuilder(asked.id, asked.fresh);
         return;
       }
-      // Choosing Sermons while a sermon is open goes back to the list.
-      if (again && openId) {
+      // The address is the list (Back, or Sermons chosen again) while a sermon is open: close it.
+      if (openId) {
         await closeBuilder();
         return;
       }

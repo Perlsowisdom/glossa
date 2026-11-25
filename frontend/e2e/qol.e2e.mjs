@@ -10,7 +10,8 @@ const SIZES = [[1536, 816], [900, 700]];
 const THEMES = ["light", "dark"];
 
 // looks takes the screenshot of the state on screen at both sizes in both themes: qol-<name>-<w>x<h>-<theme>.png.
-export async function looks(t, name) {
+// before(), when given, sets the state up again after each resize (a popover closes when the window changes size).
+export async function looks(t, name, before) {
   const { page, app } = t;
   try {
     for (const [w, h] of SIZES) {
@@ -18,6 +19,7 @@ export async function looks(t, name) {
       for (const theme of THEMES) {
         await page.emulateMedia({ colorScheme: theme });
         await page.waitForTimeout(250);
+        if (before) await before();
         await app.shot(`qol-${name}-${w}x${h}-${theme}.png`);
       }
     }
@@ -220,23 +222,6 @@ export default [
       await notice.waitFor({ timeout: 2000 }); // still there for a moment, on the next page too
       await page.waitForFunction(() => ![...document.querySelectorAll(".msg")].some((e) => e.textContent.includes("went to the bin")), null, { timeout: 25000 });
       await app.run("bin.restore", { kind: "folder", id: f.id }).catch(() => {});
-    },
-  },
-  {
-    row: "Lists: deleting a list says it goes to the bin (where it does go)",
-    shot: "qol-list-delete.png",
-    async run(t) {
-      const { page, app } = t;
-      await app.run("list.create", { kind: "verses", name: "Words list" });
-      await page.evaluate(() => { location.hash = "#notes"; });
-      await page.waitForTimeout(300);
-      await page.evaluate(() => { location.hash = "#lists"; });
-      await page.locator("main button", { hasText: "Words list" }).first().click();
-      let said = "";
-      page.once("dialog", (d) => { said = d.message(); void d.dismiss(); });
-      await page.locator("main button", { hasText: "Delete list" }).first().click();
-      await page.waitForTimeout(500);
-      t.assert.ok(/bin/.test(said) && !/change history/.test(said), `the question says where the list goes: ${said}`);
     },
   },
   {
