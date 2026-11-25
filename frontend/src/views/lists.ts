@@ -69,7 +69,7 @@ export function listsView() {
       input.select();
     });
     const del = button("Delete list", async () => {
-      if (!confirm(`Delete "${list.name}"? You can get it back from the change history.`)) return;
+      if (!confirm(`Delete "${list.name}"? It goes to the bin, where you can restore it.`)) return;
       if ((await msg.attempt(() => run("list.delete", { id }))) !== undefined) {
         open = null;
         flash(`Deleted "${list.name}".`);

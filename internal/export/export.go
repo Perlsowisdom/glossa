@@ -23,7 +23,7 @@ import (
 // Register adds export.preview, export.make and export.print. Files go to dataDir/exports unless
 // a path is given; Bible text comes from bibles.
 func Register(r *command.Registry, dataDir string, bibles *bible.Library) {
-	s := &service{reg: r, dir: filepath.Join(dataDir, "exports"), bibles: bibles, cites: cite.NewResolver(r, filepath.Join(dataDir, "styles")),
+	s := &service{reg: r, dir: filepath.Join(dataDir, "exports"), printDir: filepath.Join(dataDir, "print"), bibles: bibles, cites: cite.NewResolver(r, filepath.Join(dataDir, "styles")),
 		today: func() string { return time.Now().Format("2006-01-02") }}
 	r.Add(
 		command.Define("export.preview", "Show what a print or export would contain: the page, and what each item's licence cuts and why. Nothing is counted.", false, s.preview),
@@ -33,11 +33,13 @@ func Register(r *command.Registry, dataDir string, bibles *bible.Library) {
 }
 
 type service struct {
-	reg    *command.Registry
-	dir    string
-	bibles *bible.Library
-	cites  *cite.Resolver
-	today  func() string
+	reg *command.Registry
+	dir string
+	// printDir holds the PDFs made for printing; they are temporary and swept after a day.
+	printDir string
+	bibles   *bible.Library
+	cites    *cite.Resolver
+	today    func() string
 }
 
 // Source is one thing to print or export.
@@ -101,6 +103,7 @@ type MakeParams struct {
 	Format  string   `json:"format" required:"true" enum:"pdf,docx,html,md" desc:"The file format"`
 	Path    string   `json:"path,omitempty" desc:"The file to write; default a new file in the exports folder of the data folder"`
 	Replace bool     `json:"replace,omitempty" desc:"Overwrite the file if it exists"`
+	Print   bool     `json:"print,omitempty" desc:"pdf only: make the file to print. It counts against the print limit, not the export limit, and goes to a temporary folder (it is not kept)"`
 	Options Options  `json:"options,omitempty"`
 }
 
@@ -175,7 +178,14 @@ func (s *service) print(ctx context.Context, env *command.Env, p PrintParams) (P
 }
 
 func (s *service) make(ctx context.Context, env *command.Env, p MakeParams) (MakeResult, error) {
-	b, err := s.build(ctx, env, p.Sources, p.Title, p.Options, "export")
+	if p.Print && (p.Format != "pdf" || p.Path != "") {
+		return MakeResult{}, command.Errorf("bad_params", "print is only for a PDF in the temporary folder: give format pdf and no path")
+	}
+	act, shown := "export", p.Format
+	if p.Print {
+		act, shown = "print", "print"
+	}
+	b, err := s.build(ctx, env, p.Sources, p.Title, p.Options, act)
 	if err != nil {
 		return MakeResult{}, err
 	}
@@ -196,7 +206,12 @@ func (s *service) make(ctx context.Context, env *command.Env, p MakeParams) (Mak
 	if err != nil {
 		return MakeResult{}, err
 	}
-	path, err := s.target(p.Path, b.doc.Title, p.Format, p.Replace)
+	var path string
+	if p.Print {
+		path, err = s.printTarget(b.doc.Title)
+	} else {
+		path, err = s.target(p.Path, b.doc.Title, p.Format, p.Replace)
+	}
 	if err != nil {
 		return MakeResult{}, err
 	}
@@ -207,7 +222,7 @@ func (s *service) make(ctx context.Context, env *command.Env, p MakeParams) (Mak
 		os.Remove(path)
 		return MakeResult{}, err
 	}
-	out := MakeResult{Preview: b.preview(p.Format), Path: path, Bytes: int64(len(data))}
+	out := MakeResult{Preview: b.preview(shown), Path: path, Bytes: int64(len(data))}
 	out.Warnings = append(out.Warnings, warnings...)
 	return out, nil
 }
@@ -251,6 +266,28 @@ func (s *service) target(path, title, format string, replace bool) (string, erro
 			return p, nil
 		}
 	}
+}
+
+// printTarget is a new file in the temporary print folder. Files older than a day are removed first.
+func (s *service) printTarget(title string) (string, error) {
+	if err := os.MkdirAll(s.printDir, 0o755); err != nil {
+		return "", err
+	}
+	if old, err := os.ReadDir(s.printDir); err == nil {
+		for _, f := range old {
+			if info, err := f.Info(); err == nil && time.Since(info.ModTime()) > 24*time.Hour {
+				os.Remove(filepath.Join(s.printDir, f.Name()))
+			}
+		}
+	}
+	name := strings.TrimSpace(unsafeName.ReplaceAllString(title, " "))
+	if len(name) > 80 {
+		name = strings.TrimSpace(name[:80])
+	}
+	if name == "" {
+		name = "Glossa print"
+	}
+	return filepath.Join(s.printDir, fmt.Sprintf("%s %d.pdf", name, time.Now().UnixMilli())), nil
 }
 
 // writeFile writes through a temporary file, so a failed export leaves no half-written file.

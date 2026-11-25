@@ -1,9 +1,10 @@
 // Print or save: one dialog for every kind of content. It shows the page first, with what each
 // item's licence left out and why; the common path is one click (Print, or a format to save as).
-// Options are folded under More options. Printing uses the system print dialog, which also offers
-// "Save as PDF"; saving writes a file through export.make.
+// Options are folded under More options. The desktop window cannot print a page itself (window.print
+// can freeze it), so Print makes a PDF and opens it in the system's PDF viewer, where it is printed;
+// saving writes a file through export.make.
 
-import { Message, RunError, run, saveFile } from "./api";
+import { Message, RunError, openFile, run, saveFile } from "./api";
 import { button, clear, field, h, select } from "./dom";
 import { segmented, segmentedValue, switchInput } from "./controls";
 import { flash } from "./listpicker";
@@ -95,7 +96,7 @@ export function openExport(req: ExportRequest) {
   more.addEventListener("change", () => refresh());
 
   // Actions ------------------------------------------------------------------------------------
-  const printBtn = button("Print", () => doPrint(), { class: "primary" });
+  const printBtn = button("Open PDF to print", () => doPrint(), { class: "primary", title: "Makes a PDF and opens it in your PDF viewer, where you print it" });
   const saves = FORMATS.map((f) => button(f.label, () => doSave(f.id), { title: `Save as ${f.label}` }));
   const head = h("div", { class: "row between" }, h("h2", { id: "ex-title" }, `Print or save: ${req.title}`),
     button("Close", () => dlg.close(), { "aria-label": "Close" }));
@@ -125,10 +126,13 @@ export function openExport(req: ExportRequest) {
   }
 
   async function doPrint() {
-    const p = await msg.attempt(() => run<ExportPreview>("export.print", { sources: req.sources, title: req.title, options: options() }));
-    if (!p) return;
-    show(p);
-    printPage(p);
+    result.textContent = "";
+    const r = await msg.attempt(() => run<ExportPreview & { path: string }>("export.make", { sources: req.sources, title: req.title, format: "pdf", print: true, options: options() }));
+    if (!r) return;
+    show(r);
+    if (!(await msg.attempt(() => openFile(r.path).then(() => true)))) return;
+    result.className = "msg ok";
+    result.textContent = `Opened in your PDF viewer. Print it from there (Ctrl+P).${r.warnings.length ? ` ${r.warnings.join(" ")}` : ""}`;
   }
 
   async function doSave(format: string) {
@@ -195,25 +199,4 @@ function waitingList(dlg: HTMLDialogElement): HTMLElement | null {
   };
   render();
   return box;
-}
-
-// printPage puts the page in the print area and opens the system print dialog. Everything else on
-// screen is hidden while printing (style.css, body.printing).
-function printPage(p: ExportPreview) {
-  let root = document.getElementById("print-root");
-  if (!root) {
-    root = h("div", { id: "print-root" });
-    document.body.append(root);
-  }
-  const css = h("style", { media: "print" }, p.css);
-  root.innerHTML = p.body; // escaped by the core
-  root.prepend(css);
-  document.body.classList.add("printing");
-  const done = () => {
-    document.body.classList.remove("printing");
-    root?.replaceChildren();
-    window.removeEventListener("afterprint", done);
-  };
-  window.addEventListener("afterprint", done);
-  window.print();
 }

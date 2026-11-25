@@ -230,6 +230,12 @@ function makeSidebar() {
   document.addEventListener("glossa:book-section", marksStale);
   document.addEventListener("glossa:marks-changed", marksStale);
 
+  // Settings → Model changes the assistant: the chat (when it is the tool shown) reads its settings again now.
+  document.addEventListener("glossa:assistant-changed", () => {
+    tools.chat.stale = true;
+    if (prefs.sidebar.open && activeTool(prefs.sidebar.tools, prefs.sidebar.tool) === "chat") load("chat");
+  });
+
   onPassage(() => {
     for (const t of Object.values(tools)) if (t.refresh) t.stale = true;
     if (prefs.sidebar.open) load(activeTool(prefs.sidebar.tools, prefs.sidebar.tool));

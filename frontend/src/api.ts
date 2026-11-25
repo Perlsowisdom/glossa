@@ -20,6 +20,7 @@ interface Bound {
   PickFiles?(title: string): Promise<string[] | null>;
   PickFolder?(title: string): Promise<string>;
   SaveFile?(title: string, name: string, format: string): Promise<string>;
+  OpenFile?(path: string): Promise<void>;
 }
 
 export function bound(): Bound | null {
@@ -383,6 +384,13 @@ export interface CollectionNode {
 export interface RulePreview {
   count: number;
   examples: { id: string; title: string; authors: string[]; year?: number }[];
+}
+
+// openFile opens a PDF in the system's viewer (where it can be printed); it throws when it cannot.
+export async function openFile(path: string): Promise<void> {
+  const app = bound();
+  if (!app?.OpenFile) throw new RunError({ code: "unavailable", message: "opening files needs the desktop app" });
+  await app.OpenFile(path);
 }
 
 // saveFile opens the native save dialog for an export; it returns "" when cancelled.

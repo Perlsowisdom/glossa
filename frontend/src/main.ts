@@ -33,7 +33,8 @@ import { WorkSide, workSide } from "./views/work";
 
 interface View {
   el: HTMLElement;
-  show(): void | Promise<void>;
+  // again is true when the view asked for is the one already shown (its own link was clicked).
+  show(again?: boolean): void | Promise<void>;
   focus?(): void;
   drop?(paths: string[]): void;
   changed?(): void;
@@ -103,6 +104,7 @@ function show(target: string, focus = false) {
 
   const place = placeOf(id);
   const v = view(id);
+  const again = current === id;
   current = id;
   // My work comes back to the folder or tag it showed.
   last[place.id] = id === "notes" && sub ? `${id}/${sub}` : id;
@@ -129,7 +131,7 @@ function show(target: string, focus = false) {
   theRail.setContext(place.id, prefs.reading.mode);
   document.title = `${viewLabel(id)} · Glossa`;
   main.scrollTop = 0;
-  void v.show();
+  void v.show(again);
   if (focus) (v.focus ? v.focus() : main.focus());
 }
 
@@ -158,6 +160,7 @@ function boot(tries = 10) {
     go: (p) => goPlace(p),
     search: (q) => searchFor(q),
     settings: (page) => show(page ? `settings/${page}` : "settings", true),
+    toggleSidebar: () => sidebar().toggle(),
   });
   const side = sidebar();
   shell.append(theRail.edge, theRail.reveal, theRail.el, main, side.el);

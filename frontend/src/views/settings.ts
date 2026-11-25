@@ -413,7 +413,11 @@ function modelPage(): PageView {
 
   async function set(params: object): Promise<boolean> {
     const c = await msg.attempt(() => run<AssistantConfig>("assistant.config.set", params));
-    if (c) cfg = c;
+    if (c) {
+      cfg = c;
+      // The AI chat in the right sidebar shows the provider, so it must hear about the change.
+      document.dispatchEvent(new CustomEvent("glossa:assistant-changed"));
+    }
     return !!c;
   }
 
