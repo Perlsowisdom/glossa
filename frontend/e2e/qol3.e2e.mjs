@@ -53,4 +53,26 @@ export default [
       t.assert.equal(asked, 0, "no native dialog the whole way");
     },
   },
+  {
+    row: "Settings, Sync: the password strength line says each word once (not \"Strong. Strong.\")",
+    shot: "qol3-sync-strength.png",
+    timeout: 90000,
+    async run(t) {
+      const { page } = t;
+      await page.evaluate(() => { location.hash = "#settings/sync"; });
+      const form = page.locator("form.sync-setup");
+      await form.waitFor({ timeout: 10000 });
+      const line = form.locator(".sync-strength");
+      const type = async (pw) => { await form.locator("input[type=password]").first().fill(pw); await page.waitForFunction(() => document.querySelector(".sync-strength")?.textContent.trim(), null, { timeout: 5000 }); await page.waitForTimeout(300); return (await line.textContent()).trim(); };
+      const strong = await type("a long enough password 123");
+      t.assert.equal(strong, "Strong", `strong reads once: ${strong}`);
+      const good = await type("abcdefghijklmn");
+      t.assert.equal(good, "Good", `good reads once: ${good}`);
+      const weak = await type("abcdefghij");
+      t.assert.ok(/^Weak\b/.test(weak) && weak.includes("longer password") && !/weak.*weak/i.test(weak), `weak keeps its advice, once: ${weak}`);
+      await type("a long enough password 123");
+      await t.shot();
+      await looks(t, "sync-strength");
+    },
+  },
 ];

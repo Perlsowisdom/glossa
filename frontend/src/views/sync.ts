@@ -9,7 +9,7 @@ import { segmented, settingRow, toggleSwitch } from "../controls";
 import { badge, button, clear, field, h } from "../dom";
 import { refreshSync, onSync, plain, showProblem as failed, syncNow } from "../syncstate";
 import {
-  SyncConflict, SyncPreview, SyncStatus, advice, conflictLine, countsText, lastSyncText, pendingText, percent, previewSentences, progressText, sizeText,
+  SyncConflict, SyncPreview, SyncStatus, advice, conflictLine, countsText, lastSyncText, pendingText, percent, previewSentences, progressText, sizeText, strengthAdvice,
 } from "../syncwords";
 
 interface Strength { score: number; ok: boolean; hint: string; min_length: number }
@@ -59,7 +59,9 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
         if (!pw.value) return void clear(strength);
         const r = await run<Strength>("sync.password.strength", { password: pw.value }).catch(() => null);
         if (!r) return;
-        clear(strength, badge(STRENGTH_WORDS[r.score] ?? "", r.ok ? (r.score >= 3 ? "ok" : "warn") : "bad"), " ", r.hint);
+        const word = STRENGTH_WORDS[r.score] ?? "";
+        const tip = strengthAdvice(word, r.hint);
+        clear(strength, badge(word, r.ok ? (r.score >= 3 ? "ok" : "warn") : "bad"), tip ? " " : "", tip);
       }, 150);
     });
 

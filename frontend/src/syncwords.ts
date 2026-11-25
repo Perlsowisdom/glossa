@@ -121,3 +121,11 @@ export function conflictLine(c: SyncConflict): string {
   const from = device ? `the one from ${device}` : "the other one";
   return `Two devices changed this ${what}. The newer edit is shown; ${from} is kept in its history.`;
 }
+
+// strengthAdvice is the part of a password hint the badge does not already say: the badge reads "Weak", so
+// "Weak: a longer password..." becomes "A longer password...", and "Strong." (just the badge again) is nothing.
+export function strengthAdvice(word: string, hint: string): string {
+  let rest = hint.trim();
+  if (word && rest.toLowerCase().startsWith(word.toLowerCase())) rest = rest.slice(word.length).replace(/^[:.]\s*/, "");
+  return rest ? rest[0].toUpperCase() + rest.slice(1) : "";
+}
