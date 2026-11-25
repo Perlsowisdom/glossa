@@ -268,6 +268,24 @@ export default [
       await t.shot();
     },
   },
+  {
+    row: "Loading the app logs no console error, and the page names its own icon, so the window never asks the app for /favicon.ico (a 404)",
+    shot: "qol2-no-404.png",
+    timeout: 90000,
+    async run(t) {
+      const { page } = t;
+      const bad = [];
+      page.on("response", (r) => { if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`); });
+      page.on("console", (m) => { if (m.type() === "error") bad.push(`${m.text()} @ ${m.location().url}`); });
+      await page.goto(page.url().split("#")[0]);
+      await page.waitForSelector(".shell", { timeout: 30000 });
+      await page.waitForTimeout(2000);
+      t.assert.deepEqual(bad, [], bad.join(" | "));
+      const icon = await page.evaluate(() => document.querySelector("link[rel~=icon]")?.getAttribute("href") ?? "");
+      t.assert.ok(icon.startsWith("data:image/svg+xml"), `the page has its own icon: ${icon.slice(0, 40)}`);
+      await t.shot();
+    },
+  },
 ];
 
 // openNothingToPrint puts the Reader in Study mode with a Library browser tab selected: a pane with nothing to print.
