@@ -248,7 +248,7 @@ export default [
       await app.run("document.update", { id: d.id, title: "List me", kind: "sermon", body: "Text" });
       await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
       await t.current(".sermon-layout");
-      await page.locator(".work-side a", { hasText: "Sermons" }).click();
+      await page.locator(".work-side a[href='#sermons']").click();
       await page.locator(".sermon-table").waitFor({ state: "visible", timeout: 5000 });
       await page.locator("tr", { hasText: "List me" }).first().waitFor({ timeout: 5000 });
       t.assert.equal(await page.locator(".sermon-layout:visible").count(), 0, "the sermon page is closed");

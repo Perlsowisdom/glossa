@@ -50,3 +50,10 @@ tests: the save path and the opener are injected, so Windows launching a viewer 
 reading and by Go tests of what may be opened, not seen. Zotero, Any, sync between two devices, importing from
 Logos, highlights made by selecting text, and the Library, Books-citing-a-passage search tabs were left to the
 existing checks (`connect`, `any`, `sync`, `logos`, `highlights`, `cite`); the audit did not go beyond them.
+
+## Full real-app suite
+
+One full run (no `--no-build`) after the fixes: 81 passed, 1 failed of 82 checks. The one failure was the new
+"choosing Sermons" check itself (its link selector also matched a "Sermons from Logos" folder that an earlier
+file in the full run leaves behind); the selector was made exact and that check then passed on its own. The
+full suite was not run a second time. Go (`go vet`, `go test ./...`) and vitest (381 tests) passed.
