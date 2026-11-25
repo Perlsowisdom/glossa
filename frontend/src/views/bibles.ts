@@ -1,6 +1,7 @@
 // Bibles: get Bibles from the online catalogues (the default), the installed modules, and
 // installing one from a file or folder. Every action is a bible.* command.
 
+import { ask } from "../ask";
 import { CatalogueItem, Message, Module, paramEnum, pick, run } from "../api";
 import { biblesChanged } from "../bibles";
 import { chip, switchInput } from "../controls";
@@ -95,9 +96,8 @@ function getBibles(changed: () => void) {
   search.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(load, 250); });
 
   async function disable() {
-    if (!confirm("Turn off the Bible catalogues? Installed Bibles stay; Glossa stops downloading the lists.")) return;
     if ((await msg.attempt(() => run("bible.sources", { enable: false }))) !== undefined) {
-      msg.ok("Bible catalogues are off.");
+      msg.ok("Bible catalogues are off. Installed Bibles stay, and Glossa stops downloading the lists.");
       load();
     }
   }
@@ -273,7 +273,7 @@ function installedList(changed: () => void) {
   }
 
   async function remove(m: Module) {
-    if (!confirm(`Remove ${m.name || m.id}? Its module file is deleted; your notes are kept.`)) return;
+    if (!(await ask(`Remove ${m.name || m.id}?`, "Its file is deleted from this computer. Your notes are kept. You can install it again later.", "Remove"))) return;
     if ((await msg.attempt(() => run("bible.remove", { module: m.id }))) !== undefined) {
       msg.ok(`Removed ${m.name || m.id}.`);
       show();

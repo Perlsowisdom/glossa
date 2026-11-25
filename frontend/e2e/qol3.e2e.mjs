@@ -1,4 +1,6 @@
 // Quality pass 3 checks (branch m3/qol3): the open items from docs/qol-audit.md, each shown failing first.
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { looks } from "./qol.e2e.mjs";
 
 export default [
@@ -73,6 +75,97 @@ export default [
       await type("a long enough password 123");
       await t.shot();
       await looks(t, "sync-strength");
+    },
+  },
+  {
+    row: "No native box: Library, Sync, Bibles and Settings ask (Connections: connect.e2e) in the app's own dialog, or just do it with Undo; the browser's confirm never opens",
+    shot: "qol3-own-dialog.png",
+    timeout: 300000,
+    async run(t) {
+      const { page, app } = t;
+      const native = [];
+      page.on("dialog", (d) => { native.push(`${d.type()}: ${d.message()}`); void d.accept(); });
+      const go = async (hash, sel) => { await page.evaluate((x) => { location.hash = x; }, hash); await page.locator(sel).first().waitFor({ timeout: 10000 }); };
+      const dlg = page.locator("dialog.confirm[open]");
+      // Press a button, expect the app's own question, answer Cancel (nothing changes), press again, answer yes.
+      const ownQuestion = async (press, yes, after, label) => {
+        await press();
+        await dlg.waitFor({ timeout: 5000 });
+        const said = (await dlg.textContent()).trim();
+        t.assert.ok(said.length > 20 && !/confirm|alert|prompt|\bAPI\b.*\bcommand/i.test(said), `${label}: plain wording: ${said}`);
+        await dlg.locator("button", { hasText: /^Cancel$/ }).click();
+        await dlg.waitFor({ state: "detached", timeout: 3000 });
+        t.assert.equal(await after(), false, `${label}: Cancel changed nothing`);
+        await press();
+        await dlg.waitFor({ timeout: 5000 });
+        if (label === "Library") await t.shot("qol3-own-dialog.png");
+        if (label === "Library") await looks(t, "own-dialog", async () => { if (!(await dlg.count())) await press(); await dlg.waitFor({ timeout: 5000 }); });
+        await dlg.locator("button", { hasText: new RegExp(`^${yes}$`) }).click();
+        await dlg.waitFor({ state: "detached", timeout: 3000 });
+        for (let i = 0; i < 40 && !(await after()); i++) await page.waitForTimeout(250);
+        t.assert.equal(await after(), true, `${label}: the answer was acted on`);
+      };
+
+      // Library: remove a folder.
+      const dir = join(dirname(app.library), "qol3-books");
+      mkdirSync(dir, { recursive: true });
+      await app.run("library.add_folder", { path: dir });
+      await go("#library", "main");
+      const folders = async () => (await app.run("library.folders", {})).filter((f) => f.path.includes("qol3-books")).length;
+      t.assert.equal(await folders(), 1, "the folder was added");
+      await page.locator("details.lib-folders > summary").click();
+      const rm = page.locator("button[aria-label^='Remove '][aria-label*='qol3-books']");
+      await rm.first().waitFor({ timeout: 10000 });
+      await ownQuestion(() => rm.first().click(), "Remove", async () => (await folders()) === 0, "Library");
+
+      // Bibles: remove an installed Bible.
+      const usfm = join(dirname(app.library), "qol3-bible.usfm");
+      const BS = String.fromCharCode(92); // the USFM marker character
+      writeFileSync(usfm, [`${BS}id JHN`, `${BS}c 3`, `${BS}p`, `${BS}v 16-17 For God so loved the world, that he gave his one and only Son.`, `${BS}q1`, `${BS}v 18 He who believes in him is not judged.`, ""].join(String.fromCharCode(10)));
+      await app.run("bible.install", { path: usfm, format: "usfm", id: "qol3bible", name: "Qol3 Bible", abbreviation: "Q3B", language: "en" });
+      const have = async () => (await app.run("bible.modules", { kind: "all" })).some((m) => m.id === "qol3bible");
+      t.assert.equal(await have(), true, "the Bible was installed");
+      await go("#bibles", "main");
+      await page.getByRole("button", { name: "Installed", exact: true }).click();
+      const rmBible = page.locator(`button[aria-label='Remove ${(await app.run("bible.modules", { kind: "all" })).find((m) => m.id === "qol3bible").name || "qol3bible"}']`);
+      await rmBible.waitFor({ timeout: 10000 });
+      await ownQuestion(() => rmBible.click(), "Remove", async () => !(await have()), "Bibles");
+
+      // Connections: Remove key is in connect.e2e.mjs, which fails on a native box.
+
+      // Sync: turn it off on this device (a folder of its own, no network).
+      const syncDir = join(dirname(app.library), "qol3-sync");
+      mkdirSync(syncDir, { recursive: true });
+      await app.run("sync.setup", { folder: syncDir, password: "a long enough password 123", device_name: "Qol3 test" });
+      await app.run("sync.now");
+      await page.reload();
+      await go("#settings/sync", ".settings-section:visible");
+      const off = page.locator("button", { hasText: "Turn sync off on this device" });
+      await off.waitFor({ timeout: 10000 });
+      await ownQuestion(() => off.click(), "Turn off", async () => !(await app.run("sync.status")).configured, "Sync");
+
+      // Settings: the online Bibles key.
+      await app.run("apibible.set_key", { key: "qol3-test-key" }).catch(() => {});
+      await go("#settings/online", ".settings-section:visible");
+      const rmApi = page.locator(".settings-section:visible form[aria-label='API.Bible key'] button", { hasText: "Remove key" });
+      await rmApi.waitFor({ timeout: 10000 });
+      await rmApi.click();
+      await dlg.waitFor({ timeout: 5000 });
+      await dlg.locator("button", { hasText: /^Remove$/ }).click();
+      await dlg.waitFor({ state: "detached", timeout: 3000 });
+
+      t.assert.deepEqual(native, [], "no native confirm, alert or prompt opened");
+    },
+  },
+  {
+    row: "No native box in the source: confirm(, alert( and prompt( never appear in frontend/src",
+    shot: "qol3-no-native.png",
+    timeout: 30000,
+    async run(t) {
+      const hits = [];
+      const walk = (d) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.(ts|html)$/.test(e.name) && !/\.test\.ts$/.test(e.name)) readFileSync(p, "utf8").split("\n").forEach((l, i) => { if (/(^|[^\w.])(window\.)?(confirm|alert|prompt)\s*\(/.test(l.replace(/\/\/.*$/, "")) ) hits.push(`${p}:${i + 1}`); }); } };
+      walk(join(import.meta.dirname, "../src"));
+      t.assert.deepEqual(hits, [], "native dialog calls found");
     },
   },
 ];

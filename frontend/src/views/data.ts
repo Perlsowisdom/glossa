@@ -1,5 +1,6 @@
 // Your data: export and import in open formats, backups now, and the automatic backup schedule.
 
+import { ask } from "../ask";
 import { Message, pick, run } from "../api";
 import { chip, segmented, segmentedValue, setSegmented, switchInput } from "../controls";
 import { button, clear, field, h } from "../dom";
@@ -46,7 +47,7 @@ export function dataSection(): { el: HTMLElement; show: () => void } {
   async function importFrom(kind: "file" | "folder") {
     const path = await msg.attempt(() => pick(kind, kind === "file" ? "Choose an export .zip" : "Choose an export folder"));
     if (!path) return;
-    if (!confirm("Merge this export into your library? Items with the same ID are replaced; every change is recorded in history.")) return;
+    if (!(await ask("Merge this export into your library?", "Anything that is already here and also in the export is replaced by the export's copy. Every change is recorded in the history.", "Merge", false))) return;
     msg.info("Importing…");
     const r = await msg.attempt(() => run<{ created: Record<string, number>; updated: Record<string, number> }>("import.data", { path }));
     if (r) msg.ok(`Imported: created ${counts(r.created)}; updated ${counts(r.updated)}.`);

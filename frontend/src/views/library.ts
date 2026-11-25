@@ -4,6 +4,7 @@
 // Clear all, a count, covers in a grid or rows in a list, and a detail pane with Read, Open in Study
 // and the licence folded away. Every action is a library.* or facet.* command.
 
+import { ask } from "../ask";
 import { AddResult, CollectionNode, Facet, Folder, Item, ItemSummary, Message, Vocabulary, pick, pickFiles, run } from "../api";
 import { chip, segmented } from "../controls";
 import { badge, button, clear, field, h } from "../dom";
@@ -151,7 +152,7 @@ export function libraryView() {
   }
 
   async function removeFolder(f: Folder) {
-    if (!confirm(`Remove ${f.label || f.path} and its books from the library? Files on disk are left alone.`)) return;
+    if (!(await ask(`Remove ${f.label || f.path}?`, "It and its books leave the library. The files on your computer are not touched.", "Remove"))) return;
     const r = await folderMsg.attempt(() => run<{ items: number; files: number }>("library.remove_folder", { id: f.id }));
     if (!r) return;
     folderMsg.ok(`Removed ${f.label || f.path} (${r.items} books).`);

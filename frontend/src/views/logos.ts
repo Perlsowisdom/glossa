@@ -42,13 +42,13 @@ export function logosSection(): { el: HTMLElement; show: () => void } {
         h("p", { class: "hint" }, "Glossa has no place for these, or they are not yours. They stay in Logos."),
         h("ul", { class: "plain" }, p.unmapped.map((g) => h("li", {}, unmappedLine(g))))) : null,
       p.notes.length ? h("ul", { class: "plain hint logos-notes" }, p.notes.map((n) => h("li", {}, n))) : null,
+      total ? h("p", { class: "hint" }, "Nothing in Logos changes. Every change is recorded in history, and you can take the import back afterwards.") : null,
       h("div", { class: "row wrap" },
         button(total ? `Import ${total} item${total === 1 ? "" : "s"}` : "Nothing new to import", () => void doImport(), { class: "primary", id: "logos-import", disabled: !canImport(p) })));
   }
 
   async function doImport() {
     if (!current || !canImport(current)) return;
-    if (!confirm("Import this into your library? Nothing in Logos changes, every change is recorded in history, and you can take the import back afterwards.")) return;
     msg.info("Importing…");
     const rep = await msg.attempt(() => run<LogosReport>("logos.import", folderParam()));
     if (!rep) return;
@@ -63,7 +63,6 @@ export function logosSection(): { el: HTMLElement; show: () => void } {
   }
 
   async function undo(id: string) {
-    if (!confirm("Take this import back? What it added goes to the bin. Notes you wrote yourself are not touched.")) return;
     const r = await msg.attempt(() => run<{ removed: number; folders: number }>("logos.undo", { run_id: id }));
     if (!r) return;
     msg.ok(`Took the import back: ${r.removed} item${r.removed === 1 ? "" : "s"} went to the bin.`);

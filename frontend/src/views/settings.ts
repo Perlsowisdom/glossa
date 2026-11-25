@@ -5,6 +5,7 @@
 //
 // Pages are addressed as #settings/<page>, so Help and the sidebar can link straight to one.
 
+import { ask } from "../ask";
 import { Message, RunError, run } from "../api";
 import { AssistantConfig, CLIInfo, LOCAL_CHOICES, ONLINE_CHOICES, providerLine } from "../assistantwords";
 import { segmented, settingRow, tick, toggleSwitch } from "../controls";
@@ -202,7 +203,7 @@ function apiBiblePage(): PageView {
       h("button", { type: "submit", class: "primary" }, "Save key"),
       button("Check key works", () => check(true)),
       button("Remove key", async () => {
-        if (!confirm("Remove the API.Bible key and its cached text?")) return;
+        if (!(await ask("Remove the API.Bible key?", "The key and the text saved from it are removed from this computer. You will need to paste the key again to read Bibles online.", "Remove"))) return;
         if (await msg.attempt(() => run("apibible.clear_key"))) {
           msg.ok("Key removed.");
           check(false);

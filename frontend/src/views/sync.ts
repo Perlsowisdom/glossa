@@ -4,6 +4,7 @@
 // the page shows the state, the devices, how books are kept, and any text kept from two edits.
 // Everything calls sync.* commands; the core does the syncing (see ADR 0013).
 
+import { ask } from "../ask";
 import { Message, pick, run } from "../api";
 import { segmented, settingRow, toggleSwitch } from "../controls";
 import { badge, button, clear, field, h } from "../dom";
@@ -201,7 +202,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
   }
 
   async function stop() {
-    if (!confirm("Turn sync off on this device? The folder and everything on this device are left as they are, and the saved password is forgotten.")) return;
+    if (!(await ask("Turn sync off on this device?", "The folder and everything on this device are left as they are. The saved password is forgotten.", "Turn off", false))) return;
     const m = new Message();
     try {
       await run("sync.stop");
@@ -281,7 +282,7 @@ export function syncSection(): { el: HTMLElement; show: () => void; focus: () =>
       h("span", { class: "sync-device-name" }, d.name || d.id, d.self ? " " : null, d.self ? badge("This device", "ok") : null),
       h("span", { class: "hint" }, ` ${sizeText(d.bytes)}`),
       d.self ? null : button("Forget this device", async () => {
-        if (!confirm(`Forget ${d.name || "this device"}? Its files are removed from the folder, and it must be set up again to rejoin. Changes it already sent stay.`)) return;
+        if (!(await ask(`Forget ${d.name || "this device"}?`, "Its files are removed from the folder, and it must be set up again to rejoin. Changes it already sent stay.", "Forget"))) return;
         try {
           await run("sync.forget_device", { device_id: d.id });
           notice = `${d.name || "The device"} was removed from the folder.`;

@@ -88,9 +88,12 @@ export default [
       await app.resize(1480, 950);
       await page.emulateMedia({ colorScheme: null });
 
-      // Remove the key and turn it off: nothing more is asked.
-      page.once("dialog", (d) => d.accept());
+      page.once("dialog", (d) => { throw new Error(`a native box opened: ${d.message()}`); });
+      const native = [];
+      page.on("dialog", (d) => { native.push(d.message()); void d.accept(); });
       await card.getByRole("button", { name: "Remove key" }).click();
+      await page.locator("dialog.confirm[open] button.danger-solid").click();
+      t.assert.deepEqual(native, [], "Remove key asks in the app's own dialog, not a native box");
       await card.locator("input[type=password]").waitFor();
       await page.waitForFunction(() => !document.querySelector(".connection .danger"), null, { timeout: 10000 });
       t.assert.equal((await app.run("connect.list")).find((x) => x.id === "zotero").key_set, false);

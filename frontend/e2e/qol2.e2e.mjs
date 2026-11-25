@@ -110,7 +110,7 @@ export default [
     },
   },
   {
-    row: "Delete: notes, sermons, folders and lists all go to the bin at once with the same notice and Undo that clears itself (reading plans: qol3)",
+    row: "Delete: notes, sermons, folders and lists all go to the bin at once with the same notice and Undo that clears itself (reading plans have their own check)",
     shot: "qol2-delete.png",
     timeout: 240000,
     async run(t) {

@@ -6,7 +6,8 @@ import { Message, run } from "../api";
 import { button, clear, h } from "../dom";
 import { formatTime } from "../helpers";
 import { icon } from "../icons";
-import { confirmDanger, emptyState, loadFolders, onWorkChanged, workChanged } from "../work";
+import { ask } from "../ask";
+import { emptyState, loadFolders, onWorkChanged, workChanged } from "../work";
 import { BinEntry, binContents, binKind, binTitle, purgeQuestion } from "../workwords";
 
 const ICON: Record<BinEntry["kind"], string> = { folder: "folder", note: "notes", document: "sermon", list: "list", plan: "plan" };
@@ -50,7 +51,7 @@ export function binView() {
   }
 
   async function purge(e: BinEntry) {
-    if (!(await confirmDanger("Delete for good?", purgeQuestion(e), "Delete for good"))) return;
+    if (!(await ask("Delete for good?", purgeQuestion(e), "Delete for good"))) return;
     if (await msg.attempt(() => run("bin.purge", { kind: e.kind, id: e.id })) === undefined) return;
     msg.ok(`Deleted "${binTitle(e)}" for good.`);
     workChanged();
