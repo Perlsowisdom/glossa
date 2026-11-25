@@ -182,6 +182,92 @@ export default [
       void kept; void plan; void folder; void list; void sermon; void note;
     },
   },
+  {
+    row: "Settings, Model: the Provider row reads in one or two lines at 900 x 700 with the sidebar open",
+    shot: "qol2-provider-row.png",
+    timeout: 90000,
+    async run(t) {
+      const { page, app } = t;
+      await app.run("assistant.config.set", { provider: "claude-code" });
+      await app.resize(900, 700);
+      await page.evaluate(() => { location.hash = "#settings/model"; });
+      const sec = page.locator(".settings-section:visible");
+      await sec.locator(".provider-current", { hasText: "Claude Code" }).waitFor({ timeout: 10000 });
+      if (!(await page.locator("#rightbar").isVisible().catch(() => false))) await page.keyboard.press("Control+Period");
+      await page.locator("#rightbar").waitFor({ timeout: 5000 });
+      await page.waitForTimeout(300);
+      const m = await sec.locator(".provider-current").evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.4;
+        return { lines: Math.round(r.height / lh), width: Math.round(r.width), h: Math.round(r.height) };
+      });
+      await looks(t, "provider-row");
+      await app.resize(900, 700);
+      await page.keyboard.press("Control+Period");
+      await app.resize(1480, 950);
+      t.assert.ok(m.lines <= 2, `the Provider value takes ${m.lines} lines (${m.width}px wide)`);
+    },
+  },
+  {
+    row: "Settings, Your data: one heading, and a clear gap between the chips and the history switch",
+    shot: "qol2-your-data.png",
+    timeout: 90000,
+    async run(t) {
+      const { page, app } = t;
+      await page.evaluate(() => { location.hash = "#settings/data"; });
+      const sec = page.locator(".settings-section:visible");
+      await sec.locator("fieldset .chip-toggle").first().waitFor({ timeout: 10000 });
+      const check = async () => {
+        const heads = await sec.evaluate((s) => [...s.querySelectorAll("h1,h2,h3")].map((x) => x.textContent.trim()));
+        const gap = await sec.evaluate((s) => {
+          const sw = s.querySelector("fieldset label.check");
+          const chips = [...s.querySelectorAll("fieldset .chip-toggle")];
+          const a = sw.getBoundingClientRect();
+          let best = 1e9;
+          for (const c of chips) {
+            const b = c.getBoundingClientRect();
+            const dx = Math.max(b.left - a.right, a.left - b.right);
+            const dy = Math.max(b.top - a.bottom, a.top - b.bottom);
+            best = Math.min(best, Math.max(dx, dy));
+          }
+          return Math.round(best);
+        });
+        return { heads, gap };
+      };
+      const r = await check();
+      t.assert.equal(r.heads.filter((x) => x === "Your data").length, 1, `"Your data" once: ${r.heads.join(" | ")}`);
+      t.assert.ok(r.gap >= 8, `a gap of ${r.gap}px between the last chip and the switch`);
+      await looks(t, "your-data");
+      await app.resize(900, 700);
+      const r2 = await check();
+      await app.resize(1480, 950);
+      t.assert.ok(r2.gap >= 8, `at 900 wide: a gap of ${r2.gap}px`);
+    },
+  },
+  {
+    row: "Settings, Sync: the password warning shows once something is typed, and the boxes are the same width",
+    shot: "qol2-sync-warning.png",
+    timeout: 90000,
+    async run(t) {
+      const { page } = t;
+      await page.evaluate(() => { location.hash = "#settings/sync"; });
+      const form = page.locator("form.sync-setup");
+      await form.waitFor({ timeout: 10000 });
+      const warn = form.locator(".sync-warning");
+      t.assert.ok(!(await warn.isVisible()), "no warning while the password is empty");
+      const widths = await form.evaluate((f) => ({ folder: f.querySelector("#sync-folder").getBoundingClientRect().width, pw: f.querySelector("input[type=password]").getBoundingClientRect().width }));
+      t.assert.ok(Math.abs(widths.folder - widths.pw) < 2, `the boxes: folder ${widths.folder}, password ${widths.pw}`);
+      await looks(t, "sync-empty");
+      await form.locator("input[type=password]").first().fill("x");
+      await warn.waitFor({ state: "visible", timeout: 3000 });
+      await form.locator("input[type=password]").first().fill("");
+      await warn.waitFor({ state: "hidden", timeout: 3000 });
+      await form.locator("input[type=password]").first().fill("a long enough password 123");
+      await warn.waitFor({ state: "visible", timeout: 3000 });
+      await looks(t, "sync-typed");
+      await t.shot();
+    },
+  },
 ];
 
 // openNothingToPrint puts the Reader in Study mode with a Library browser tab selected: a pane with nothing to print.

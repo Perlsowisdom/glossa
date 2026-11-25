@@ -85,10 +85,10 @@ export function dataSection(): { el: HTMLElement; show: () => void } {
   }
 
   const el = h("section", { class: "card", "aria-labelledby": "data-h" },
-    h("h2", { id: "data-h" }, "Your data"),
+    h("h3", { id: "data-h" }, "Export and import"),
     h("p", { class: "hint" }, "Export your notes, highlights, lists, collections, reading plans and documents as Markdown and JSON. The format follows any's encodings, so other tools can read it."),
-    h("fieldset", {}, h("legend", {}, "What to export"), ...boxes,
-      h("label", { class: "check" }, history, " Include the change history")),
+    h("fieldset", {}, h("legend", {}, "What to export"), h("div", { class: "chip-row" }, boxes),
+      h("div", { class: "chip-after" }, h("label", { class: "check" }, history, " Include the change history"))),
     h("div", { class: "row wrap" },
       button("Export to a folder", () => exportTo("folder"), { class: "primary" }),
       button("Export as .zip", () => exportTo("zip")),

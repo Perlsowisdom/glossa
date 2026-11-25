@@ -1820,3 +1820,8 @@ dialog.any-dialog h3 { margin: 0 0 6px; }
 @media (max-width: 560px) { .any-sides { grid-template-columns: 1fr; } }
 
 .menu-hint { padding: 0 12px 6px; max-width: 16rem; margin: 0; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-after { margin-top: 14px; }
+.provider-row { flex-wrap: wrap; }
+.provider-row .provider-current { flex: 1 1 12rem; min-width: 0; }
+.provider-row > button { flex: none; }
