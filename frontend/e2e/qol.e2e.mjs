@@ -10,7 +10,8 @@ const SIZES = [[1536, 816], [900, 700]];
 const THEMES = ["light", "dark"];
 
 // looks takes the screenshot of the state on screen at both sizes in both themes: qol-<name>-<w>x<h>-<theme>.png.
-export async function looks(t, name) {
+// before(), when given, sets the state up again after each resize (a popover closes when the window changes size).
+export async function looks(t, name, before) {
   const { page, app } = t;
   try {
     for (const [w, h] of SIZES) {
@@ -18,6 +19,7 @@ export async function looks(t, name) {
       for (const theme of THEMES) {
         await page.emulateMedia({ colorScheme: theme });
         await page.waitForTimeout(250);
+        if (before) await before();
         await app.shot(`qol-${name}-${w}x${h}-${theme}.png`);
       }
     }

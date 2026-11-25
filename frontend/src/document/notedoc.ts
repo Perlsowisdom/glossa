@@ -23,6 +23,7 @@ export function noteDoc(host: DocHost): DocView {
   return {
     el,
     focus: () => page.focus(),
+    menu: { print: () => page.print() },
     destroy: () => page.destroy(),
   };
 }

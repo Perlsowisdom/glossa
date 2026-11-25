@@ -36,6 +36,7 @@ interface View {
   // again is true when the view asked for is the one already shown (its own link was clicked).
   show(again?: boolean): void | Promise<void>;
   focus?(): void;
+  print?(): void; // Ctrl+P: print what the view has open
   drop?(paths: string[]): void;
   changed?(): void;
 }
@@ -183,6 +184,14 @@ function boot(tries = 10) {
         e.preventDefault();
         goPlace(p);
       }
+      return;
+    }
+    // Ctrl+P prints the open item (the Reader's selected pane, an open note or sermon). Where there is nothing
+    // to print nothing opens; the window's own print is never reached (it blocks the window).
+    if (ctrl && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "p") {
+      const taken = e.defaultPrevented; // a pane that can print has already printed
+      e.preventDefault();
+      if (!taken) views.get(current)?.print?.();
       return;
     }
     if (e.key === "F6" && !ctrl && !e.altKey) {

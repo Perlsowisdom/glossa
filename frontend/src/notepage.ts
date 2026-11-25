@@ -48,6 +48,7 @@ export interface NotePage {
   flush(): Promise<void>;
   destroy(): void;
   note(): Note | null;
+  print(): void; // Print or save for this note
 }
 
 export function notePage(o: NotePageOptions): NotePage {
@@ -164,6 +165,11 @@ export function notePage(o: NotePageOptions): NotePage {
 
   const anyLink = anyHook("note");
 
+  function print() {
+    if (note) openExport({ title: noteName(note), sources: [{ kind: "note", id: note.id }] });
+    else msg.info("Write something first.");
+  }
+
   function menu(b: HTMLElement) {
     const n = note;
     actionsMenu(b, "Note actions", [
@@ -172,7 +178,7 @@ export function notePage(o: NotePageOptions): NotePage {
       ["Turn into…", () => setTimeout(() => turnMenu(b), 0)],
       ["Citation style…", () => setTimeout(() => { if (n) void citeStyleMenu(b, n.id, () => editor?.refreshCites(true), (w) => msg.info(w)); else msg.info("Write something first."); }, 0)],
       anyLink.entry(n?.id ?? null, msg, save),
-      ["Print or export…", () => { if (n) openExport({ title: noteName(n), sources: [{ kind: "note", id: n.id }] }); else msg.info("Write something first."); }],
+      ["Print or export…", print],
       ["History", () => { if (n) void drawer.open(n); else msg.info("A new note has no history yet."); }],
       "-",
       ["Delete", () => void remove(), "danger"],
@@ -326,6 +332,7 @@ export function notePage(o: NotePageOptions): NotePage {
   return {
     el,
     note: () => note,
+    print,
     focus: () => (note?.title || !tbox.value() ? (note ? editor?.focus() : tbox.focus()) : editor?.focus()),
     flush: save,
     destroy() {

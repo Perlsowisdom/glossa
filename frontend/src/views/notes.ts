@@ -330,6 +330,8 @@ export function notesSectionView() {
   return {
     el,
     focus: () => query.focus(),
+    // Ctrl+P prints the note that is open.
+    print: () => page?.print(),
     show: async () => {
       const next = /^#notes\/note\//.test(location.hash) ? scope : scopeOf(location.hash);
       // #notes/note/<id> opens one note's page, so links and other views can point at it.

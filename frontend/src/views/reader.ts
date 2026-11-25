@@ -22,6 +22,8 @@ function iconButton(name: string, label: string, onclick: (e: Event) => void, at
   return h("button", { type: "button", class: "icon-btn", "aria-label": label, title: label, ...attrs, onclick }, icon(name));
 }
 
+const NOTHING_TO_PRINT = "Select a pane with a passage, book or note to print.";
+
 export function readerView() {
   const msg = new Message();
   const side = sidebar();
@@ -82,9 +84,26 @@ export function readerView() {
     button("Passage report", () => state.parsed && openReport("passage", state.parsed.osis),
       { title: "Everything your library holds about this passage, in one place" }),
     button("Notes on this passage", () => side.notesHere()),
-    button("Print or save…", () => grid.selectedView()?.menu?.print?.(), { title: "Print, or save as PDF, Word, a web page or Markdown" }),
+    printItem(),
     button("Reading plans", () => navigate("plans"))), { label: "More", side: "below", menu: true }),
   { "aria-haspopup": "menu", "aria-expanded": "false" });
+
+  // Print or save in ⋯ is there but off, with the reason, when the selected pane has nothing to print.
+  function printItem(): HTMLElement {
+    const can = !!grid.selectedView()?.menu?.print;
+    const b = button("Print or save…", () => print(), { title: can ? "Print, or save as PDF, Word, a web page or Markdown" : NOTHING_TO_PRINT });
+    if (!can) {
+      b.disabled = true;
+      return h("div", {}, b, h("p", { class: "hint menu-hint" }, NOTHING_TO_PRINT));
+    }
+    return b;
+  }
+  // print is Print or save for the selected pane (also Ctrl+P); with nothing to print it says so.
+  function print() {
+    const p = grid.selectedView()?.menu?.print;
+    if (p) p();
+    else msg.info(NOTHING_TO_PRINT);
+  }
 
   const sideBtn = iconButton("panel", "Right sidebar", () => side.toggle(), { "aria-controls": "rightbar", title: "Right sidebar (Ctrl+.)", "aria-keyshortcuts": "Control+." });
 
@@ -152,7 +171,7 @@ export function readerView() {
     void today.refresh();
   }
 
-  return { el, show, focus: () => grid.focus() };
+  return { el, show, print, focus: () => grid.focus() };
 }
 
 // readingControls are the Read mode settings, in the Aa popover and in Settings → Appearance.

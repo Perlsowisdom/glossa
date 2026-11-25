@@ -212,6 +212,8 @@ export function sermonsView() {
   return {
     el,
     focus: () => (page ? page.focus() : query.focus()),
+    // Ctrl+P prints the sermon that is open.
+    print: () => page?.print(),
     show: async () => {
       // #sermons/<id> opens one document's builder, so links and scripts can point at it.
       const asked = sermonAddress(location.hash);

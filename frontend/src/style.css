@@ -1818,3 +1818,5 @@ dialog.any-dialog h3 { margin: 0 0 6px; }
 .any-page-text strong, .any-page-text .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
 .any-search { width: 100%; }
 @media (max-width: 560px) { .any-sides { grid-template-columns: 1fr; } }
+
+.menu-hint { padding: 0 12px 6px; max-width: 16rem; margin: 0; }

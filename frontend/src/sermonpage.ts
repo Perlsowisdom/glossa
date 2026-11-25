@@ -42,6 +42,7 @@ export interface SermonPage {
   flush(): Promise<void>;
   destroy(): void;
   doc(): SermonDoc | null;
+  print(): void; // Print or save for this sermon
 }
 
 const FOLD_KEY = "glossa.sermon.props.folded";
@@ -293,6 +294,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
   return {
     el,
     doc: () => d,
+    print: () => printBtn.click(),
     focus: () => (title ? editor?.focus() : tbox.focus()),
     flush: save,
     destroy() {
