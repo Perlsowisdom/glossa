@@ -307,6 +307,7 @@ export function workSide(go: (target: string) => void): WorkSide {
       view = v;
       scope = scopeOf(location.hash);
       render();
+      void reload(); // the counts may have changed since this column was last drawn (a delete in the Library, sync)
     },
     reload,
   };
