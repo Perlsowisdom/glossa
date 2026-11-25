@@ -98,6 +98,8 @@ function show(target: string, focus = false) {
   if (!makers[id]) [id, sub] = ["reader", ""];
   // An address inside a view (#sermons/<id>, #settings/model) is kept for the view to open.
   if (sub && !location.hash.startsWith(`#${id}/${sub}`)) history.replaceState(null, "", `#${id}/${sub}`);
+  // Choosing Sermons itself (not an address change) while one is open means its list.
+  else if (!sub && id === "sermons" && focus && location.hash !== "#sermons") history.replaceState(null, "", "#sermons");
   else if (!sub && location.hash !== `#${id}` && !location.hash.startsWith(`#${id}/`)) history.replaceState(null, "", `#${id}`);
   closePopover();
   closeMarking();
@@ -107,7 +109,7 @@ function show(target: string, focus = false) {
   const again = current === id;
   current = id;
   // My work comes back to the folder or tag it showed.
-  last[place.id] = id === "notes" && sub ? `${id}/${sub}` : id;
+  last[place.id] = (id === "notes" || id === "sermons") && sub ? `${id}/${sub}` : id;
   savePref(LAST_KEY, last);
   for (const [vid, x] of views) x.el.hidden = vid !== id;
   const nav = placeNav(place.id);
