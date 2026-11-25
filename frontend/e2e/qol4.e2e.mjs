@@ -39,7 +39,7 @@ export default [
       await agrees(before + 2, "after deleting a list");
 
       // Undo brings the number back down.
-      await page.locator(".msg button", { hasText: "Undo" }).first().click();
+      await page.locator(".msg", { hasText: "\"Count list\" went to the bin." }).locator("button", { hasText: "Undo" }).first().click();
       await page.locator(".msg", { hasText: "\"Count list\" is back." }).first().waitFor({ timeout: 5000 });
       await agrees(before + 1, "after Undo");
       await page.locator("main button", { hasText: "Delete list" }).first().waitFor({ timeout: 5000 }).catch(() => {});

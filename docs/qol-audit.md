@@ -131,3 +131,10 @@ Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 81
 | 22 | cosmetic | A bin of more than 500 things | `bin.list` stops at 500 by default, so the Bin entry and the Bin page both say 500 (they agree, but are wrong). | Count separately from the list, or page the list. |
 | 23 | cosmetic | A device that has not sent any change yet, in the folder | It is not listed under Devices (a device shows up when it has written a file), so it cannot be forgotten. | List a device as soon as it has joined. |
 | 24 | cosmetic | Design | Which things were deleted with a folder or collection is worked out from times, not stored. Fixed so ties cannot happen (17), but a stored "deleted with" link would be sturdier. | A column or change field naming the deletion batch. Needs a schema change and an ADR. |
+
+### After pass 4
+
+One full run (no `--no-build`, layout-sanity included): 97 passed, 1 failed of 98 checks. The failure was the new bin-count
+check itself (its Undo selector matched a hidden notice from another page); the selector was scoped to that notice and the
+file's check then passed on its own. The batch 2 delete check was also run alone with a word filter and passed. `gofmt`,
+`go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
