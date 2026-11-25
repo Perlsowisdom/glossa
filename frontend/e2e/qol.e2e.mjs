@@ -225,23 +225,6 @@ export default [
     },
   },
   {
-    row: "Lists: deleting a list says it goes to the bin (where it does go)",
-    shot: "qol-list-delete.png",
-    async run(t) {
-      const { page, app } = t;
-      await app.run("list.create", { kind: "verses", name: "Words list" });
-      await page.evaluate(() => { location.hash = "#notes"; });
-      await page.waitForTimeout(300);
-      await page.evaluate(() => { location.hash = "#lists"; });
-      await page.locator("main button", { hasText: "Words list" }).first().click();
-      let said = "";
-      page.once("dialog", (d) => { said = d.message(); void d.dismiss(); });
-      await page.locator("main button", { hasText: "Delete list" }).first().click();
-      await page.waitForTimeout(500);
-      t.assert.ok(/bin/.test(said) && !/change history/.test(said), `the question says where the list goes: ${said}`);
-    },
-  },
-  {
     row: "Sermons: choosing Sermons in My work while a sermon is open goes back to the list",
     shot: "qol-sermons-list.png",
     async run(t) {

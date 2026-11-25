@@ -4,6 +4,7 @@
 // onto a folder does), edits its details, shows its history or deletes it to the bin.
 
 import { Message, Note, run } from "../api";
+import { binned } from "../deletenotice";
 import { importFromAny } from "../anyaction";
 import { openInStudy } from "../document/open";
 import { emptyInk, serializeInk } from "../editor/ink";
@@ -355,13 +356,6 @@ export function notesSectionView() {
 // deleteSermon puts a sermon in the bin and offers Undo.
 export async function deleteSermon(msg: Message, d: SermonDoc): Promise<void> {
   if (await msg.attempt(() => run("document.delete", { id: d.id })) === undefined) return;
-  clear(msg.el, `"${d.title}" went to the bin. `, button("Undo", async () => {
-    if (await msg.attempt(() => run("document.restore", { id: d.id })) !== undefined) {
-      msg.ok("Restored.");
-      workChanged();
-    }
-  }, { class: "link" }));
-  msg.el.className = "msg ok";
-  msg.el.setAttribute("role", "status");
+  binned(msg, d.title || untitled(d.kind), () => run("document.restore", { id: d.id }), workChanged);
   workChanged();
 }

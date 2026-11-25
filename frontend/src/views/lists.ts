@@ -4,6 +4,7 @@
 import { printExportButton } from "../printexport";
 import { ListEntry, Message, Ref, SavedList, run } from "../api";
 import { button, clear, field, h, select } from "../dom";
+import { binned } from "../deletenotice";
 import { Locator, openBook } from "../document/open";
 import { setPassage, state } from "../state";
 import { navigate } from "../state";
@@ -69,11 +70,10 @@ export function listsView() {
       input.select();
     });
     const del = button("Delete list", async () => {
-      if (!confirm(`Delete "${list.name}"? It goes to the bin, where you can restore it.`)) return;
       if ((await msg.attempt(() => run("list.delete", { id }))) !== undefined) {
         open = null;
-        flash(`Deleted "${list.name}".`);
         refresh();
+        binned(msg, list.name, () => run("bin.restore", { kind: "list", id }), refresh);
       }
     }, { class: "danger" });
 

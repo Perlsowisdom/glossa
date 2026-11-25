@@ -4,6 +4,7 @@
 
 import { Change, Message, Note, run } from "./api";
 import { button, clear, h } from "./dom";
+import { binned } from "./deletenotice";
 import { formatTime, summarise } from "./helpers";
 import { icon } from "./icons";
 import { NotePage, notePage } from "./notepage";
@@ -22,15 +23,7 @@ export const noteName = (n: Note) => n.title || "Untitled";
 export async function deleteNote(msg: Message, n: Note, changed: () => void) {
   const ok = await msg.attempt(() => run("note.delete", { id: n.id }));
   if (ok === undefined) return;
-  clear(msg.el, `"${noteName(n)}" went to the bin. `,
-    button("Undo", async () => {
-      if ((await msg.attempt(() => run("note.restore", { id: n.id }))) !== undefined) {
-        msg.ok("Note restored.");
-        changed();
-      }
-    }));
-  msg.el.className = "msg ok";
-  msg.el.setAttribute("role", "status");
+  binned(msg, noteName(n), () => run("note.restore", { id: n.id }), changed);
   changed();
 }
 

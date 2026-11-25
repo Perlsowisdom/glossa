@@ -109,6 +109,79 @@ export default [
       await page.keyboard.press("Escape");
     },
   },
+  {
+    row: "Delete: notes, sermons, folders and lists all go to the bin at once with the same notice and Undo that clears itself; a reading plan asks first and says it is deleted for good",
+    shot: "qol2-delete.png",
+    timeout: 240000,
+    async run(t) {
+      const { page, app } = t;
+      const bin = (name) => page.locator(".msg", { hasText: `"${name}" went to the bin.` }).filter({ has: page.locator("button", { hasText: "Undo" }) }).first();
+      const go = async (hash, sel) => { await page.evaluate((x) => { location.hash = x; }, hash); await page.locator(sel).first().waitFor({ timeout: 10000 }); };
+      let asked = 0;
+      page.on("dialog", (d) => { asked++; void d.dismiss(); });
+      const note = await app.run("note.create", { title: "Gone note", body: "x" });
+      const sermon = await app.run("document.create", { kind: "sermon" });
+      await app.run("document.update", { id: sermon.id, title: "Gone sermon", kind: "sermon", body: "x" });
+      const list = await app.run("list.create", { kind: "verses", name: "Gone list" });
+      const folder = await app.run("folder.create", { name: "Gone folder" });
+      const kept = [];
+
+      // Note, from its card.
+      await go("#notes", ".work-card");
+      await page.locator("button[aria-label='Actions for Gone note']").click();
+      await page.locator(".popover button", { hasText: /^Delete$/ }).click();
+      await bin("Gone note").waitFor({ timeout: 5000 });
+      // Sermon, from its row.
+      await go("#sermons", ".sermon-table");
+      await page.locator("button[aria-label='Actions for Gone sermon']").click();
+      await page.locator(".popover button", { hasText: /^Delete$/ }).click();
+      await bin("Gone sermon").waitFor({ timeout: 5000 });
+      // List: no question, same notice.
+      await go("#lists", "main");
+      await page.locator("main button", { hasText: "Gone list" }).first().click();
+      await page.locator("main button", { hasText: "Delete list" }).first().click();
+      await bin("Gone list").waitFor({ timeout: 5000 });
+      // Folder.
+      await go("#notes", ".work-card, .work-side");
+      await page.locator("button[aria-label='Actions for Gone folder']").click();
+      await page.locator(".popover button", { hasText: "Delete folder" }).click();
+      await page.locator(".msg", { hasText: "\"Gone folder\" went to the bin." }).first().waitFor({ timeout: 5000 });
+      t.assert.equal(asked, 0, "none of the four asked a question first");
+      await t.shot();
+      await looks(t, "delete-notice");
+
+      // Undo brings each back, with the same words.
+      await go("#lists", "main");
+      await bin("Gone list").locator("button", { hasText: "Undo" }).click();
+      await page.locator(".msg", { hasText: "\"Gone list\" is back." }).first().waitFor({ timeout: 5000 });
+      await go("#sermons", ".sermon-table");
+      await bin("Gone sermon").locator("button", { hasText: "Undo" }).click();
+      await page.locator(".msg", { hasText: "\"Gone sermon\" is back." }).first().waitFor({ timeout: 5000 });
+      await go("#notes", ".work-side");
+      await bin("Gone note").locator("button", { hasText: "Undo" }).click();
+      await page.locator(".msg", { hasText: "\"Gone note\" is back." }).first().waitFor({ timeout: 5000 });
+      const back = await app.run("bin.list", {});
+      t.assert.ok(!back.some((e) => ["Gone note", "Gone sermon", "Gone list"].includes(e.title)), "Undo took them out of the bin");
+
+      // The notices clear themselves (all four started together; wait once).
+      await go("#notes", ".work-side");
+      await page.locator("button[aria-label='Actions for Gone note']").click();
+      await page.locator(".popover button", { hasText: /^Delete$/ }).click();
+      await bin("Gone note").waitFor({ timeout: 5000 });
+      await page.waitForFunction(() => ![...document.querySelectorAll(".msg")].some((e) => e.textContent.includes("went to the bin")), null, { timeout: 25000 });
+
+      // A reading plan cannot go to the bin, so it asks, and says so plainly.
+      const plan = await app.run("plan.create", { template: "nt-90" });
+      await go("#plans", "main");
+      let said = "";
+      page.removeAllListeners("dialog");
+      page.once("dialog", (d) => { said = d.message(); void d.accept(); });
+      await page.locator(`button[aria-label^='Delete ']`).first().click();
+      await page.locator(".msg", { hasText: "deleted for good" }).first().waitFor({ timeout: 5000 });
+      t.assert.ok(/for good/.test(said) && /bin/.test(said) && !/goes to the bin/.test(said), `the plan question is plain: ${said}`);
+      void kept; void plan; void folder; void list; void sermon; void note;
+    },
+  },
 ];
 
 // openNothingToPrint puts the Reader in Study mode with a Library browser tab selected: a pane with nothing to print.
