@@ -110,7 +110,7 @@ export default [
     },
   },
   {
-    row: "Delete: notes, sermons, folders and lists all go to the bin at once with the same notice and Undo that clears itself; a reading plan asks first and says it is deleted for good",
+    row: "Delete: notes, sermons, folders and lists all go to the bin at once with the same notice and Undo that clears itself (reading plans have their own check)",
     shot: "qol2-delete.png",
     timeout: 240000,
     async run(t) {
@@ -170,16 +170,7 @@ export default [
       await bin("Gone note").waitFor({ timeout: 5000 });
       await page.waitForFunction(() => ![...document.querySelectorAll(".msg")].some((e) => e.textContent.includes("went to the bin")), null, { timeout: 25000 });
 
-      // A reading plan cannot go to the bin, so it asks, and says so plainly.
-      const plan = await app.run("plan.create", { template: "nt-90" });
-      await go("#plans", "main");
-      let said = "";
-      page.removeAllListeners("dialog");
-      page.once("dialog", (d) => { said = d.message(); void d.accept(); });
-      await page.locator(`button[aria-label^='Delete ']`).first().click();
-      await page.locator(".msg", { hasText: "deleted for good" }).first().waitFor({ timeout: 5000 });
-      t.assert.ok(/for good/.test(said) && /bin/.test(said) && !/goes to the bin/.test(said), `the plan question is plain: ${said}`);
-      void kept; void plan; void folder; void list; void sermon; void note;
+      void kept; void folder; void list; void sermon; void note;
     },
   },
   {

@@ -100,7 +100,7 @@ async function preset(t, c, r) {
   await t.settled();
 }
 
-export default SIZES.flatMap(([w, h]) => THEMES.map((theme) => ({
+export default [...SIZES.flatMap(([w, h]) => THEMES.map((theme) => ({
   row: `Layout sanity at ${w} x ${h}, ${theme}: every main view fits, panes fill their grid, nothing overlaps or sticks out`,
   shot: `ls-${w}x${h}-${theme}.png`,
   timeout: 420000,
@@ -184,4 +184,58 @@ export default SIZES.flatMap(([w, h]) => THEMES.map((theme) => ({
     if (problems.length) console.log(`      layout problems at ${w} x ${h}, ${theme}:\n        ${problems.join("\n        ")}`);
     t.assert.deepEqual(problems, [], `${problems.length} layout problems at ${w} x ${h}, ${theme}:\n  ${problems.join("\n  ")}`);
   },
-})));
+}))),
+  // Settings in the narrow window: every section, with the study tools open and closed, keeps a readable column.
+  ...THEMES.map((theme) => ({
+    row: `Layout sanity, Settings at 900 x 700, ${theme}: every section with the right sidebar open and closed has a readable column, no sideways scroll and no squeezed text`,
+    shot: `ls-settings-900x700-${theme}.png`,
+    timeout: 420000,
+    async run(t) {
+      const { page, app } = t;
+      const problems = [];
+      const tools = page.locator(".rail-tools:visible").first();
+      const sidebar = async (open) => {
+        if ((await tools.getAttribute("aria-pressed") === "true") !== open) await tools.click();
+        await page.waitForFunction((o) => (document.querySelector("#rightbar")?.getClientRects().length > 0) === o, open, { timeout: 5000 });
+        await page.waitForTimeout(250);
+      };
+      const wasOpen = (await tools.getAttribute("aria-pressed")) === "true";
+      try {
+        await app.resize(900, 700);
+        await page.emulateMedia({ colorScheme: theme });
+        for (const open of [true, false]) {
+          await sidebar(open);
+          for (const id of SETTINGS) {
+            await page.evaluate((x) => { location.hash = x; }, `#settings/${id}`);
+            await page.locator(".settings-section:visible").first().waitFor({ timeout: 15000 });
+            await t.settled();
+            const found = await page.evaluate(() => {
+              const P = [];
+              const sec = [...document.querySelectorAll(".settings-section")].find((e) => e.getClientRects().length);
+              const w = Math.round(sec.getBoundingClientRect().width);
+              if (w < 400) P.push(`the content column is ${w}px wide`);
+              if (document.documentElement.scrollWidth > innerWidth + 1) P.push(`the page scrolls sideways (${document.documentElement.scrollWidth} > ${innerWidth})`);
+              for (const e of sec.querySelectorAll("p, label, dd, li, summary, small, span, h3")) {
+                if (!e.getClientRects().length) continue;
+                const own = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();
+                const r = e.getBoundingClientRect();
+                if (own.length >= 30 && r.width < 140) P.push(`text squeezed to ${Math.round(r.width)}px: "${own.slice(0, 40)}"`);
+              }
+              return P;
+            });
+            for (const p of found) problems.push(`${id}, sidebar ${open ? "open" : "closed"}: ${p}`);
+            await app.shot(`ls-settings-900x700-${theme}-${id}-${open ? "open" : "closed"}.png`);
+          }
+        }
+      } finally {
+        await sidebar(wasOpen).catch(() => {});
+        await page.emulateMedia({ colorScheme: null }).catch(() => {});
+        await app.resize(1480, 950).catch(() => {});
+      }
+      if (problems.length) console.log(`      settings layout problems, ${theme}:` + problems.map((p) => `
+        ${p}`).join(""));
+      t.assert.deepEqual(problems, [], `${problems.length} settings layout problems, ${theme}:` + problems.map((p) => `
+  ${p}`).join(""));
+    },
+  })),
+];

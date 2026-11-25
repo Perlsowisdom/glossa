@@ -3,6 +3,7 @@
 // what is sent and where. When on, a check says whether it works; a key, if one is needed or useful,
 // is one step away and goes to the system keychain (never shown back).
 
+import { ask } from "../ask";
 import { run } from "../api";
 import {
   ConnectionInfo, TestOutcome, failureText, howItSignsIn, keyShownByDefault, keyState, statusOf, switchHint, switchLabel, whatItDoes,
@@ -120,7 +121,7 @@ export function connectionsSection(): { el: HTMLElement; show: () => void; focus
       h("div", { class: "row wrap" },
         h("button", { type: "submit", class: "primary" }, "Save key"),
         c.key_set ? button("Remove key", async () => {
-          if (!confirm(`Remove the ${c.key!.label} from this computer?`)) return;
+          if (!(await ask(`Remove the ${c.key!.label}?`, "It is taken out of your system keychain. You will need to paste it again to use this connection.", "Remove"))) return;
           try { await run("connect.clear_key", { id: c.id }); say("Key removed."); } catch (e) { say(failureText(e), "error"); }
           await check(c.id);
         }, { class: "danger" }) : null));

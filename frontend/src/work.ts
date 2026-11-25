@@ -1,11 +1,11 @@
 // Pieces My work's views share: the folder list (folder.list, kept fresh), the "work changed" signal
 // that keeps the column's counts and the open view in step, moving an item to a folder by menu or by
-// drag and drop, and the question asked before something is deleted for good.
+// drag and drop, and where My work meets the bin.
 
 import { Message, run } from "./api";
 import { button, h } from "./dom";
 import { icon } from "./icons";
-import { closePopover, openPopover } from "./popover";
+import { openPopover } from "./popover";
 import { DRAG_TYPE } from "./document/drag";
 import type { TabSpec } from "./document/grid";
 import { FolderRow, folderPath, moveTargets } from "./workwords";
@@ -113,29 +113,6 @@ export function droppedItem(e: DragEvent): WorkItem | null {
 
 export function carriesItem(e: DragEvent): boolean {
   return !!e.dataTransfer?.types.includes(ITEM_TYPE);
-}
-
-// Asking first ---------------------------------------------------------------------------------------
-
-// confirmDanger asks a yes-or-no question in a dialog, with the dangerous answer named plainly.
-export function confirmDanger(title: string, text: string, yes: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const no = button("Cancel", () => done(false));
-    const ok = button(yes, () => done(true), { class: "danger-solid" });
-    const tid = "confirm-" + Math.random().toString(36).slice(2);
-    const dlg = h("dialog", { class: "confirm", "aria-labelledby": tid },
-      h("h2", { id: tid }, title), h("p", {}, text), h("div", { class: "row confirm-actions" }, no, ok));
-    dlg.addEventListener("cancel", (e) => { e.preventDefault(); done(false); });
-    document.body.append(dlg);
-    closePopover();
-    dlg.showModal();
-    no.focus();
-    function done(v: boolean) {
-      dlg.close();
-      dlg.remove();
-      resolve(v);
-    }
-  });
 }
 
 // itemMenuButton is the ⋯ button that opens an item's menu.

@@ -159,7 +159,7 @@ export function editedText(ms: number, now = Date.now()): string {
 // The bin and + New -----------------------------------------------------------------------------
 
 export interface BinEntry {
-  kind: "folder" | "note" | "document" | "list";
+  kind: "folder" | "note" | "document" | "list" | "plan";
   id: string;
   title: string;
   sort?: string;
@@ -176,6 +176,7 @@ export function binKind(e: BinEntry): string {
   if (e.kind === "folder") return "Folder";
   if (e.kind === "note") return "Note";
   if (e.kind === "document") return DOC_NAMES[e.sort ?? ""] ?? "Sermon";
+  if (e.kind === "plan") return "Reading plan";
   return LIST_NAMES[e.sort ?? ""] ?? "List";
 }
 

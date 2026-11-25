@@ -95,6 +95,7 @@ describe("cards and the bin", () => {
     expect(purgeQuestion(note)).toBe(`Delete "Untitled note" for good? This cannot be undone.`);
     expect(binKind({ kind: "document", id: "d", title: "x", sort: "lesson", deleted_at: 1 })).toBe("Lesson");
     expect(binKind({ kind: "list", id: "l", title: "x", sort: "words", deleted_at: 1 })).toBe("Word list");
+    expect(binKind({ kind: "plan", id: "p", title: "90 days", deleted_at: 1 })).toBe("Reading plan");
     expect(binContents({ ...folder, folders: 0, notes: 0, documents: 0 })).toBe("Empty");
   });
   it("offers the matching thing first in + New", () => {

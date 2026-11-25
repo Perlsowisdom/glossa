@@ -613,3 +613,71 @@ func TestEverythingTheFolderHoldsIsEncrypted(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A reading plan goes to the bin and comes back, or is deleted for good, on every device, with the
+// rows of its days.
+func TestPlanBinRestoreAndPurgePropagate(t *testing.T) {
+	folder := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	a.connect(folder)
+	b.connect(folder)
+	a.at(1000).write("plan.create", func(tx *store.Tx) error {
+		if err := tx.Create("reading_plans", store.Row{"id": "P1", "name": "Gospels", "weekdays": int64(127), "created_at": int64(1)}); err != nil {
+			return err
+		}
+		if err := tx.Create("plan_schedule", store.Row{"plan_id": "P1", "day_no": int64(1), "day_date": "2026-01-01"}); err != nil {
+			return err
+		}
+		if err := tx.Create("plan_days", store.Row{"plan_id": "P1", "day_no": int64(1), "verse_start": int64(43001001), "verse_end": int64(43001051)}); err != nil {
+			return err
+		}
+		return tx.Create("plan_progress", store.Row{"plan_id": "P1", "day_no": int64(1), "completed_at": int64(5)})
+	})
+	a.sync()
+	b.at(1500).sync()
+	count := func(d *dev, q string) int {
+		var n int
+		if err := d.st.QueryRow(context.Background(), q).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	a.at(2000).write("plan.delete", func(tx *store.Tx) error { return tx.Delete("reading_plans", store.ByID("P1")) })
+	a.sync()
+	b.at(2500).sync()
+	if count(b, `SELECT COUNT(*) FROM reading_plans WHERE deleted_at IS NOT NULL`) != 1 {
+		t.Fatal("B should have the plan in its bin")
+	}
+	a.at(3000).write("bin.restore", func(tx *store.Tx) error {
+		return tx.Update("reading_plans", store.ByID("P1"), store.Row{"deleted_at": nil})
+	})
+	a.sync()
+	b.at(3500).sync()
+	if count(b, `SELECT COUNT(*) FROM reading_plans WHERE deleted_at IS NULL`) != 1 {
+		t.Fatal("B should have the plan back")
+	}
+	a.at(4000).write("plan.delete", func(tx *store.Tx) error { return tx.Delete("reading_plans", store.ByID("P1")) })
+	a.at(4500).write("bin.purge", func(tx *store.Tx) error {
+		for _, p := range []struct {
+			table string
+			key   store.Row
+		}{
+			{"plan_progress", store.Row{"plan_id": "P1", "day_no": int64(1)}},
+			{"plan_days", store.Row{"plan_id": "P1", "day_no": int64(1), "verse_start": int64(43001001)}},
+			{"plan_schedule", store.Row{"plan_id": "P1", "day_no": int64(1)}},
+			{"reading_plans", store.ByID("P1")},
+		} {
+			if err := tx.Purge(p.table, p.key); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	a.sync()
+	b.at(5000).sync()
+	for _, q := range []string{`reading_plans`, `plan_days`, `plan_schedule`, `plan_progress`} {
+		if n := count(b, `SELECT COUNT(*) FROM `+q); n != 0 {
+			t.Fatalf("B still has %d rows in %s after the purge", n, q)
+		}
+	}
+}

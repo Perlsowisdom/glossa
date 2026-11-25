@@ -29,13 +29,13 @@ it (`none` for things in no folder).
 
 ## The bin
 
-Deleted notes, documents, lists and folders wait in the bin until they are restored or deleted for good.
+Deleted notes, documents, lists, reading plans and folders wait in the bin until they are restored or deleted for good.
 
 | Command | What it does |
 | --- | --- |
 | `bin.list` | What is in the bin, most recently deleted first. A deleted folder is one entry, with counts of the subfolders, notes and documents deleted with it |
-| `bin.restore` | Bring back a `kind` (`folder`, `note`, `document` or `list`) and `id`. A folder comes back with what was deleted with it |
-| `bin.purge` | Delete one entry for good, with everything it holds. This cannot be undone |
+| `bin.restore` | Bring back a `kind` (`folder`, `note`, `document`, `list` or `plan`) and `id`. A folder comes back with what was deleted with it |
+| `bin.purge` | Delete one entry for good, with everything it holds (a reading plan: its days, readings and progress). This cannot be undone |
 
 What went into the bin with a folder is what `folder.delete` deleted: the folder is deleted first, so
 everything deleted with it has a `deleted_at` no earlier than the folder's. A note deleted on its own

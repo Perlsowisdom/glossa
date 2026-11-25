@@ -76,3 +76,33 @@ One full run (no `--no-build`, layout-sanity included): 89 passed, 0 failed of 8
 `qol2.e2e.mjs` passed first time in that run; each had been seen to fail on the old build before its fix, and the
 batch 1 list-question check was replaced by the delete check). `go vet ./...`, `go test ./...` and `gofmt` were
 clean; vitest 383 tests passed.
+
+## Items 12 to 15 fixed in pass 3 (branch m3/qol3)
+
+Each has a check in `frontend/e2e/qol3.e2e.mjs` (or `layout-sanity.e2e.mjs`), run first against the old code and seen to
+fail, then after the fix. Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 816 and 900 x 700,
+light and dark (`plan-bin-notice`, `plan-in-bin`, `sync-strength`, `own-dialog`; the Settings audit saves
+`ls-settings-900x700-<theme>-<section>-<open|closed>.png`).
+
+| # | Severity | Cause | Fix | Check (failed first) |
+| --- | --- | --- | --- | --- |
+| 12 | annoying | The bin knew four kinds (folder, note, document, list); a reading plan was soft-deleted with nowhere to be restored from, so batch 2 asked a native "for good" question. | `reading_plans` joins the bin: `bin.list` returns `kind: plan`, `bin.restore` brings it back, `bin.purge` removes the plan and its days, readings and progress rows and erases their history values (ADR 0010). **No schema change**: `reading_plans` already had `deleted_at`, and sync carries a delete, restore (update of `deleted_at`) and purge of a plan and its child rows like the other types. The Plans page uses the shared notice and Undo; the Bin page names it "Reading plan". | Go: `TestPlanGoesToBinRestoresAndPurges`, sync: `TestPlanBinRestoreAndPurgePropagate`. Real app: "Reading plans: Delete goes to the bin ..." (the old build asked a native question and never showed the notice). Replaces the plan half of the batch 2 delete check. |
+| 13 | cosmetic | The badge says "Strong" and the hint said "Strong." as well; weaker ones read "Weak Weak: ...". | `strengthAdvice` drops the word the badge already says: "Strong" and "Good" stand alone, "Weak" is followed by the advice only. | vitest `strengthAdvice`; real app "Settings, Sync: the password strength line says each word once" (read "Strong Strong."). |
+| 14 | annoying | The page list took 170 to 210 px beside the settings, so with the study tools open (and a 900 px window) the column was 243 px and rows squeezed their text to 0 to 150 px. | The Settings page is a container: below 640 px wide the page list goes on top (a row per group) and each setting's text and control wrap. | New rows in `layout-sanity.e2e.mjs`: every section at 900 x 700, sidebar open and closed, light and dark; column at least 400 px, no sideways scroll, no text block of 30+ characters narrower than 140 px (28 problems before, 0 after). |
+| 15 | annoying | Library remove folder, Bible remove, Connections and API.Bible key removal, Sync turn off and forget device, merge an export, delete a collection, Logos import and undo, and turn off the Bible catalogues called the browser's `confirm()`. | A new `ask()` dialog (`ask.ts`, the one the Bin already used) asks in plain words for removing a folder, a Bible or a key, turning sync off, forgetting a device and merging an export. Deleting a collection (it already offered Undo), taking a Logos import back (it goes to the bin), the Logos import (the page now says what it does) and turning off the catalogues (the switch turns them on) just do it. | vitest `nonative.test.ts` (11 hits before) and a real-app row that reads the source; "No native box: Library, Sync, Bibles and Settings ..." (no dialog opened before); the Connections Remove key check in `connect.e2e.mjs` records any native dialog. |
+
+## New things noticed in pass 3 (not fixed)
+
+| # | Severity | Steps | What happens | What should happen |
+| --- | --- | --- | --- | --- |
+| 16 | cosmetic | Delete a collection | It says `Deleted X. Undo` and brings it back from the change history; the other things say `"X" went to the bin.` | Collections as a bin type, so the notice matches. A Go change like item 12. |
+| 17 | cosmetic | Go test `TestDeleteFolderGoesToBinWithItsContents`, rarely | A note deleted in the same millisecond as its folder is counted as deleted with it (the bin compares `deleted_at >= `), so the test failed once in about ten runs. | A note deleted on its own just before its folder should not depend on the clock tick. Not seen by a person. |
+| 18 | cosmetic | `plan.mark`, `plan.unmark` or `plan.reschedule` with the id of a plan in the bin | The write happens, then the command answers "no reading plan". | Refuse before writing. Command-line and MCP only. |
+| 19 | cosmetic | The batch 2 "Delete ..." check, run alone with a word filter | It needs the Sermons table an earlier check leaves behind and times out. It passes in the file or the full run. | Make it set up what it needs. |
+| 20 | cosmetic | Sync, Forget this device | The question is now the app's own dialog but only the code and the vitest grep cover it: it needs a second device. | A two-device check (the `sync` file already has both). |
+
+### After pass 3
+
+One full run (no `--no-build`, layout-sanity included): 95 passed, 0 failed of 95 checks (six new: the plan bin, the
+strength line, the native-box check, the source check, and the two Settings layout rows). `gofmt`, `go vet ./...` and
+`go test ./...` were clean; vitest 384 tests passed.

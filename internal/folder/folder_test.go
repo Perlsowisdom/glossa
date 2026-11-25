@@ -10,6 +10,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/document"
+	"github.com/Perlsowisdom/glossa/internal/plan"
 	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
@@ -305,5 +306,52 @@ func TestPurgeFolderNoteDocumentAndList(t *testing.T) {
 	e.must("document.create", map[string]any{"title": "Keep"}, &live)
 	if err := e.run("bin.purge", map[string]any{"kind": "document", "id": live.ID}, nil); code(err) != "bad_params" {
 		t.Fatalf("purge a live document: %v", err)
+	}
+}
+
+func TestPlanGoesToBinRestoresAndPurges(t *testing.T) {
+	e := setup(t)
+	plan.Register(e.r)
+	ctx := context.Background()
+	var p plan.Plan
+	e.must("plan.create", map[string]any{"template": "gospels-30"}, &p)
+	e.must("plan.mark", map[string]any{"plan_id": p.ID}, nil)
+	e.must("plan.delete", map[string]any{"id": p.ID}, nil)
+
+	bin := binOf(e)
+	if len(bin) != 1 || bin[0].Kind != "plan" || bin[0].ID != p.ID || bin[0].Title != p.Name {
+		t.Fatalf("bin = %+v", bin)
+	}
+	var back Restored
+	e.must("bin.restore", map[string]any{"kind": "plan", "id": p.ID}, &back)
+	if back.Plans != 1 {
+		t.Fatalf("restored = %+v", back)
+	}
+	var ps []plan.Plan
+	e.must("plan.list", map[string]any{}, &ps)
+	if len(ps) != 1 || ps[0].ID != p.ID || ps[0].DaysDone != 1 || len(binOf(e)) != 0 {
+		t.Fatalf("plans after restore = %+v", ps)
+	}
+
+	e.must("plan.delete", map[string]any{"id": p.ID}, nil)
+	var gone Purged
+	e.must("bin.purge", map[string]any{"kind": "plan", "id": p.ID}, &gone)
+	if gone.Plans != 1 {
+		t.Fatalf("purged = %+v", gone)
+	}
+	for _, q := range []string{
+		`SELECT COUNT(*) FROM reading_plans`, `SELECT COUNT(*) FROM plan_days`,
+		`SELECT COUNT(*) FROM plan_schedule`, `SELECT COUNT(*) FROM plan_progress`,
+		`SELECT COUNT(*) FROM changes WHERE object_type IN ('reading_plans', 'plan_days', 'plan_schedule', 'plan_progress') AND (before_json IS NOT NULL OR after_json IS NOT NULL)`,
+	} {
+		var c int
+		if err := e.st.QueryRow(ctx, q).Scan(&c); err != nil || c != 0 {
+			t.Fatalf("%s = %d, %v", q, c, err)
+		}
+	}
+	var live plan.Plan
+	e.must("plan.create", map[string]any{"template": "gospels-30"}, &live)
+	if err := e.run("bin.purge", map[string]any{"kind": "plan", "id": live.ID}, nil); code(err) != "bad_params" {
+		t.Fatalf("purge a live plan: %v", err)
 	}
 }

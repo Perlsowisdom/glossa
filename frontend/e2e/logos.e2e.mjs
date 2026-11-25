@@ -8,10 +8,6 @@ import { makeLogosFolder } from "./logosfixture.mjs";
 let root;
 let bible; // an installed Bible the fixture sermon quotes
 
-// accept answers the next confirmation the page asks, and gives back what it said.
-function acceptNext(page) {
-  return new Promise((resolve) => page.once("dialog", async (d) => { const m = d.message(); await d.accept(); resolve(m); }));
-}
 
 async function openCard(t) {
   const { page } = t;
@@ -79,9 +75,11 @@ export default [
       const beforeNotes = await app.run("note.list", { limit: 1000 });
       const before = beforeNotes.length;
       const card = await openCard(t);
-      const asked = acceptNext(page);
+      t.assert.match(await card.innerText(), /Nothing in Logos changes/, "the reassurance is on the page, not in a box");
+      let native = 0;
+      page.once("dialog", (d) => { native++; void d.accept(); });
       await card.locator("#logos-import").click();
-      t.assert.match(await asked, /Nothing in Logos changes/);
+      t.assert.equal(native, 0, "no native question");
       await card.locator(".logos-report").waitFor({ timeout: 30000 });
       const report = await card.locator(".logos-report").innerText();
       t.assert.match(report, /Notes: 2 added/, report);

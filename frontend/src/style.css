@@ -825,6 +825,18 @@ details.more summary { cursor: pointer; color: var(--accent); }
 
 /* Settings (views/settings.ts) */
 .settings-body { display: grid; grid-template-columns: minmax(170px, 210px) minmax(0, 1fr); gap: 28px; align-items: start; }
+/* When the page itself is narrow (a small window, or the study tools open beside it), the list of pages goes on top
+   instead of taking a column from the settings. */
+.view.settings { container: settings / inline-size; }
+@container settings (max-width: 640px) {
+  .settings-body { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .settings-nav { position: static; display: flex; flex-direction: column; gap: 4px; }
+  .settings-group { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+  .settings-group h2, .settings-group:first-child h2 { margin: 0 6px 0 0; }
+  .settings-group ul { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+  .settings-section .setting { flex-wrap: wrap; gap: 8px 24px; }
+  .settings-section .setting-text { flex: 1 1 14rem; }
+}
 .settings-nav { position: sticky; top: 0; }
 .settings-group h2 { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 14px 0 4px; }
 .settings-group:first-child h2 { margin-top: 0; }

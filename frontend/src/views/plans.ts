@@ -4,7 +4,7 @@
 import { printExportButton } from "../printexport";
 import { ItemSummary, Message, run } from "../api";
 import { button, clear, field, h, select } from "../dom";
-import { forGoodNotice, forGoodQuestion } from "../deletewords";
+import { binned } from "../deletenotice";
 import { chip } from "../controls";
 import { todayBlock, openReading } from "../plancard";
 import {
@@ -104,11 +104,10 @@ export function plansView() {
   }
 
   async function remove(p: PlanInfo) {
-    if (!confirm(forGoodQuestion(p.name, "Reading plans"))) return;
     if ((await msg.attempt(() => run("plan.delete", { id: p.id }))) !== undefined) {
       if (open === p.id) open = null;
-      msg.ok(forGoodNotice(p.name));
       refresh();
+      binned(msg, p.name, () => run("bin.restore", { kind: "plan", id: p.id }), refresh);
     }
   }
 

@@ -216,8 +216,6 @@ export function collectionsSidebar(d: SidebarDeps) {
 
   async function remove(n: CollectionNode) {
     const inner = collect(n);
-    const extra = inner.length > 1 ? ` The ${inner.length - 1} ${inner.length === 2 ? "collection" : "collections"} inside it go too.` : "";
-    if (!confirm(`Delete ${n.name}?${extra} Your books are not deleted.`)) return;
     if (!(await msg.attempt(() => run("collection.delete", { id: n.id })))) return;
     current = null;
     await reload();
@@ -238,7 +236,8 @@ export function collectionsSidebar(d: SidebarDeps) {
       await reload();
       d.changed();
     }, { class: "link" });
-    msg.info(`Deleted ${name}. `);
+    const inside = ids.length > 1 ? ` and the ${ids.length - 1} ${ids.length === 2 ? "collection" : "collections"} inside it` : "";
+    msg.info(`Deleted ${name}${inside}. Your books are not deleted. `);
     msg.el.append(undo);
   }
 

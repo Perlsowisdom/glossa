@@ -3,7 +3,7 @@
 Plans are made by the commands `plan.templates`, `plan.create`, `plan.list`, `plan.today`, `plan.days`,
 `plan.mark`, `plan.unmark`, `plan.reschedule` and `plan.delete`. Every write goes through `store.Write` and
 is logged. Plans are included in `export.data` and `import.data` (the `reading_plan` group, including each
-day's date).
+day's date). `plan.delete` puts a plan in the bin (`bin.list`, `bin.restore`, `bin.purge`; see folders.md); `plan.list` and the other plan commands no longer show it.
 
 ## Storage
 

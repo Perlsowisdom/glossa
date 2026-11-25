@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advice, conflictLine, countsText, indicator, lastSyncText, percent, previewSentences, progressText, sizeText } from "./syncwords";
+import { advice, conflictLine, countsText, indicator, lastSyncText, percent, previewSentences, progressText, sizeText, strengthAdvice } from "./syncwords";
 import type { SyncPreview, SyncStatus } from "./syncwords";
 
 const status = (o: Partial<SyncStatus> = {}): SyncStatus => ({
@@ -80,5 +80,14 @@ describe("conflictLine", () => {
     const c = { id: "1", object_type: "notes", object_id: "n", field: "body", change_id: "c", device: "d2", text: "", note: "Changed on Office desk too", created_at: 0 };
     expect(conflictLine(c)).toBe("Two devices changed this note. The newer edit is shown; the one from Office desk is kept in its history.");
     expect(conflictLine({ ...c, note: "" })).toBe("Two devices changed this note. The newer edit is shown; the other one is kept in its history.");
+  });
+});
+
+describe("password strength line", () => {
+  it("says the word once and keeps only advice the badge does not give", () => {
+    expect(strengthAdvice("Strong", "Strong.")).toBe("");
+    expect(strengthAdvice("Good", "Good.")).toBe("");
+    expect(strengthAdvice("Weak", "Weak: a longer password, or a few random words, is much stronger.")).toBe("A longer password, or a few random words, is much stronger.");
+    expect(strengthAdvice("Too short", "Too short: use at least 8 characters.")).toBe("Use at least 8 characters.");
   });
 });
