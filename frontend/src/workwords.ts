@@ -159,7 +159,7 @@ export function editedText(ms: number, now = Date.now()): string {
 // The bin and + New -----------------------------------------------------------------------------
 
 export interface BinEntry {
-  kind: "folder" | "note" | "document" | "list" | "plan";
+  kind: "folder" | "note" | "document" | "list" | "plan" | "collection";
   id: string;
   title: string;
   sort?: string;
@@ -167,6 +167,7 @@ export interface BinEntry {
   folders?: number;
   notes?: number;
   documents?: number;
+  collections?: number;
 }
 
 const DOC_NAMES: Record<string, string> = { sermon: "Sermon", lesson: "Lesson", study: "Bible study" };
@@ -177,6 +178,7 @@ export function binKind(e: BinEntry): string {
   if (e.kind === "note") return "Note";
   if (e.kind === "document") return DOC_NAMES[e.sort ?? ""] ?? "Sermon";
   if (e.kind === "plan") return "Reading plan";
+  if (e.kind === "collection") return "Collection";
   return LIST_NAMES[e.sort ?? ""] ?? "List";
 }
 
@@ -188,6 +190,7 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 // binContents says what a deleted folder took with it, or "" when it was empty.
 export function binContents(e: BinEntry): string {
+  if (e.kind === "collection") return e.collections ? `With ${count(e.collections, "collection", "collections")} inside it` : "";
   if (e.kind !== "folder") return "";
   const parts: string[] = [];
   if (e.folders) parts.push(count(e.folders, "folder", "folders"));
@@ -201,6 +204,9 @@ export function binContents(e: BinEntry): string {
 export function purgeQuestion(e: BinEntry): string {
   const what = `"${binTitle(e)}"`;
   const inside = binContents(e);
+  if (e.kind === "collection") {
+    return `Delete the collection ${what}${e.collections ? ` and the ${count(e.collections, "collection", "collections")} inside it` : ""} for good? Your books are not deleted. This cannot be undone.`;
+  }
   return e.kind === "folder" && inside !== "Empty"
     ? `Delete the folder ${what} and everything in it for good? ${inside.replace(/^With/, "That is")}. This cannot be undone.`
     : `Delete ${what} for good? This cannot be undone.`;

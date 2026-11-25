@@ -98,6 +98,14 @@ describe("cards and the bin", () => {
     expect(binKind({ kind: "plan", id: "p", title: "90 days", deleted_at: 1 })).toBe("Reading plan");
     expect(binContents({ ...folder, folders: 0, notes: 0, documents: 0 })).toBe("Empty");
   });
+  it("describes a collection in the bin", () => {
+    const c: BinEntry = { kind: "collection", id: "c", title: "Reformed", deleted_at: 1, collections: 2 };
+    expect(binKind(c)).toBe("Collection");
+    expect(binContents(c)).toBe("With 2 collections inside it");
+    expect(binContents({ ...c, collections: 0 })).toBe("");
+    expect(purgeQuestion(c)).toBe(`Delete the collection "Reformed" and the 2 collections inside it for good? Your books are not deleted. This cannot be undone.`);
+    expect(purgeQuestion({ ...c, collections: 0 })).toBe(`Delete the collection "Reformed" for good? Your books are not deleted. This cannot be undone.`);
+  });
   it("offers the matching thing first in + New", () => {
     expect(newChoices("notes", "Romans")).toEqual([{ kind: "note", label: "Note in Romans" }, { kind: "handwritten", label: "Handwritten note in Romans" }, { kind: "sermon", label: "Sermon in Romans" }]);
     expect(newChoices("sermons").map((c) => c.label)).toEqual(["Sermon", "Note", "Handwritten note"]);
