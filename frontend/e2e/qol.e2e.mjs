@@ -239,4 +239,19 @@ export default [
       t.assert.ok(/bin/.test(said) && !/change history/.test(said), `the question says where the list goes: ${said}`);
     },
   },
+  {
+    row: "Sermons: choosing Sermons in My work while a sermon is open goes back to the list",
+    shot: "qol-sermons-list.png",
+    async run(t) {
+      const { page, app } = t;
+      const d = await app.run("document.create", { kind: "sermon" });
+      await app.run("document.update", { id: d.id, title: "List me", kind: "sermon", body: "Text" });
+      await page.evaluate((id) => { location.hash = `#sermons/${id}`; }, d.id);
+      await t.current(".sermon-layout");
+      await page.locator(".work-side a", { hasText: "Sermons" }).click();
+      await page.locator(".sermon-table").waitFor({ state: "visible", timeout: 5000 });
+      await page.locator("tr", { hasText: "List me" }).first().waitFor({ timeout: 5000 });
+      t.assert.equal(await page.locator(".sermon-layout:visible").count(), 0, "the sermon page is closed");
+    },
+  },
 ];

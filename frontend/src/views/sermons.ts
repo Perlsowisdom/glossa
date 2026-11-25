@@ -208,12 +208,17 @@ export function sermonsView() {
   return {
     el,
     focus: () => (page ? page.focus() : query.focus()),
-    show: async () => {
+    show: async (again?: boolean) => {
       // #sermons/<id> opens one document's builder, so links and scripts can point at it.
       const asked = sermonAddress(location.hash);
       if (asked) {
         history.replaceState(null, "", "#sermons");
         await openBuilder(asked.id, asked.fresh);
+        return;
+      }
+      // Choosing Sermons while a sermon is open goes back to the list.
+      if (again && openId) {
+        await closeBuilder();
         return;
       }
       if (!openId) await refresh();
