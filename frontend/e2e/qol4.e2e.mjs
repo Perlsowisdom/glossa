@@ -1,4 +1,8 @@
 // Quality pass 4 checks (branch m3/qol4): the open items from docs/qol-audit.md, each shown failing first.
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { startApp } from "./app.mjs";
 import { looks } from "./qol.e2e.mjs";
 
 export default [
@@ -105,6 +109,74 @@ export default [
       t.assert.ok(!(await app.run("bin.list", {})).some((e) => e.id === coll.id), "gone from the bin");
       t.assert.equal(await here(), false, "and not in the Library");
       t.assert.equal(asked, 0, "no native dialog the whole way");
+    },
+  },
+  {
+    row: "Sync, Forget this device: the app's own question (Cancel changes nothing), then the other device is removed from the folder and can no longer sync",
+    shot: "qol4-forget-device.png",
+    timeout: 400000,
+    async run(t) {
+      const PASSWORD = "forget this device 12345";
+      const folder = mkdtempSync(join(tmpdir(), "glossa-qol4-forget-"));
+      let a = null, b = null;
+      try {
+        a = await startApp({ build: false, sweep: false, keyring: "glossa-e2e-qol4-a", name: "qol4-a", lite: true });
+        b = await startApp({ build: false, sweep: false, keyring: "glossa-e2e-qol4-b", name: "qol4-b", lite: true });
+        const native = [];
+        a.page.on("dialog", (d) => { native.push(d.message()); void d.dismiss(); });
+        // A device shows in the folder once it has sent a change, so each writes a note first.
+        await a.run("note.create", { title: "From A", body: "a" });
+        await b.run("note.create", { title: "From B", body: "b" });
+        await a.run("sync.setup", { folder, password: PASSWORD, device_name: "Laptop A" });
+        await a.run("sync.now");
+        await b.run("sync.setup", { folder, password: PASSWORD, device_name: "Desk B" });
+        await b.run("sync.now");
+        const bId = (await b.run("sync.status")).device_id;
+        await a.run("sync.now");
+        const names = async () => ((await a.run("sync.devices")).devices ?? (await a.run("sync.status")).devices ?? []).map((d) => d.name);
+        t.assert.ok((await names()).includes("Desk B"), `A sees B in the folder: ${await names()}`);
+
+        await a.page.evaluate(() => { location.hash = "#settings/sync"; });
+        const row = a.page.locator(".sync-device", { hasText: "Desk B" });
+        await row.waitFor({ timeout: 20000 });
+        const forget = row.locator("button", { hasText: "Forget this device" });
+        const dlg = a.page.locator("dialog.confirm[open]");
+
+        // Cancel: the app's own question, plain words, nothing changes.
+        await forget.click();
+        await dlg.waitFor({ timeout: 5000 });
+        const said = (await dlg.textContent()).trim();
+        t.assert.ok(/Forget Desk B\?/.test(said) && /removed from the folder/.test(said), `the question: ${said}`);
+        await a.shot("qol4-forget-device.png");
+        t.shotTaken = true;
+        await dlg.locator("button", { hasText: /^Cancel$/ }).click();
+        await dlg.waitFor({ state: "detached", timeout: 3000 });
+        t.assert.ok((await names()).includes("Desk B"), "Cancel left the device in the folder");
+        t.assert.ok(existsSync(join(folder, "Glossa Sync", bId)) || readdirSync(join(folder, "Glossa Sync")).some((n) => n.includes(bId)), "its files are still there");
+
+        // Forget: its files go, the row goes, and the page says so.
+        await forget.click();
+        await dlg.waitFor({ timeout: 5000 });
+        await dlg.locator("button", { hasText: /^Forget$/ }).click();
+        await dlg.waitFor({ state: "detached", timeout: 3000 });
+        await a.page.locator(".msg", { hasText: "Desk B was removed from the folder." }).first().waitFor({ timeout: 20000 });
+        await a.page.locator(".sync-device", { hasText: "Desk B" }).waitFor({ state: "detached", timeout: 10000 });
+        t.assert.ok(!(await names()).includes("Desk B"), "the device is gone from the list");
+        t.assert.ok(!readdirSync(join(folder, "Glossa Sync")).some((n) => n.includes(bId)), "its files left the folder");
+        t.assert.deepEqual(native, [], "no native dialog");
+
+        // The forgotten device cannot sync until it is set up again, and says so in plain words.
+        let said2 = "";
+        try { await b.run("sync.now"); } catch (e) { said2 = String(e?.message ?? e); }
+        t.assert.ok(said2 !== "", "the forgotten device's sync was refused");
+        t.assert.ok(!/undefined|\[object|ENOENT|panic/i.test(said2), `plain words: ${said2}`);
+      } finally {
+        for (const inst of [a, b]) {
+          await inst?.run("sync.stop").catch(() => {});
+          await inst?.stop().catch(() => {});
+        }
+        rmSync(folder, { recursive: true, force: true });
+      }
     },
   },
 ];
