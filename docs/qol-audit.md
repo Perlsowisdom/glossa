@@ -166,3 +166,29 @@ in `frontend/e2e/qol5.e2e.mjs`. Screenshots are `frontend/e2e/shots/qol-<name>-<
 
 One full run (no `--no-build`, layout-sanity included): 101 passed, 0 failed of 101 checks (three new in `qol5.e2e.mjs`). `gofmt`,
 `go vet ./...` and `go test ./...` were clean; vitest 385 tests passed. Migration 0017 is the new schema version.
+
+## Items 25 to 27, fixed in pass 6 (branch m3/qol6)
+
+Each has a check, run first against the old code and seen to fail. Item 25 and 26 have Go checks; item 27 has real-app checks
+in `frontend/e2e/qol6.e2e.mjs`. Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 816 and
+900 x 700, light and dark (`qol6-library-empty`, `qol6-library-books`), plus `qol6-library-empty.png` and `qol6-library-books.png`.
+No schema change.
+
+| # | Severity | Cause | Fix | Check (failed first) |
+| --- | --- | --- | --- | --- |
+| 25 | cosmetic | `bin.list` paged by offset, so a page could repeat or skip a row when the bin changed between loads. | `bin.list` takes `after_deleted_at` and `after_id` ("older than the last row shown": deleted time, then id as the tiebreak). The Bin page's Show more uses them and appends; the count stays `bin.count`. `offset` still works but is no longer used by the page. | Go `TestBinPagesByCursorWhileTheBinChanges` (30 things with ties; two restored and one newer deleted between the pages: no repeat, no gap, true count). Before the fix it failed with `unknown field "after_deleted_at"` (the cursor did not exist). |
+| 26 | cosmetic | The `joined` marker held the name once, and every sync tried to create it again. | `Engine.join` reads the marker: the same name means nothing is written; a different name replaces it (remove, then create); none creates it. | Go `TestRenamedDeviceIsListedUnderTheNewNameBeforeAnyChangeFile` (failed: the other device listed "Desktop", not the new name) and `TestSyncWritesNoJoinMarkerWhenNothingChanged` (failed: 4 creates on two syncs and two joins, want 0). |
+| 27 | cosmetic | The fold was hidden in an empty Library and, with books, sat under the book list. | The Traditions and rules fold is in the Collections column, under My collections and its New collection button, whether or not there are books. | Real app "Library, empty: the Traditions and rules fold is in the Collections column ..." (failed: fold not shown) and "Library, with books ..." (failed: fold not in the Collections column). Both pass, and a tradition can be added and removed before any import. |
+
+### After pass 6
+
+One full run (no `--no-build`, layout-sanity included): 103 passed, 0 failed of 103 checks (two new in `qol6.e2e.mjs`). `gofmt`,
+`go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
+
+## New things noticed in pass 6 (not fixed)
+
+| # | Severity | Steps | What happens | What should happen |
+| --- | --- | --- | --- | --- |
+| 29 | cosmetic | Rename a device in Sync while another device lists devices at that moment | The marker is replaced by remove then create, so for a moment the folder holds no marker for it (the device then shows under its id until the new one lands). | Write the new marker under a temporary name and rename over the old one (needs a replace call on the transport). |
+| 30 | cosmetic | Library with no books, open Traditions and rules, press "Look again at books without a type" | Not checked: the button now shows in an empty library, where there is nothing for it to look at. | Hide it or say there are no books. |
+
