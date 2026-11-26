@@ -161,3 +161,8 @@ in `frontend/e2e/qol5.e2e.mjs`. Screenshots are `frontend/e2e/shots/qol-<name>-<
 | 26 | cosmetic | Rename a device in Sync, before it has written a change file | Other devices list it by the name in its `joined` marker, which is written once, so they show the old name until the device writes a change file (which carries the current name). Each sync also tries to create the marker again (a cheap, harmless no-op). | Rewrite the marker when the device is renamed, and skip the attempt once it has written a change file. |
 | 27 | cosmetic | A new library with no books: Library | The Traditions and rules fold is hidden until the first book is added (item 21), so traditions and rules cannot be set up before importing. | Move the fold to Settings (or the Collections column) so it is reachable any time. |
 | 28 | cosmetic | Restore a folder deleted before migration 0017, in a library where times were rewritten by sync | Old rows have no batch and still use the time rule, so the old rare mix-up (a note deleted separately at nearly the same time as the folder on another device) can still happen for them. | Nothing is planned: such folders leave the bin when it is emptied. Mentioned in ADR 0015. |
+
+### After pass 5
+
+One full run (no `--no-build`, layout-sanity included): 101 passed, 0 failed of 101 checks (three new in `qol5.e2e.mjs`). `gofmt`,
+`go vet ./...` and `go test ./...` were clean; vitest 385 tests passed. Migration 0017 is the new schema version.
