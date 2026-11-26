@@ -1,12 +1,12 @@
 # Releasing Glossa
 
-How a version gets to people: Windows and macOS, released together. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are three channels:
+How a version gets to people: Windows and macOS, released together. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are three ways to get it (the update channels, Stable and Preview, are further down):
 
 | Channel | File | Who signs it | How people update |
 | --- | --- | --- | --- |
 | **Microsoft Store** | `Glossa-<version>-windows-x64.msix` (built with the `store` tag: no updater) | The Store, at certification | The Store |
-| **Direct download** | `Glossa-<version>-windows-x64-setup.exe` (NSIS, not code-signed) | Our own Ed25519 signature in `latest.json` | The app's own update (off until the user turns it on) |
-| **Direct download (macOS)** | `Glossa-<version>-macos-universal.dmg` (arm64 + Intel; ad-hoc signed only, not Apple-signed or notarised) | Our own Ed25519 signature in `latest.json` (`mac` entry) | A download the app opens in the browser (the app cannot replace itself); off until the user turns update checks on |
+| **Direct download** | `Glossa-<version>-windows-x64-setup.exe` (NSIS, not code-signed) | Our own Ed25519 signature in `latest.json` | The app's own update (on unless the user turns it off; see Update channels) |
+| **Direct download (macOS)** | `Glossa-<version>-macos-universal.dmg` (arm64 + Intel; ad-hoc signed only, not Apple-signed or notarised) | Our own Ed25519 signature in `latest.json` (`mac` entry) | A download the app opens in the browser (the app cannot replace itself); update checks are on unless the user turns them off |
 
 The version comes from the git tag. There is no version file to edit: a tag `v1.2.3` builds version
 `1.2.3`, and a build with no tag says `0.0.0-dev+<commit>`. `glossa version` and Settings → About show it.
@@ -27,18 +27,48 @@ No terminal needed. In the repository on github.com:
    `SHA256SUMS` and (when signed) `latest.json`. If the release cannot be created, the tag it just made
    is removed again. The workflow's own tag push does not start a second run.
 
-A pre-release is never offered by the app's updater (GitHub's "latest" skips pre-releases), so
-`0.4.0-alpha` is a safe way to try a build. A draft is visible only to people who can write to the
-repository until you publish it.
+A pre-release is offered only on the **Preview** channel (see Update channels below); GitHub's "latest"
+skips pre-releases, so people on Stable never see it. A draft is visible only to people who can write to the
+repository until you publish it, and is never offered. The optional **notes** input is a sentence or two that
+the app shows in its update notice (it goes in `latest.json`); the release page has its own notes.
 
-While `internal/update/pubkey.txt` is still the placeholder (see below), the run **skips signing with a
-warning**: the release is created without `latest.json`, so no app is offered it as an update. Installing
-by hand works as usual.
+Once the key is real, `latest.json` is made and attached for **every kind** of release (draft, pre-release and
+full release), and the run stops if it is missing. While `internal/update/pubkey.txt` is still the placeholder
+(see below), the run **skips signing with a warning**: the release is created without `latest.json`, so no app
+is offered it as an update. Installing by hand works as usual.
 
 The version reaches each packager in the form it needs (`tools/relver`, with tests): the app is stamped
 `0.4.0-alpha`; the setup's file properties and the MSIX use `0.4.0.0` (four numbers, the suffix dropped).
 Pushing a tag (`git tag v1.2.3 && git push origin v1.2.3`) still works and makes a draft, as in "Each
 release" below.
+
+## Update channels and the on-by-default check
+
+Updates are **on by default** (ADR 0016, proposed): the app checks once a day, shows a notice with "Install and
+restart" and "Later" when a newer version is ready, and installs only when the person clicks. There is no
+first-run question. An install whose user once answered "No thanks" stays off; one that never answered is on.
+The switch is in Settings → Updates, and `docs/privacy.md` lists exactly what is sent. The Store build has no
+updater.
+
+Settings → Updates also has the **channel**:
+
+| Channel | Offers | How the app finds it |
+| --- | --- | --- |
+| **Stable** | Full releases only | `https://github.com/Perlsowisdom/glossa/releases/latest/download/latest.json` (GitHub's "latest" skips pre-releases and drafts) |
+| **Preview** | The newest release of any kind, pre-releases included | `GET https://api.github.com/repos/Perlsowisdom/glossa/releases?per_page=10`, take the highest version among releases that are not drafts and have a `latest.json` asset (a full release counts too, so Preview is never behind Stable), then fetch that asset |
+
+Until the person chooses, a build whose own version has a `-` suffix (0.5.0-alpha) is on Preview and any other
+on Stable. Both channels check the same signature and SHA-256, and never offer a version that is not newer than the
+running one, so switching channel does not downgrade. The Preview asset address must be under
+`https://github.com/Perlsowisdom/glossa/releases/download/`, and its `version` must equal the release's tag.
+
+Why the release list and not a second fixed file: it needs no extra file to keep up to date and no step that could
+be forgotten when a release is published or deleted (deleting a release removes it from the list at once). The cost
+is one more request and GitHub's rate limit for unauthenticated calls (60 an hour per address); the app treats a 403
+or 429 with `Retry-After` / `X-RateLimit-Reset` as "wait until the next daily check" and says nothing.
+
+For this to work the release workflow attaches `latest.json` to **every** kind of release, as soon as the signing
+key is real (see Once: make the signing key). Until then no release has one, and neither channel offers anything.
 
 ## macOS notes
 
@@ -112,8 +142,8 @@ release workflow warns.
    git push origin v1.2.3
    ```
 
-   Use `v1.2.3-beta.1` for a test version: it becomes a pre-release, which the updater never offers
-   (GitHub's "latest" skips pre-releases).
+   Use `v1.2.3-beta.1` for a test version: it becomes a pre-release, which only people on the Preview channel
+   are offered (GitHub's "latest" skips pre-releases).
 4. **CI makes a draft.** The `Release` workflow (`.github/workflows/release.yml`) runs on the tag. It
    builds the frontend and the app, runs the Go and frontend tests, builds the setup and the Store package,
    installs and uninstalls the setup silently as a smoke test, computes the SHA-256, signs it with
@@ -128,8 +158,8 @@ release workflow warns.
    Windows PC or VM, install it, open it, check Help → About shows `1.2.3`, then uninstall and confirm the
    library is kept (and removed only with "Also remove my library" ticked).
 6. **Publish the release** (Edit → paste the notes → Publish release). Publishing is what makes the update
-   live: `latest.json` at `releases/latest/download/` now points at it, and people who turned updates on
-   are offered it within a day.
+   live: `latest.json` at `releases/latest/download/` now points at it, and people with updates on (the
+   default) are offered it within a day.
 7. **Submit the Store package.** Download the `.msix` from the release and upload it in Partner Center
    as a new submission (steps in `docs/store/partner-center-checklist.md`). Upload it **unsigned**; the Store
    signs it. The Store takes days to certify and pushes the update itself.
@@ -202,5 +232,5 @@ the release notes.
 ## What the Store build does differently
 
 It is built with the `store` build tag: the updater, its commands, the Settings → Updates page and the
-first-run question are not compiled in at all, and the Store build never contacts GitHub's releases. Tests:
+update notice are not compiled in at all, and the Store build never contacts GitHub's releases. Tests:
 `go test -tags store ./internal/update/...` (CI runs it).

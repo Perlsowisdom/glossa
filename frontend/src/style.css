@@ -1718,6 +1718,8 @@ button.danger-link { color: var(--bad); margin-top: 8px; display: block; }
 /* Updates (updates.ts): the first-run question and the "ready" notice, over the bottom corner. */
 .update-banner { position: fixed; right: 16px; bottom: 16px; z-index: 40; max-width: 380px; padding: 12px 14px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / .22); }
 .update-banner p { margin: 0 0 8px; }
+.update-actions { margin-top: 12px; }
+.update-error { color: var(--bad); }
 .update-banner .row { gap: 8px; flex-wrap: wrap; }
 
 /* Library → From Logos: sortable column headers are buttons that look like the header text. */

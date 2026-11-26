@@ -6,13 +6,15 @@
 import { createServer } from "node:http";
 
 const HASH = "ab".repeat(32);
+// Well formed (64 bytes) but made by nobody, so it can never verify against any key.
+const SIGNATURE = Buffer.alloc(64).toString("base64");
 
 export async function startFakeReleases() {
   const state = { stable: null, releases: [], mode: "ok" };
   const requests = [];
   let base = "";
   const manifest = (version) => ({
-    version, url: `${base}/dl/Glossa-${version}-windows-x64-setup.exe`, sha256: HASH, signature: "c2ln",
+    version, url: `${base}/dl/Glossa-${version}-windows-x64-setup.exe`, sha256: HASH, signature: SIGNATURE,
     notes: `## What is new\n- Notes for ${version}\n- A second line`,
   });
   const srv = createServer((req, res) => {

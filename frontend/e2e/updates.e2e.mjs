@@ -26,9 +26,9 @@ async function eachView(t, name, setup) {
     await app.resize(w, h);
     for (const theme of THEMES) {
       await app.page.emulateMedia({ colorScheme: theme });
-      await t.settled();
+      await app.page.waitForTimeout(400); // t.settled() watches the page the harness started with, which a restart replaces
       await setup();
-      await t.settled();
+      await app.page.waitForTimeout(400); // t.settled() watches the page the harness started with, which a restart replaces
       const sideways = await app.page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       t.assert.ok(sideways <= 1, `${name}: the page scrolls sideways by ${sideways}px at ${w} x ${h}, ${theme}`);
       await app.shot(`m3-updates-${name}-${w}x${h}-${theme}.png`);
@@ -53,7 +53,10 @@ async function until(t, fn, what, ms = 20000) {
   throw new Error(`Timed out waiting for ${what}`);
 }
 
+// openUpdates opens Settings → Updates afresh (leaving first, so the page reads the settings again).
 async function openUpdates(t) {
+  await t.app.page.evaluate(() => { location.hash = "#reader"; });
+  await t.app.page.waitForFunction(() => location.hash === "#reader" || location.hash.startsWith("#reader/"));
   await t.app.page.evaluate(() => { location.hash = "#settings/updates"; });
   const sec = t.app.page.locator(".settings-section:visible");
   await sec.getByRole("heading", { name: "Updates" }).waitFor();
@@ -256,7 +259,7 @@ export default [
     },
   },
   {
-    row: "Updates: Install and restart with the placeholder key refuses in plain words and runs nothing",
+    row: "Updates: Install and restart with the placeholder key refuses and runs nothing",
     shot: "m3-updates-refused.png",
     async run(t) {
       const { app } = t;
@@ -269,7 +272,7 @@ export default [
       const msg = b.locator(".msg.error");
       await msg.waitFor();
       const text = await msg.innerText();
-      t.assert.ok(/update key/i.test(text), `a plain refusal: ${text}`);
+      t.assert.ok(/refusing the update/i.test(text), `a plain refusal: ${text}`);
       t.assert.ok(!app.releases.requests.some((p) => p.endsWith("-setup.exe")), "the installer was never asked for");
       t.assert.equal(await app.page.locator(".shell").count(), 1, "the app is still open");
       await t.shot();

@@ -329,7 +329,7 @@ function updatesPage(): PageView {
     clear(body,
       toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Glossa is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
       settingRow("Channel", channelHint(info.channel), segmented<Channel>({ label: "Channel", options: CHANNELS, value: info.channel, onChange: (c) => void setChannel(c) })),
-      h("div", { class: "row wrap" }, check, newer ? button(updateAction(info.manual), () => void restartToUpdate(msg), { class: "primary" }) : null),
+      h("div", { class: "row wrap update-actions" }, check, newer ? button(updateAction(info.manual), () => void restartToUpdate(msg), { class: "primary" }) : null),
       h("p", { class: "hint update-status" }, lastCheckedText(info.last_checked), " ", versionLine(info, newer)),
       info.last_error ? h("p", { class: "hint update-error" }, lastErrorText(info.last_error)) : null,
       info.key_set || info.manual ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));

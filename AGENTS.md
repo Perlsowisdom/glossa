@@ -54,6 +54,7 @@ Glossa is designed from public sources and open data only.
 - **Secrets** (API keys) go in the operating system keychain, never in a database or config file.
 - **Privacy** (ADR 0009): no telemetry or analytics. Only the features listed in ADR 0009 may use the
   network, each off until the user enables it. Crash reports are sent only after the user reviews them.
+  One exception, proposed in ADR 0016: the direct download's update check is on unless the user turns it off.
 - Decisions are recorded in `docs/adr/`. Changing one needs a new ADR.
 
 ## Layout
