@@ -344,3 +344,63 @@ func TestBinCountIsTrueAndTheListPages(t *testing.T) {
 		t.Fatal("pages are not in most-recently-deleted order")
 	}
 }
+
+// A bin that changes between two page loads: the cursor keeps the pages free of repeats and gaps.
+func TestBinPagesByCursorWhileTheBinChanges(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	ids := make([]string, 30)
+	if err := e.st.Write(ctx, "test.seed", func(tx *store.Tx) error {
+		for i := range ids {
+			ids[i] = store.NewID()
+			// Ties on deleted_at in threes, to exercise the tiebreak.
+			err := tx.Create("notes", store.Row{"id": ids[i], "body_md": "x", "created_at": int64(1), "updated_at": int64(1), "deleted_at": int64(1000 + i/3)})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var page1 []BinEntry
+	e.must("bin.list", map[string]any{"limit": 10}, &page1)
+	// Between the loads: something on the first page is restored, something older is purged, and a newer thing is deleted.
+	e.must("bin.restore", map[string]any{"kind": "note", "id": page1[0].ID}, nil)
+	e.must("bin.restore", map[string]any{"kind": "note", "id": page1[9].ID}, nil)
+	newer := store.NewID()
+	if err := e.st.Write(ctx, "test.seed", func(tx *store.Tx) error {
+		return tx.Create("notes", store.Row{"id": newer, "body_md": "x", "created_at": int64(1), "updated_at": int64(1), "deleted_at": int64(5000)})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	last := page1[len(page1)-1]
+	var page2 []BinEntry
+	e.must("bin.list", map[string]any{"limit": 100, "after_deleted_at": last.DeletedAt, "after_id": last.ID}, &page2)
+	seen := map[string]bool{}
+	for _, b := range page1 {
+		seen[b.ID] = true
+	}
+	for _, b := range page2 {
+		if seen[b.ID] {
+			t.Fatalf("%s appears on both pages", b.ID)
+		}
+		if b.ID == newer {
+			t.Fatal("the newer entry belongs before the cursor, not after it")
+		}
+		seen[b.ID] = true
+	}
+	for _, id := range ids[:] {
+		if id == page1[0].ID || id == page1[9].ID {
+			continue // restored
+		}
+		if !seen[id] {
+			t.Fatalf("%s was skipped", id)
+		}
+	}
+	var c BinCount
+	e.must("bin.count", map[string]any{}, &c)
+	if c.Count != 29 { // 30 - 2 restored + 1 newer
+		t.Fatalf("bin.count = %d, want 29", c.Count)
+	}
+}

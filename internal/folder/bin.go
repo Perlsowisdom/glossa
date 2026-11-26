@@ -29,7 +29,7 @@ type BinEntry struct {
 
 // Things inside a deleted folder are listed with the folder, not on their own.
 var binUnion = `
-SELECT 'folder', f.id, f.name, '', f.deleted_at,
+SELECT 'folder' AS kind, f.id AS id, f.name AS title, '' AS sort, f.deleted_at AS at,
 	(SELECT COUNT(*) FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `),
 	(SELECT COUNT(*) FROM notes n WHERE ` + with("n", "f") + ` AND n.folder_id IN
 		(SELECT f.id UNION SELECT s.id FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `)),
@@ -55,7 +55,9 @@ SELECT 'collection', c.id, c.name, '', c.deleted_at, 0, 0, 0
 	WHERE c.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
 `
 
-var binQuery = binUnion + `ORDER BY 5 DESC, 2 LIMIT ? OFFSET ?`
+// The next page is "older than the last row shown": deleted time, then id as the tiebreak, so a bin that
+// changes between two loads never repeats or skips a row.
+var binQuery = `SELECT * FROM (` + binUnion + `) WHERE (? = 0 OR at < ? OR (at = ? AND id > ?)) ORDER BY at DESC, id LIMIT ? OFFSET ?`
 
 var binCountQuery = `SELECT COUNT(*) FROM (` + binUnion + `)`
 
@@ -68,7 +70,10 @@ func with(c, p string) string {
 
 type BinListParams struct {
 	Limit  int `json:"limit,omitempty" desc:"Most entries to return (default 500)"`
-	Offset int `json:"offset,omitempty" desc:"Entries to skip first, to read the next page (bin.count says how many there are in all)"`
+	Offset int `json:"offset,omitempty" desc:"Entries to skip first (prefer after_deleted_at and after_id: they stay right when the bin changes)"`
+	// AfterDeletedAt and AfterID name the last entry already read; the list continues with the entries after it.
+	AfterDeletedAt int64  `json:"after_deleted_at,omitempty" desc:"The deleted_at of the last entry already read, to read the next page"`
+	AfterID        string `json:"after_id,omitempty" desc:"The id of the last entry already read (with after_deleted_at)"`
 }
 
 func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry, error) {
@@ -78,7 +83,11 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 	if p.Limit <= 0 {
 		p.Limit = 500
 	}
-	rows, err := env.Store.Query(ctx, binQuery, p.Limit, p.Offset)
+	cursor := 0
+	if p.AfterDeletedAt != 0 {
+		cursor = 1
+	}
+	rows, err := env.Store.Query(ctx, binQuery, cursor, p.AfterDeletedAt, p.AfterDeletedAt, p.AfterID, p.Limit, p.Offset)
 	if err != nil {
 		return nil, err
 	}
