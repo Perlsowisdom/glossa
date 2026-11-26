@@ -10,7 +10,7 @@ import { binned } from "../deletenotice";
 import { openPopover } from "../popover";
 import { loadPref, savePref } from "../state";
 import { carriesItem, droppedItem, folders, loadFolders, moveItem, onWorkChanged, workChanged } from "../work";
-import { BinEntry, FolderNode, Scope, canNestUnder, folderTree, sameScope, scopeHash, scopeOf } from "../workwords";
+import { FolderNode, Scope, canNestUnder, folderTree, sameScope, scopeHash, scopeOf } from "../workwords";
 
 type Section = "folders" | "tags" | "writing";
 const OPEN_KEY = "glossa.work.sections";
@@ -283,12 +283,12 @@ export function workSide(go: (target: string) => void): WorkSide {
     const [t, n, b] = await Promise.all([
       msg.attempt(() => run<TagCount[]>("note.tags")),
       countNotes(),
-      msg.attempt(() => run<BinEntry[]>("bin.list")),
+      msg.attempt(() => run<{ count: number }>("bin.count")),
       msg.attempt(() => loadFolders()),
     ]);
     if (t) tags = [...t].sort((a, b) => a.tag.localeCompare(b.tag));
     total = n;
-    if (b) binCount = b.length;
+    if (b) binCount = b.count;
     render();
   }
 

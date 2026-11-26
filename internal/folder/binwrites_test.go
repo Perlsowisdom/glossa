@@ -303,3 +303,44 @@ func TestCollectionRestoreBringsBackExactlyItsBatch(t *testing.T) {
 		t.Fatalf("bin = %+v", bin)
 	}
 }
+
+func TestBinCountIsTrueAndTheListPages(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	const total = 620
+	if err := e.st.Write(ctx, "test.seed", func(tx *store.Tx) error {
+		for i := 0; i < total; i++ {
+			err := tx.Create("notes", store.Row{"id": store.NewID(), "body_md": "x", "created_at": int64(1), "updated_at": int64(1), "deleted_at": int64(1000 + i)})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var c BinCount
+	e.must("bin.count", map[string]any{}, &c)
+	if c.Count != total {
+		t.Fatalf("bin.count = %d, want %d", c.Count, total)
+	}
+	first := binOf(e)
+	if len(first) != 500 {
+		t.Fatalf("the default list holds %d, want a page of 500", len(first))
+	}
+	var rest []BinEntry
+	e.must("bin.list", map[string]any{"offset": 500}, &rest)
+	if len(rest) != total-500 {
+		t.Fatalf("the next page holds %d, want %d", len(rest), total-500)
+	}
+	seen := map[string]bool{}
+	for _, b := range append(first, rest...) {
+		seen[b.ID] = true
+	}
+	if len(seen) != total {
+		t.Fatalf("the two pages cover %d different things, want %d", len(seen), total)
+	}
+	if first[0].DeletedAt < first[499].DeletedAt || first[499].DeletedAt < rest[0].DeletedAt {
+		t.Fatal("pages are not in most-recently-deleted order")
+	}
+}

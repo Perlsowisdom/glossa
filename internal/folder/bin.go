@@ -28,7 +28,7 @@ type BinEntry struct {
 }
 
 // Things inside a deleted folder are listed with the folder, not on their own.
-var binQuery = `
+var binUnion = `
 SELECT 'folder', f.id, f.name, '', f.deleted_at,
 	(SELECT COUNT(*) FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `),
 	(SELECT COUNT(*) FROM notes n WHERE ` + with("n", "f") + ` AND n.folder_id IN
@@ -53,7 +53,11 @@ UNION ALL
 SELECT 'collection', c.id, c.name, '', c.deleted_at, 0, 0, 0
 	FROM collections c LEFT JOIN collections p ON p.id = c.parent_id
 	WHERE c.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
-ORDER BY 5 DESC, 2 LIMIT ?`
+`
+
+var binQuery = binUnion + `ORDER BY 5 DESC, 2 LIMIT ? OFFSET ?`
+
+var binCountQuery = `SELECT COUNT(*) FROM (` + binUnion + `)`
 
 // with is the condition that row c was deleted together with row p: the same deletion batch or, for rows
 // deleted before batches existed (no batch on p), a deleted_at no earlier than p's.
@@ -63,7 +67,8 @@ func with(c, p string) string {
 }
 
 type BinListParams struct {
-	Limit int `json:"limit,omitempty" desc:"Most entries to return (default 500)"`
+	Limit  int `json:"limit,omitempty" desc:"Most entries to return (default 500)"`
+	Offset int `json:"offset,omitempty" desc:"Entries to skip first, to read the next page (bin.count says how many there are in all)"`
 }
 
 func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry, error) {
@@ -73,7 +78,7 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 	if p.Limit <= 0 {
 		p.Limit = 500
 	}
-	rows, err := env.Store.Query(ctx, binQuery, p.Limit)
+	rows, err := env.Store.Query(ctx, binQuery, p.Limit, p.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -104,6 +109,20 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 		out[i].Collections = len(inside)
 	}
 	return out, nil
+}
+
+// BinCount is how many things the bin holds in all, however many bin.list returns at once.
+type BinCount struct {
+	Count int `json:"count"`
+}
+
+func binCount(ctx context.Context, env *command.Env, _ struct{}) (BinCount, error) {
+	if err := needStore(env); err != nil {
+		return BinCount{}, err
+	}
+	var n int
+	err := env.Store.QueryRow(ctx, binCountQuery).Scan(&n)
+	return BinCount{n}, err
 }
 
 type BinParams struct {

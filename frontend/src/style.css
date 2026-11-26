@@ -1035,6 +1035,7 @@ tr:hover .row-actions .more-btn, tr.on .row-actions .more-btn, .row-actions .mor
 .bin-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .bin-list:has(.work-empty) { border: 0; }
 .bin-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; transition: background-color .1s; }
+.bin-more { padding: 11px 14px; border-top: 1px solid var(--line); text-align: center; }
 .bin-row + .bin-row { border-top: 1px solid var(--line); }
 .bin-row:hover { background: var(--hover); }
 .bin-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--well); color: var(--muted); }
