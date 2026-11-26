@@ -116,25 +116,27 @@ export function connectionsSection(): { el: HTMLElement; show: () => void; focus
   }
 
   function keyBox(c: ConnectionInfo): HTMLElement {
-    const key = h("input", { type: "password", autocomplete: "off", spellcheck: "false", placeholder: "Paste your key" });
+    const noun = /token$/i.test(c.key!.label) ? "token" : "key"; // Readwise calls its key a token
+    const cap = noun[0].toUpperCase() + noun.slice(1);
+    const key = h("input", { type: "password", autocomplete: "off", spellcheck: "false", placeholder: noun === "token" ? `Paste your ${c.key!.label}` : "Paste your key" });
     const form = h("form", { class: "connection-key", "aria-label": c.key!.label },
       h("p", { class: "hint" }, `${c.key!.help} ${keyState(c)} It is kept in your system keychain and never shown again.`),
       field(c.key!.label, key),
       h("div", { class: "row wrap" },
-        h("button", { type: "submit", class: "primary" }, "Save key"),
-        c.key_set ? button("Remove key", async () => {
+        h("button", { type: "submit", class: "primary" }, `Save ${noun}`),
+        c.key_set ? button(`Remove ${noun}`, async () => {
           if (!(await ask(`Remove the ${c.key!.label}?`, "It is taken out of your system keychain. You will need to paste it again to use this connection.", "Remove"))) return;
-          try { await run("connect.clear_key", { id: c.id }); say("Key removed."); } catch (e) { say(failureText(e), "error"); }
+          try { await run("connect.clear_key", { id: c.id }); say(`${cap} removed.`); } catch (e) { say(failureText(e), "error"); }
           await check(c.id);
         }, { class: "danger" }) : null));
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const k = key.value.trim();
       key.value = "";
-      if (!k) return say("Paste a key first.");
+      if (!k) return say(`Paste a ${noun} first.`);
       try {
         await run("connect.set_key", { id: c.id, key: k });
-        say("Key saved to the keychain.", "ok");
+        say(`${cap} saved to the keychain.`, "ok");
       } catch (err) {
         return say(failureText(err), "error");
       }

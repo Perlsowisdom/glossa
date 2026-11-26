@@ -92,13 +92,14 @@ export default [
 
       // A wrong token is refused in plain words.
       await c.locator("input[type=password]").fill("not-the-token");
-      await c.getByRole("button", { name: "Save key" }).click();
+      t.assert.equal(await c.locator("input[type=password]").getAttribute("placeholder"), "Paste your Readwise token");
+      await c.getByRole("button", { name: "Save token" }).click();
       await c.locator(".connection-status", { hasText: "did not accept this token" }).first().waitFor({ timeout: 15000 });
       t.assert.ok(fake.requests().some((r) => r.startsWith("GET /api/v2/auth/")), "asked Readwise to check it");
 
       // The right one connects.
       await c.locator("input[type=password]").fill(fake.token);
-      await c.getByRole("button", { name: "Save key" }).click();
+      await c.getByRole("button", { name: "Save token" }).click();
       await c.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
       t.assert.ok((await c.locator(".connection-status").first().innerText()).includes("Connected to Readwise"), "status line");
       t.assert.equal(await c.getByRole("button", { name: "Import highlights" }).isDisabled(), false);
@@ -212,6 +213,8 @@ export default [
       await row.waitFor({ timeout: 10000 });
       t.assert.ok((await row.innerText()).includes("The Pilgrim's Progress — John Bunyan"), await row.innerText());
       t.assert.equal(await row.getByRole("button").count(), 3);
+      const shown = await row.innerText();
+      t.assert.ok(shown.includes("Now I saw in my dream.") && !/>|\[|\]\(|---/.test(shown), `the conflict shows Markdown: ${shown}`);
       const labels = await row.getByRole("button").allInnerTexts();
       t.assert.deepEqual(labels, ["Use Readwise’s text", "Keep mine", "Keep both"]);
       const mine = (await app.run("note.get", { id: pilgrim.id })).body;
@@ -220,6 +223,7 @@ export default [
       await eachView(t, "conflict", async () => {
         const cc = await card(t);
         await cc.locator(".readwise-conflict").waitFor({ timeout: 15000 });
+        await cc.locator(".readwise-conflict .row").scrollIntoViewIfNeeded();
       });
 
       // Keep both: mine stays, Readwise's text goes in a new note.

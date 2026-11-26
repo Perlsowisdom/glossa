@@ -63,3 +63,35 @@ describe("the choices", () => {
     expect(linkedText(0)).toBe("");
   });
 });
+
+import { excerptText, plainText, shortText } from "./readwisewords";
+
+describe("plainText", () => {
+  it("shows a highlight as readable words", () => {
+    const md = "---\n\n> Now I saw in my dream.\n\nLocation 40 · [Open in Readwise](https://readwise.io/open/1022)";
+    expect(plainText(md)).toBe("Now I saw in my dream.\n\nLocation 40 · Open in Readwise");
+  });
+  it("drops the header's emphasis and links, rules and quote marks", () => {
+    expect(plainText("*[From Readwise](https://readwise.io/bookreview/3)* · *[Original](https://x.org/a)*\n\n---\n\n> A **bold** word\n> and more"))
+      .toBe("From Readwise · Original\n\nA bold word\nand more");
+  });
+  it("keeps ordinary asterisks and underscores in words", () => {
+    expect(plainText("2 * 3 and snake_case_name")).toBe("2 * 3 and snake_case_name");
+  });
+  it("leaves nothing but the text", () => {
+    expect(plainText("")).toBe("");
+    expect(plainText("> a\n\n\n\n> b")).toBe("a\n\nb");
+    expect(plainText("a\n\n***\n\nb")).toBe("a\n\nb");
+  });
+});
+
+describe("shortText and excerptText", () => {
+  it("cuts at a word and says so", () => {
+    expect(shortText("one two three four five", 12)).toBe("one two…");
+    expect(shortText("short", 12)).toBe("short");
+  });
+  it("keeps the leading mark for text that starts later", () => {
+    expect(excerptText("… > one two three four five six seven", 14)).toBe("… one two three…");
+    expect(excerptText("> plain [link](http://a.b)")).toBe("plain link");
+  });
+});

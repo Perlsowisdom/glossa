@@ -109,10 +109,11 @@ type Result struct {
 	Message           string     `json:"message"`
 }
 
+// excerpt keeps the text as Markdown with its line breaks (up to 800 characters); the interface shows it as plain words.
 func excerpt(s string) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if r := []rune(s); len(r) > 200 {
-		return string(r[:200]) + "…"
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > 800 {
+		return string(r[:800])
 	}
 	return s
 }

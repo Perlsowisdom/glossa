@@ -106,3 +106,39 @@ export function resolvedText(choice: Choice): string {
     case "both": return "Your note is untouched, and Readwise’s text is in a new note.";
   }
 }
+
+// plainText turns the Markdown of a note into the words a person reads: quote marks, rules and emphasis
+// go, a link keeps its text, and paragraphs stay apart on their own lines.
+export function plainText(md: string): string {
+  const lines = md.replace(/\r\n?/g, "\n").split("\n").map((l) => l
+    .replace(/^\s{0,3}>\s?/, "")
+    .replace(/^\s*#{1,6}\s+/, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=$|[\s).,;:!?])/g, "$1$2")
+    .replace(/`([^`]*)`/g, "$1")
+    .trimEnd());
+  const out: string[] = [];
+  for (const l of lines) {
+    if (/^\s*([-*_]\s*){3,}$/.test(l)) continue; // a horizontal rule
+    if (!l.trim() && (!out.length || !out[out.length - 1])) continue;
+    out.push(l.trim());
+  }
+  while (out.length && !out[out.length - 1]) out.pop();
+  return out.join("\n");
+}
+
+// shortText cuts plain words at a word boundary, with "…" when something was left out. A leading "…" in the
+// original (the text before the first difference was dropped) is kept.
+export function shortText(s: string, max = 220): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const at = cut.search(/\s\S*$/);
+  return `${(at > max / 2 ? cut.slice(0, at) : cut).trimEnd()}…`;
+}
+
+// excerptText: what the conflict list shows of a note's Markdown.
+export function excerptText(md: string, max = 220): string {
+  const lead = md.startsWith("… ") ? "… " : "";
+  return lead + shortText(plainText(lead ? md.slice(2) : md), max);
+}

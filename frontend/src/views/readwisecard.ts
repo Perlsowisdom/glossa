@@ -5,7 +5,7 @@
 import { run } from "../api";
 import { failureText } from "../connectwords";
 import {
-  CHOICES, Choice, ReadwiseConflict, ReadwiseResult, ReadwiseStatus, importText, lastImportText, linkedText, previewText, resolvedText,
+  CHOICES, Choice, ReadwiseConflict, ReadwiseResult, ReadwiseStatus, excerptText, importText, lastImportText, linkedText, previewText, resolvedText,
 } from "../readwisewords";
 import { button, clear, h } from "../dom";
 
@@ -65,8 +65,8 @@ export function readwiseSection(hasToken: boolean, say: (t: string, kind?: strin
     const row = h("div", { class: "readwise-conflict", "data-source": c.source_id },
       h("strong", {}, c.title || "Untitled note"),
       h("div", { class: "readwise-sides" },
-        h("div", {}, h("small", { class: "hint" }, "Your note"), h("p", {}, c.your_excerpt)),
-        h("div", {}, h("small", { class: "hint" }, "Readwise"), h("p", {}, c.readwise_excerpt))),
+        h("div", {}, h("small", { class: "hint" }, "Your note"), h("p", {}, excerptText(c.your_excerpt))),
+        h("div", {}, h("small", { class: "hint" }, "Readwise"), h("p", {}, excerptText(c.readwise_excerpt)))),
       h("div", { class: "row wrap" }, ...CHOICES.map((ch) => button(ch.label, () => settle(c, ch.choice), { title: ch.help, "data-choice": ch.choice }))));
     return row;
   }
