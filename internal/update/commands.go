@@ -156,7 +156,7 @@ func settingsInfo(ctx context.Context, env *command.Env, cfg Config) (SettingsIn
 	st, err := load(ctx, env.Store)
 	return SettingsInfo{
 		Settings: st, Channel: channelOf(st, cfg.Current), ChannelChosen: st.Channel != "", Current: cfg.Current,
-		Newer: Newer(st.Latest, cfg.Current), Key: len(cfg.PubKey) > 0 && !PlaceholderKey(), Manual: cfg.Manual,
+		Newer: Newer(st.Latest, cfg.Current), Key: len(cfg.PubKey) > 0 && !cfg.Placeholder, Manual: cfg.Manual,
 	}, err
 }
 
@@ -301,8 +301,9 @@ func runInstall(ctx context.Context, env *command.Env, cfg Config) (InstallResul
 	if err != nil || !Newer(m.Version, cfg.Current) {
 		return InstallResult{}, command.Errorf("not_found", "Glossa %s is the newest version", cfg.Current)
 	}
-	if cfg.Manual {
-		// No installer is run: the person gets the download and installs it themselves.
+	if cfg.Manual || cfg.Placeholder {
+		// No installer is run (the Mac cannot replace itself; a placeholder key cannot verify one): the
+		// person gets the download or the release page and installs it themselves.
 		return InstallResult{Version: m.Version, OpenURL: cfg.ManualURL(m)}, nil
 	}
 	file, err := cfg.Download(ctx, m)

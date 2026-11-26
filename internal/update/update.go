@@ -90,6 +90,9 @@ type Config struct {
 	// Manual is true where the app cannot replace itself (macOS, unsigned): a newer version is offered
 	// as a download that opens in the browser instead of being installed.
 	Manual bool
+	// Placeholder is true while the embedded key is the placeholder: nothing can verify, so an install
+	// only offers the release page (set by DefaultConfig).
+	Placeholder bool
 	// DownloadPrefix is where a manifest-given download address must be (tests change it).
 	DownloadPrefix string
 	Now            func() time.Time
@@ -98,7 +101,7 @@ type Config struct {
 // DefaultConfig is the real updater: the public endpoint, the embedded key, this build's version.
 func DefaultConfig() Config {
 	key, _ := updatesig.ParsePublicKey(pubkeyText)
-	c := Config{Endpoint: DefaultEndpoint, ReleasesURL: DefaultReleasesURL, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin"}
+	c := Config{Endpoint: DefaultEndpoint, ReleasesURL: DefaultReleasesURL, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin", Placeholder: PlaceholderKey()}
 	return c.withTestServer()
 }
 

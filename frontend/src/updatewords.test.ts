@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHANNELS, channelHint, lastCheckedText, lastErrorText, noticeHelp, noticeTitle, shortNotes, updateAction, versionLine } from "./updatewords";
+import { CHANNELS, NO_KEY_LINE, channelHint, installFailure, lastCheckedText, lastErrorText, noticeHelp, noticeTitle, shortNotes, updateAction, versionLine } from "./updatewords";
 
 const now = new Date("2026-11-12T12:00:00Z");
 
@@ -35,6 +35,16 @@ describe("updateAction", () => {
     expect(updateAction(undefined)).toBe("Install and restart");
     expect(updateAction(true)).toBe("Download");
   });
+  it("only opens the download page while the build has no update key", () => {
+    expect(updateAction(false, true)).toBe("Open the download page");
+    expect(noticeHelp(false, true)).toContain("download page");
+    expect(noticeHelp(false, true)).not.toContain("installs in a moment");
+    expect(NO_KEY_LINE).toBe("This build does not have its update key yet, so it cannot install updates.");
+  });
+  it("says an install failure in a plain sentence, without codes", () => {
+    expect(installFailure("update.install: refusing the update: the signature does not match")).toBe("Glossa could not install the update: refusing the update: the signature does not match.");
+    expect(installFailure("could not start the installer: access denied.")).toBe("Glossa could not install the update: could not start the installer: access denied.");
+  });
 });
 
 describe("the notice", () => {
@@ -46,10 +56,10 @@ describe("the notice", () => {
   });
   it("shortens release notes to a few plain lines", () => {
     expect(shortNotes(undefined)).toBe("");
-    expect(shortNotes("## What is new\n- A **bold** fix\n- `Code` too\n- Fourth\n- Fifth")).toBe("What is new A bold fix Code too");
+    expect(shortNotes("## What is new\n- A **bold** fix\n- `Code` too\n- Third\n- Fourth")).toBe("A bold fix\nCode too\nThird");
     expect(shortNotes("x".repeat(400)).length).toBe(220);
     expect(shortNotes("x".repeat(400)).endsWith("…")).toBe(true);
-    expect(shortNotes("\r\nOne\r\n\r\nTwo\r\n")).toBe("One Two");
+    expect(shortNotes("\r\nOne\r\n\r\nTwo\r\n")).toBe("One\nTwo");
   });
 });
 

@@ -1,10 +1,9 @@
 // T23 and ADR 0016, updates in the real app, against a fake GitHub (e2e/fake-releases.mjs; the app is
 // started with its addresses, so the real one is never reached). As a person sees it: a fresh install
 // has updates on and is never asked; an old install that said no stays off; a newer version shows a
-// notice with "Install and restart" and "Later" and an Update entry on the rail; Later hides the notice
+// notice with its one button and "Later" and an Update entry on the rail; Later hides the notice
 // for that version; Settings → Updates has the switch, the Stable / Preview choice, the version and the
-// last check; a failed check says nothing outside Settings; Install with the placeholder key refuses
-// in plain words. Screenshots (m3-updates-<what>-<size>-<theme>.png) at 1536 x 816 and 900 x 700,
+// last check; a failed check says nothing outside Settings; the placeholder key offers the download page, not Install. Screenshots (m3-updates-<what>-<size>-<theme>.png) at 1536 x 816 and 900 x 700,
 // light and dark.
 
 const SIZES = [[1536, 816], [900, 700]];
@@ -145,9 +144,9 @@ export default [
       const text = await b.innerText();
       // Preview picks the newest release that is not a draft and has a manifest: 0.9.0-beta.1.
       t.assert.ok(text.includes("Glossa 0.9.0-beta.1 is ready."), text);
-      t.assert.ok(text.includes("Notes for 0.9.0-beta.1"), `short notes: ${text}`);
+      t.assert.ok(text.includes(["What’s new:", "Notes for 0.9.0-beta.1", "A second line"].join("\n")), `the label and the notes are on their own lines: ${JSON.stringify(text)}`);
       t.assert.ok(!text.includes("1.0.0-alpha.1") && !text.includes("0.7.0-beta.1"), "a draft and a release without a manifest are not offered");
-      t.assert.equal(await b.getByRole("button", { name: "Install and restart" }).count(), 1);
+      t.assert.equal(await b.getByRole("button", { name: "Open the download page" }).count(), 1);
       t.assert.equal(await b.getByRole("button", { name: "Later" }).count(), 1);
       // The rail says so too, and the notice does not take the keyboard from what the person is doing.
       const entry = railEntry(t);
@@ -166,7 +165,7 @@ export default [
       const sec = app.page.locator(".settings-section:visible");
       await sec.getByRole("heading", { name: "Updates" }).waitFor();
       t.assert.ok((await sec.locator(".update-status").innerText()).includes("Version 0.9.0-beta.1 is available"));
-      t.assert.equal(await sec.getByRole("button", { name: "Install and restart" }).count(), 1);
+      t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 1);
       // The same version found again stays hidden; a newer one shows again.
       await sec.getByRole("button", { name: "Check for updates" }).click();
       await sec.locator(".msg.ok").waitFor();
@@ -213,7 +212,7 @@ export default [
       app.releases.set({ stable: "0.0.0-a", releases: [] });
       await group.locator(".seg-opt", { hasText: "Stable" }).click();
       await says("You have version");
-      t.assert.equal(await sec.getByRole("button", { name: "Install and restart" }).count(), 0, "no install button for an older version");
+      t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 0, "no install button for an older version");
       t.assert.equal(await railEntry(t).isVisible(), false, "the rail has no Update entry");
       t.assert.equal(await banner(t).count(), 0, "no notice for an older version");
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
@@ -259,7 +258,7 @@ export default [
     },
   },
   {
-    row: "Updates: Install and restart with the placeholder key refuses and runs nothing",
+    row: "Updates: with the placeholder key there is no Install button, only the download page, and it says why",
     shot: "m3-updates-refused.png",
     async run(t) {
       const { app } = t;
@@ -268,17 +267,22 @@ export default [
       await app.page.waitForSelector(".shell");
       const b = await noticeShown(t);
       t.assert.equal((await app.run("update.settings.get")).key_set, false, "the build still has the placeholder key");
-      await b.getByRole("button", { name: "Install and restart" }).click();
-      const msg = b.locator(".msg.error");
-      await msg.waitFor();
-      const text = await msg.innerText();
-      t.assert.ok(/refusing the update/i.test(text), `a plain refusal: ${text}`);
+      t.assert.equal(await b.getByRole("button", { name: "Install and restart" }).count(), 0, "no Install button in the notice");
+      t.assert.ok((await b.innerText()).includes("does not have its update key yet"), "the notice says why");
+      // The download page opens the way the Mac path opens URLs (the runtime's BrowserOpenURL); here it is caught, not opened.
+      await app.page.evaluate(() => { window.__opened = null; window.runtime.BrowserOpenURL = (u) => { window.__opened = u; }; });
+      await b.getByRole("button", { name: "Open the download page" }).click();
+      const opened = await until(t, () => app.page.evaluate(() => window.__opened), "the download page to open");
+      t.assert.equal(opened, "https://github.com/Perlsowisdom/glossa/releases/tag/v0.9.0-beta.2");
+      t.assert.equal(await b.locator(".msg.error").count(), 0, "no error box");
       t.assert.ok(!app.releases.requests.some((p) => p.endsWith("-setup.exe")), "the installer was never asked for");
       t.assert.equal(await app.page.locator(".shell").count(), 1, "the app is still open");
       await t.shot();
-      // Settings says why, in the same plain words.
+      // Settings: the same, with no Install button either.
       const sec = await openUpdates(t);
-      t.assert.ok((await sec.innerText()).includes("does not have its update key yet"));
+      t.assert.equal(await sec.getByRole("button", { name: "Install and restart" }).count(), 0);
+      t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 1);
+      t.assert.ok((await sec.innerText()).includes("This build does not have its update key yet, so it cannot install updates."));
     },
   },
 ];

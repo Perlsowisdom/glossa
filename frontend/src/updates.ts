@@ -6,12 +6,14 @@
 
 import { Message, onEvent, run } from "./api";
 import { button, h } from "./dom";
-import { UpdateInfo, noticeHelp, noticeTitle, shortNotes, updateAction } from "./updatewords";
+import { plain } from "./syncstate";
+import { NO_KEY_LINE, UpdateInfo, installFailure, noticeHelp, noticeTitle, shortNotes, updateAction } from "./updatewords";
 
 export interface Available {
   version: string;
   notes?: string;
   manual?: boolean;
+  noKey?: boolean; // this build has no update key: it can only open the download page
 }
 
 let available: Available | null = null;
@@ -50,7 +52,12 @@ function paint() {
 // restartToUpdate downloads, verifies and starts the installer; the app quits when it is running.
 export async function restartToUpdate(msg: Message): Promise<void> {
   try {
-    const r = await run<{ open_url?: string }>("update.install");
+    const r = await run<{ open_url?: string; manual?: boolean }>("update.install");
+    if (r?.open_url && !r.manual) {
+      openDownload(r.open_url);
+      msg.ok("The download page is open in your browser.");
+      return;
+    }
     if (r?.open_url) {
       openDownload(r.open_url);
       msg.ok("The download page is open in your browser. Open the new disk image and drag Glossa to Applications, replacing the old one.");
@@ -58,7 +65,10 @@ export async function restartToUpdate(msg: Message): Promise<void> {
     }
     msg.ok("Updating. Glossa will close and open again in a moment.");
   } catch (e) {
-    msg.error(e);
+    // One plain sentence, not the raw error and its code.
+    msg.el.className = "msg error";
+    msg.el.setAttribute("role", "alert");
+    msg.el.textContent = installFailure(plain(e).text);
   }
 }
 
@@ -74,10 +84,11 @@ function notice(a: Available): HTMLElement {
   const msg = new Message();
   const notes = shortNotes(a.notes);
   const el = h("div", { class: "update-banner update-notice", role: "region", "aria-label": "Update ready", id: "update-banner" },
-    h("p", {}, h("strong", {}, noticeTitle(a.version)), " ", noticeHelp(a.manual)),
-    notes ? h("p", { class: "hint update-notes" }, notes) : null,
+    h("p", {}, h("strong", {}, noticeTitle(a.version)), " ", noticeHelp(a.manual, a.noKey)),
+    notes ? h("p", { class: "update-notes" }, h("strong", {}, "What’s new:"), h("br"), notes) : null,
+    a.noKey && !a.manual ? h("p", { class: "hint" }, NO_KEY_LINE) : null,
     h("div", { class: "row" },
-      button(updateAction(a.manual), () => void restartToUpdate(msg), { class: "primary" }),
+      button(updateAction(a.manual, a.noKey), () => void restartToUpdate(msg), { class: "primary" }),
       button("Later", () => {
         dismissed.add(a.version);
         hide();
@@ -92,7 +103,7 @@ function notice(a: Available): HTMLElement {
 export async function refreshUpdates(): Promise<UpdateInfo | undefined> {
   try {
     const info = await run<UpdateInfo>("update.settings.get");
-    setAvailable(info.enabled && info.newer && info.latest ? { version: info.latest, notes: info.notes, manual: info.manual } : null);
+    setAvailable(info.enabled && info.newer && info.latest ? { version: info.latest, notes: info.notes, manual: info.manual, noKey: !info.key_set && !info.manual } : null);
     return info;
   } catch {
     return undefined; // no update commands: the Store build, or no library open
@@ -102,10 +113,7 @@ export async function refreshUpdates(): Promise<UpdateInfo | undefined> {
 // startUpdates listens for a newer version and shows one found earlier. update.auto checks if a day has
 // passed (the core also does this on a timer).
 export async function startUpdates(): Promise<void> {
-  onEvent("update:available", (r) => {
-    const x = r as { latest?: string; notes?: string; manual?: boolean } | undefined;
-    if (x?.latest) setAvailable({ version: x.latest, notes: x.notes, manual: x.manual });
-  });
+  onEvent("update:available", () => void refreshUpdates());
   if (!(await refreshUpdates())) return;
   try {
     await run("update.auto");

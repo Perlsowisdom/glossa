@@ -527,3 +527,26 @@ func TestTestServersAreOnlyHonouredOnThisComputer(t *testing.T) {
 		t.Fatalf("a remote http address was honoured: %+v", c)
 	}
 }
+
+// A build whose key is still the placeholder cannot verify anything: it says so before anyone clicks
+// (key_set is false) and "install" only gives the release page to open, never runs an installer.
+func TestPlaceholderKeyOffersTheReleasePageNotAnInstall(t *testing.T) {
+	r := newRig(t, "0.4.0")
+	r.cfg.Placeholder = true
+	r.reg = command.NewRegistry()
+	RegisterWith(r.reg, r.cfg)
+	if si, _ := r.call(t, "update.settings.get", ""); si.(SettingsInfo).Key {
+		t.Fatal("key_set is true with the placeholder key")
+	}
+	res, err := r.call(t, "update.install", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ir := res.(InstallResult)
+	if ir.Launched || ir.Version != "0.4.1" || ir.OpenURL != "https://github.com/Perlsowisdom/glossa/releases/tag/v0.4.1" {
+		t.Fatalf("install = %+v", ir)
+	}
+	if len(r.launch) != 0 || r.f.count("/dl/Glossa-0.4.1-setup.exe") != 0 {
+		t.Fatal("an installer was downloaded or started")
+	}
+}

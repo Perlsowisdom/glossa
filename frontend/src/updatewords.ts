@@ -19,8 +19,18 @@ export interface UpdateInfo {
 }
 
 // updateAction is the button for a newer version: Windows installs it, macOS opens the download.
-export function updateAction(manual?: boolean): string {
-  return manual ? "Download" : "Install and restart";
+// While the build has no update key (noKey) nothing can be installed, so the button opens the download page.
+export function updateAction(manual?: boolean, noKey?: boolean): string {
+  if (manual) return "Download";
+  return noKey ? "Open the download page" : "Install and restart";
+}
+
+export const NO_KEY_LINE = "This build does not have its update key yet, so it cannot install updates.";
+
+// installFailure says in one plain sentence that an install did not happen, and why: no command name, no code.
+export function installFailure(message: string): string {
+  const why = message.replace(/^[a-z_]+\.[a-z_.]+: /, "").replace(/\.$/, "");
+  return `Glossa could not install the update: ${why}.`;
 }
 
 // noticeTitle is the line at the top of the notice that a newer version is ready.
@@ -29,10 +39,10 @@ export function noticeTitle(version: string): string {
 }
 
 // noticeHelp says what the button will do.
-export function noticeHelp(manual?: boolean): string {
-  return manual
-    ? "Download it, open the disk image and drag Glossa to Applications. Your library is not touched."
-    : "It installs in a moment and Glossa opens again. Your library is not touched.";
+export function noticeHelp(manual?: boolean, noKey?: boolean): string {
+  if (manual) return "Download it, open the disk image and drag Glossa to Applications. Your library is not touched.";
+  if (noKey) return "It is out. Open the download page to get it. Your library is not touched.";
+  return "It installs in a moment and Glossa opens again. Your library is not touched.";
 }
 
 // shortNotes trims a release's notes to a few plain lines for the notice: no headings or bullets
@@ -40,10 +50,11 @@ export function noticeHelp(manual?: boolean): string {
 export function shortNotes(notes: string | undefined, max = 220): string {
   const lines = (notes ?? "")
     .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(#{1,6}\s+|[-*+]\s+|>\s*)/, "").replace(/[*_`]/g, "").trim())
+    .filter((l) => !/^\s*#{1,6}\s/.test(l)) // a heading such as "What is new" is the notice's own label
+    .map((l) => l.replace(/^\s*([-*+]\s+|>\s*)/, "").replace(/[*_`]/g, "").trim())
     .filter(Boolean)
     .slice(0, 3);
-  const text = lines.join(" ");
+  const text = lines.join("\n");
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 

@@ -23,7 +23,7 @@ import { logosSection } from "./logos";
 import { readingControls } from "./reader";
 import { syncSection } from "./sync";
 import { refreshUpdates, restartToUpdate } from "../updates";
-import { CHANNELS, Channel, UpdateInfo, channelHint, lastCheckedText, lastErrorText, updateAction, versionLine } from "../updatewords";
+import { CHANNELS, Channel, NO_KEY_LINE, UpdateInfo, channelHint, lastCheckedText, lastErrorText, updateAction, versionLine } from "../updatewords";
 
 interface KeyStatus {
   key_set: boolean;
@@ -324,15 +324,16 @@ function updatesPage(): PageView {
     const info = await msg.attempt(() => run<UpdateInfo>("update.settings.get"));
     if (!info) return;
     const newer = !!info.enabled && !!info.newer;
+    const noKey = !info.key_set && !info.manual;
     const check = button("Check for updates", () => void checkNow(), { class: "check-updates" });
     check.disabled = !info.enabled;
     clear(body,
       toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Glossa is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
       settingRow("Channel", channelHint(info.channel), segmented<Channel>({ label: "Channel", options: CHANNELS, value: info.channel, onChange: (c) => void setChannel(c) })),
-      h("div", { class: "row wrap update-actions" }, check, newer ? button(updateAction(info.manual), () => void restartToUpdate(msg), { class: "primary" }) : null),
+      h("div", { class: "row wrap update-actions" }, check, newer ? button(updateAction(info.manual, noKey), () => void restartToUpdate(msg), { class: "primary" }) : null),
       h("p", { class: "hint update-status" }, lastCheckedText(info.last_checked), " ", versionLine(info, newer)),
       info.last_error ? h("p", { class: "hint update-error" }, lastErrorText(info.last_error)) : null,
-      info.key_set || info.manual ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));
+      noKey ? h("p", { class: "hint" }, NO_KEY_LINE) : null);
   }
   return { el, show: () => void show() };
 }
