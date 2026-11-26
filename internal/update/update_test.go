@@ -203,7 +203,7 @@ func run(t *testing.T, reg *command.Registry, env *command.Env, id, params strin
 	return reg.Run(context.Background(), env, id, json.RawMessage(params))
 }
 
-func TestOffByDefaultAndOnlyChecksWhenOn(t *testing.T) {
+func TestOnByDefaultAndStopsWhenTurnedOff(t *testing.T) {
 	pubB64, priv, _ := updatesig.GenerateKey()
 	r := newRelease(t, "1.1.0", priv, []byte("installer"), nil)
 	var launched []string
@@ -218,29 +218,10 @@ func TestOffByDefaultAndOnlyChecksWhenOn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if si := res.(SettingsInfo); si.Enabled || si.Asked || si.Current != "1.0.0" {
-		t.Fatalf("default settings = %+v", si)
+	if si := res.(SettingsInfo); !si.Enabled || si.Current != "1.0.0" {
+		t.Fatalf("default settings = %+v, want updates on", si)
 	}
-	// Off: nothing may touch the network, however it is asked.
-	for _, id := range []string{"update.check", "update.install"} {
-		if _, err := run(t, reg, env, id, ""); err == nil {
-			t.Errorf("%s ran while updates were off", id)
-		}
-	}
-	if res, err := run(t, reg, env, "update.auto", ""); err != nil || res.(CheckResult).Ran {
-		t.Fatalf("update.auto while off: %v %+v", err, res)
-	}
-	if r.hits.Load() != 0 || len(launched) != 0 {
-		t.Fatalf("the server was hit %d times and %d installers launched while off", r.hits.Load(), len(launched))
-	}
-	// Dismissing the question does not turn updates on.
-	if res, _ := run(t, reg, env, "update.settings.set", `{"asked":true}`); res.(SettingsInfo).Enabled || !res.(SettingsInfo).Asked {
-		t.Fatalf("after dismissing: %+v", res)
-	}
-
-	if _, err := run(t, reg, env, "update.settings.set", `{"enabled":true}`); err != nil {
-		t.Fatal(err)
-	}
+	// On from the start: a check needs no first-run answer.
 	res, err = run(t, reg, env, "update.check", "")
 	if err != nil {
 		t.Fatal(err)
@@ -272,6 +253,67 @@ func TestOffByDefaultAndOnlyChecksWhenOn(t *testing.T) {
 	if got, _ := os.ReadFile(launched[0]); string(got) != "installer" {
 		t.Fatalf("launched file holds %q", got)
 	}
+
+	// Turned off: nothing may touch the network, however it is asked.
+	if _, err := run(t, reg, env, "update.settings.set", `{"enabled":false}`); err != nil {
+		t.Fatal(err)
+	}
+	hits, n := r.hits.Load(), len(launched)
+	now = now.Add(48 * time.Hour)
+	for _, id := range []string{"update.check", "update.install"} {
+		if _, err := run(t, reg, env, id, ""); err == nil {
+			t.Errorf("%s ran while updates were off", id)
+		}
+	}
+	if res, err := run(t, reg, env, "update.auto", ""); err != nil || res.(CheckResult).Ran {
+		t.Fatalf("update.auto while off: %v %+v", err, res)
+	}
+	if r.hits.Load() != hits || len(launched) != n {
+		t.Fatalf("the server was hit and an installer launched while off")
+	}
+}
+
+// putRaw stores an update.settings row as an older version of Glossa wrote it.
+func putRaw(t *testing.T, env *command.Env, raw string) {
+	t.Helper()
+	err := env.Store.Write(context.Background(), "test", func(tx *store.Tx) error {
+		return tx.Create("settings", store.Row{"key": settingsKey, "value_json": raw})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// ADR 0016: updates are on unless the person said no. Older installs keep a "no" and turn on if
+// the first-run question was never answered.
+func TestOldAnswersAreKeptOrTurnedOn(t *testing.T) {
+	for name, c := range map[string]struct {
+		row  string // "" means no row at all
+		want bool
+	}{
+		"never opened, no row":           {"", true},
+		"asked, never answered":          {`{"enabled":false,"asked":false}`, true},
+		"empty object":                   {`{}`, true},
+		"answered no":                    {`{"enabled":false,"asked":true}`, false},
+		"answered yes":                   {`{"enabled":true,"asked":true}`, true},
+		"answered no, with a last check": {`{"enabled":false,"asked":true,"last_checked":"2026-11-01T00:00:00Z","latest":"1.1.0"}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			reg := command.NewRegistry()
+			RegisterWith(reg, Config{Current: "1.0.0"})
+			env := openEnv(t)
+			if c.row != "" {
+				putRaw(t, env, c.row)
+			}
+			res, err := run(t, reg, env, "update.settings.get", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.(SettingsInfo).Enabled; got != c.want {
+				t.Fatalf("enabled = %v, want %v", got, c.want)
+			}
+		})
+	}
 }
 
 func TestInstallRefusesBadSignatureAndOldVersions(t *testing.T) {
@@ -288,9 +330,6 @@ func TestInstallRefusesBadSignatureAndOldVersions(t *testing.T) {
 			cfg := testConfig(t, r, pubB64, &launched)
 			reg := command.NewRegistry()
 			RegisterWith(reg, cfg)
-			if _, err := run(t, reg, env, "update.settings.set", `{"enabled":true}`); err != nil {
-				t.Fatal(err)
-			}
 			if _, err := run(t, reg, env, "update.install", ""); err == nil {
 				t.Fatal("install succeeded")
 			}
