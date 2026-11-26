@@ -128,8 +128,12 @@ func TestNoteReachesAnotherDeviceAndReapplyIsHarmless(t *testing.T) {
 		t.Fatal("re-sync added change records")
 	}
 	// B's copy of A's records came from A: B never writes A's folder, and B's folder has only B's files.
-	if devs, _ := b.eng.devices(context.Background()); len(devs) != 1 {
-		t.Fatalf("devices in folder = %v; only A has written", devs)
+	// B has joined (its marker is there) but has written no change file of its own.
+	if f, err := b.eng.listDevice(context.Background(), b.st.Device()); err != nil || len(f.changes)+len(f.snaps) != 0 {
+		t.Fatalf("B wrote change files: %+v, %v", f, err)
+	}
+	if f, err := b.eng.listDevice(context.Background(), a.st.Device()); err != nil || len(f.changes) != 1 {
+		t.Fatalf("A's files: %+v, %v", f, err)
 	}
 
 	// Forcing the same file to be applied again (a lost cursor) changes nothing either.
@@ -804,5 +808,55 @@ func TestDeletionBatchRoundTrips(t *testing.T) {
 	}
 	if liveA != 1 || liveB != 1 || batch(a, "notes", with.ID) != "" {
 		t.Fatalf("after the restore reached A: live notes A=%d B=%d, batch %q", liveA, liveB, batch(a, "notes", with.ID))
+	}
+}
+
+// A device is listed as soon as it has joined, before it has written a change file, so it can be
+// forgotten. Its name travels in an encrypted marker.
+func TestDeviceIsListedAsSoonAsItHasJoined(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	a.connect(folderDir)
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil { // what sync.setup does
+		t.Fatal(err)
+	}
+	if err := eb.Join(ctx); err != nil { // twice is harmless
+		t.Fatal(err)
+	}
+	u, err := a.eng.Devices(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got *DeviceInfo
+	for i := range u.Devices {
+		if u.Devices[i].ID == b.st.Device() {
+			got = &u.Devices[i]
+		}
+	}
+	if got == nil || got.Name != "Desktop" || got.Files != 0 || got.Self {
+		t.Fatalf("devices = %+v", u.Devices)
+	}
+	if p, err := a.eng.Preview(ctx); err != nil || p.FolderHasData {
+		t.Fatalf("a device that has only joined holds no data: %+v, %v", p, err)
+	}
+	if err := a.eng.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.eng.Forget(ctx, b.st.Device()); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := a.eng.Devices(ctx); len(u.Devices) != 1 {
+		t.Fatalf("after forgetting: %+v", u.Devices)
+	}
+	if _, err := eb.Sync(ctx); !errors.Is(err, ErrForgotten) {
+		t.Fatalf("forgotten device synced: %v", err)
+	}
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := a.eng.Devices(ctx); len(u.Devices) != 1 {
+		t.Fatalf("joining again must not bring a forgotten device back: %+v", u.Devices)
 	}
 }

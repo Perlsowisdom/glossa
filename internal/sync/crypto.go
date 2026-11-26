@@ -110,6 +110,7 @@ const (
 	kindChange   = 'C'
 	kindSnapshot = 'S'
 	kindKeyCheck = 'K'
+	kindJoin     = 'J' // a device's "I have joined" marker
 )
 
 const (

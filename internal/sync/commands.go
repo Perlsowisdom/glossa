@@ -245,6 +245,9 @@ func (m *manager) setup(ctx context.Context, env *command.Env, p SetupParams) (S
 	if err := env.Store.SetSyncState(ctx, stateFolder, p.Folder); err != nil {
 		return Status{}, err
 	}
+	if err := e.Join(ctx); err != nil {
+		return Status{}, fail(err)
+	}
 	if p.Remember {
 		if err := m.keys.Set(secretName, p.Password); err != nil {
 			return Status{}, command.Errorf("failed", "the password could not be saved in the credential store")
