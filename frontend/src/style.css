@@ -1750,6 +1750,7 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
 .sync-unlock { width: 320px; }
 .sync-unlock input[type=password] { width: 100%; margin: 6px 0; }
 .sync-unlock .check { display: flex; gap: 6px; align-items: center; margin: 4px 0 8px; }
+.rail-update::after { content: ""; position: absolute; top: 9px; left: 24px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid var(--rail-bg, var(--bg)); }
 .rail-sync::after { content: ""; position: absolute; top: 9px; left: 24px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); border: 2px solid var(--rail-bg, var(--bg)); }
 .rail-sync[data-state="problem"]::after { background: var(--bad); }
 .rail-sync[data-state="locked"]::after, .rail-sync[data-state="pending"]::after { background: var(--warn); }

@@ -23,6 +23,7 @@ import { chromium } from "playwright-core";
 import { startFakeStyles } from "./fake-styles.mjs";
 import { startFakeZotero } from "./fake-zotero.mjs";
 import { startFakeAny } from "./fake-any.mjs";
+import { startFakeReleases } from "./fake-releases.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repo = resolve(here, "..", "..");
@@ -182,13 +183,16 @@ async function sweep() {
   for (const f of readdirSync(WORK)) if (f.startsWith("run-")) await removeRun(join(WORK, f), 3000);
 }
 
-// The first-run question about updates (T23) would sit over every test, so the copy starts with it
-// answered "no". updates.e2e.mjs asks for it again to test it. This writes the copy, never the
-// user's library.
-function markUpdateQuestionAsked(db) {
+// Updates are on unless the person says no (ADR 0016), and the notice of a newer version would sit
+// over every test, so the copy starts with them answered "no". updates.e2e.mjs starts the app as a
+// fresh install (no answer at all) and as an old install that said no, to test both. row is the
+// update.settings value, or null for no row. This writes the copy, never the user's library.
+const UPDATES_OFF = '{"enabled":false,"asked":true}';
+function setUpdateSettings(db, row = UPDATES_OFF) {
   const d = new DatabaseSync(db);
   try {
-    d.prepare("INSERT OR REPLACE INTO settings (key, value_json) VALUES ('update.settings', ?)").run('{"enabled":false,"asked":true}');
+    if (row === null) d.prepare("DELETE FROM settings WHERE key = 'update.settings'").run();
+    else d.prepare("INSERT OR REPLACE INTO settings (key, value_json) VALUES ('update.settings', ?)").run(row);
   } finally {
     d.close();
   }
@@ -225,13 +229,15 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   } else {
     cpSync(SOURCE, lib, { recursive: true });
   }
-  markUpdateQuestionAsked(join(lib, "library.db"));
+  setUpdateSettings(join(lib, "library.db"));
   // The app talks to this fake Zotero, never to the real one on this computer or on zotero.org.
   const zotero = await startFakeZotero();
   // ... and this fake Any, never the Any app on port 31009.
   const anyApp = await startFakeAny();
   // Downloaded citation styles come from this fake, never from GitHub.
   const styles = await startFakeStyles();
+  // Updates come from this fake GitHub, never from the real one.
+  const releases = await startFakeReleases();
   const profile = join(run, "webview");
   mkdirSync(profile, { recursive: true });
 
@@ -256,6 +262,11 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_ANY_URL: anyApp.url,
         GLOSSA_CSL_LIST_URL: styles.listUrl,
         GLOSSA_CSL_RAW_URL: styles.rawUrl,
+        GLOSSA_UPDATE_ENDPOINT: releases.endpointUrl,
+        GLOSSA_UPDATE_RELEASES_URL: releases.releasesUrl,
+        // A net the app should never reach (GitHub, anything else) goes to a proxy that is not there, so
+        // a check that forgot its fake fails at once instead of going out. This computer's own fakes are exempt.
+        HTTPS_PROXY: "http://127.0.0.1:9", HTTP_PROXY: "http://127.0.0.1:9", NO_PROXY: "127.0.0.1,localhost",
         // The occlusion and background flags keep the page painting and its timers running when another
         // window covers the app or the screen dims: a hidden page never finishes document.fonts.ready,
         // and every screenshot then waits "for fonts to load" until it times out.
@@ -333,6 +344,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     zotero,
     any: anyApp,
     styles,
+    releases,
     log: () => log,
     forget: () => { seen.length = 0; },
     // resize pins the page to w x h (the harness default is 1480 x 950).
@@ -355,7 +367,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       const same = (a, c) => JSON.stringify(a) === JSON.stringify(c);
       const put = async (id, p) => { await app.run(id, p).catch((e) => remember(`restore ${id}: ${e.message}`)); };
       const u = await app.run("update.settings.get").catch(() => null);
-      if (b.update && u && (u.enabled !== b.update.enabled || u.asked !== b.update.asked)) await put("update.settings.set", { enabled: b.update.enabled, asked: b.update.asked });
+      if (b.update && u && (u.enabled !== b.update.enabled || u.channel !== b.update.channel)) await put("update.settings.set", { enabled: b.update.enabled, channel: b.update.channel });
+      app.releases.reset();
       const c = await app.run("ccel.settings").catch(() => null);
       if (b.ccel && c && c.enabled !== b.ccel.enabled) await put("ccel.settings", { enable: b.ccel.enabled });
       const a = await app.run("assistant.config.get").catch(() => null);
@@ -412,9 +425,11 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       return `state ${JSON.stringify(state)}${seen.length ? `\n      console: ${seen.slice(-6).join(" | ")}` : ""}`;
     },
     // restart quits the app and opens it again on the same library copy; app.page is then the
-    // new window's page.
-    async restart() {
+    // new window's page. updates: null starts it as a fresh install (no update answer at all), a string
+    // is the update.settings row an older version left (see setUpdateSettings).
+    async restart({ updates } = {}) {
       await quit(cur);
+      if (updates !== undefined) setUpdateSettings(join(lib, "library.db"), updates);
       await start(await freePort());
       app.page = cur.page;
       app.browser = cur.browser;
@@ -426,6 +441,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         await zotero.close().catch(() => {});
         await anyApp.close().catch(() => {});
         await styles.close().catch(() => {});
+        await releases.close().catch(() => {});
         await removeRun(run);
       }
     },

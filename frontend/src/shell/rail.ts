@@ -14,6 +14,7 @@ import {
 } from "../shellwords";
 import { loadPref, onPrefs, prefs, savePref, setPrefs } from "../state";
 import { onSync, syncNow } from "../syncstate";
+import { onUpdateReady, updateReady } from "../updates";
 import { indicator } from "../syncwords";
 
 export interface RailHooks {
@@ -83,9 +84,26 @@ export function rail(shell: HTMLElement, hooks: RailHooks) {
   };
   onSync(paintSync);
 
+  // A newer version is ready: shown until it is installed, even after "Later" on the notice. Opens Settings → Updates.
+  const updateBtn = item("a", "download", "Update", { href: "#settings/updates", class: "rail-item rail-update", hidden: true });
+  updateBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    hooks.settings("updates");
+  });
+  const paintUpdate = () => {
+    const u = updateReady();
+    updateBtn.hidden = !u;
+    if (!u) return;
+    const label = `Glossa ${u.version} is ready. Open Settings, Updates.`;
+    updateBtn.title = label;
+    updateBtn.setAttribute("aria-label", label);
+  };
+  onUpdateReady(paintUpdate);
+  paintUpdate();
+
   const nav = h("nav", { class: "rail", "aria-label": "Places" },
     h("div", { class: "rail-top" }, [...links.values()], grid),
-    h("div", { class: "rail-bottom" }, syncBtn, toolsBtn, settingsBtn, helpBtn));
+    h("div", { class: "rail-bottom" }, updateBtn, syncBtn, toolsBtn, settingsBtn, helpBtn));
   const edge = h("div", { class: "rail-edge", "aria-hidden": "true" });
   const reveal = h("button", { type: "button", class: "rail-reveal", "aria-label": "Show the rail", title: "Show the rail (Alt+0)" }, icon("rail"));
 

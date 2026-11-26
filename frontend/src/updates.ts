@@ -1,22 +1,50 @@
-// Updates for the direct download. Off until the user says yes (ADR 0009): the first time, a small
-// notice asks once, plainly. When a newer version is known, another notice offers "Restart to
-// update". The Microsoft Store build has no updater, so the commands are missing and nothing shows.
+// Updates for the direct download. On unless the person turns them off (ADR 0016): the core checks once
+// a day. When a newer version is known, a small notice offers "Install and restart" or "Later", and the
+// rail shows an Update entry until the version is installed. "Later" hides the notice for that version
+// until the next start. A failed check says nothing here; Settings → Updates shows the last error.
+// The Microsoft Store build has no updater, so the commands are missing and nothing shows.
 
 import { Message, onEvent, run } from "./api";
 import { button, h } from "./dom";
-import { UpdateInfo, updateAction } from "./updatewords";
+import { UpdateInfo, noticeHelp, noticeTitle, shortNotes, updateAction } from "./updatewords";
 
+export interface Available {
+  version: string;
+  notes?: string;
+  manual?: boolean;
+}
+
+let available: Available | null = null;
+const dismissed = new Set<string>(); // versions the person said "Later" to, until the next start
+const listeners = new Set<() => void>();
 let banner: HTMLElement | null = null;
 
-function show(label: string, ...children: (Node | string)[]) {
-  hide();
-  banner = h("div", { class: "update-banner", role: "region", "aria-label": label, id: "update-banner" }, ...children);
-  document.body.append(banner);
+// updateReady is the newer version that is waiting, or null.
+export function updateReady(): Available | null {
+  return available;
+}
+
+// onUpdateReady calls fn when a newer version becomes known or is no longer waiting.
+export function onUpdateReady(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function setAvailable(a: Available | null) {
+  if (available?.version === a?.version && available?.notes === a?.notes) return;
+  available = a;
+  paint();
+  for (const fn of [...listeners]) fn();
 }
 
 function hide() {
   banner?.remove();
   banner = null;
+}
+
+function paint() {
+  hide();
+  if (available && !dismissed.has(available.version)) banner = notice(available);
 }
 
 // restartToUpdate downloads, verifies and starts the installer; the app quits when it is running.
@@ -41,50 +69,48 @@ function openDownload(url: string) {
   else window.open(url, "_blank", "noopener");
 }
 
-function offer(version: string, manual?: boolean) {
+// notice is the small, non-blocking panel in the corner. It takes no focus; Tab reaches it.
+function notice(a: Available): HTMLElement {
   const msg = new Message();
-  show("Update ready",
-    h("p", {}, h("strong", {}, `Glossa ${version} is ready.`),
-      manual ? " Download it, open the disk image and drag Glossa to Applications; your library is not touched." : " It installs in a moment and opens again; your library is not touched."),
+  const notes = shortNotes(a.notes);
+  const el = h("div", { class: "update-banner update-notice", role: "region", "aria-label": "Update ready", id: "update-banner" },
+    h("p", {}, h("strong", {}, noticeTitle(a.version)), " ", noticeHelp(a.manual)),
+    notes ? h("p", { class: "hint update-notes" }, notes) : null,
     h("div", { class: "row" },
-      button(updateAction(manual), () => void restartToUpdate(msg), { class: "primary" }),
-      button("Later", hide)),
+      button(updateAction(a.manual), () => void restartToUpdate(msg), { class: "primary" }),
+      button("Later", () => {
+        dismissed.add(a.version);
+        hide();
+      })),
     msg.el);
+  document.body.append(el);
+  return el;
 }
 
-function ask() {
-  show("Check for updates",
-    h("p", {}, h("strong", {}, "Check for updates automatically?")),
-    h("p", { class: "hint" }, "Glossa can look at its public releases page on GitHub once a day and tell you when a new version is ready. It sends nothing but that web request, and nothing happens unless you say yes. You can change this in Settings, under Updates."),
-    h("div", { class: "row" },
-      button("Yes, check for updates", () => void answer(true), { class: "primary" }),
-      button("No thanks", () => void answer(false))));
-}
-
-async function answer(on: boolean) {
-  hide();
-  try {
-    await run("update.settings.set", { enabled: on });
-  } catch {
-    // The question will come back at the next start.
-  }
-}
-
-// startUpdates asks the first-run question if it was not answered, and listens for a newer version.
-export async function startUpdates(): Promise<void> {
-  onEvent("update:available", (r) => {
-    const x = r as { latest?: string; manual?: boolean } | undefined;
-    if (x?.latest) offer(x.latest, x.manual);
-  });
+// refreshUpdates reads what the core knows and shows or clears the notice. Settings calls it after a
+// check or a change of channel.
+export async function refreshUpdates(): Promise<UpdateInfo | undefined> {
   try {
     const info = await run<UpdateInfo>("update.settings.get");
-    if (!info.asked) ask();
-    else if (info.enabled && info.latest && info.latest !== info.current) {
-      // A version found earlier and not yet installed is offered again at start.
-      const check = await run<{ newer: boolean; latest?: string; manual?: boolean }>("update.auto");
-      if (check.newer && check.latest) offer(check.latest, check.manual);
-    }
+    setAvailable(info.enabled && info.newer && info.latest ? { version: info.latest, notes: info.notes, manual: info.manual } : null);
+    return info;
   } catch {
-    // No update commands: the Store build, or no library open.
+    return undefined; // no update commands: the Store build, or no library open
   }
+}
+
+// startUpdates listens for a newer version and shows one found earlier. update.auto checks if a day has
+// passed (the core also does this on a timer).
+export async function startUpdates(): Promise<void> {
+  onEvent("update:available", (r) => {
+    const x = r as { latest?: string; notes?: string; manual?: boolean } | undefined;
+    if (x?.latest) setAvailable({ version: x.latest, notes: x.notes, manual: x.manual });
+  });
+  if (!(await refreshUpdates())) return;
+  try {
+    await run("update.auto");
+  } catch {
+    return;
+  }
+  await refreshUpdates();
 }
