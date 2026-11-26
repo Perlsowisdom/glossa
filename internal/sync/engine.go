@@ -516,7 +516,7 @@ func (e *Engine) Preview(ctx context.Context) (Preview, error) {
 	}
 	p.ToThisDevice, p.AfterMerge, p.InFolder = info.sum, info.counts, info.inFold
 	for _, d := range devs {
-		if d != e.st.Device() {
+		if f, err := e.listDevice(ctx, d); d != e.st.Device() && err == nil && len(f.changes)+len(f.snaps) > 0 {
 			p.FolderHasData = true
 			p.Devices = append(p.Devices, orID(info.names[d], d))
 		}
@@ -540,6 +540,9 @@ func (e *Engine) Sync(ctx context.Context) (Result, error) {
 		return res, err
 	}
 	res.Pulled = pulled.sum
+	if err := e.join(ctx); err != nil {
+		return res, err
+	}
 	if err := e.indexLocal(ctx, &res.Blobs); err != nil {
 		return res, err
 	}
@@ -649,6 +652,54 @@ func (e *Engine) writeFile(ctx context.Context, kind byte, body fileBody, name s
 	return e.t.Create(ctx, body.Device+"/"+name, data)
 }
 
+// joinedName is the file a device writes when it joins, before it has any change to send.
+const joinedName = "joined"
+
+// Join leaves a small encrypted marker in this device's folder, so the other devices list it (and can
+// forget it) as soon as it has joined, not only after its first change file. Doing it again is harmless,
+// and a device that was forgotten is not brought back.
+func (e *Engine) Join(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.join(ctx)
+}
+
+func (e *Engine) join(ctx context.Context) error {
+	self := e.st.Device()
+	forgotten, err := e.forgotten(ctx)
+	if err != nil || forgotten[self] {
+		return err
+	}
+	name, _ := e.st.DeviceName(ctx, self)
+	schema, err := e.st.SchemaVersion()
+	if err != nil {
+		return err
+	}
+	body := fileBody{Format: formatVersion, Kind: "join", Device: self, DeviceName: name, Schema: schema,
+		Created: e.Now().UnixMilli(), Changes: []store.Change{}}
+	if err := e.writeFile(ctx, kindJoin, body, joinedName); err != nil && !errors.Is(err, ErrExists) {
+		return err
+	}
+	return nil
+}
+
+// joinedAs reads the name a device gave when it joined; empty if it left no marker or it cannot be read.
+func (e *Engine) joinedAs(ctx context.Context, dev string) string {
+	raw, err := e.t.Read(ctx, dev+"/"+joinedName)
+	if err != nil {
+		return ""
+	}
+	plain, err := open(e.key, raw, kindJoin, dev, 0)
+	if err != nil {
+		return ""
+	}
+	var b fileBody
+	if json.Unmarshal(plain, &b) != nil || b.Device != dev {
+		return ""
+	}
+	return b.DeviceName
+}
+
 // Compact writes a snapshot of everything this device knows and removes this device's older change
 // files and snapshots. Other devices that have not read those files yet start from the snapshot.
 // Values erased by a purge are gone from the snapshot, so compacting also clears them from the folder.
@@ -747,7 +798,11 @@ func (e *Engine) Devices(ctx context.Context) (Usage, error) {
 		if err != nil {
 			return u, err
 		}
-		u.Devices = append(u.Devices, DeviceInfo{ID: d, Name: orID(names[d], d), Self: d == e.st.Device(),
+		name := names[d]
+		if name == "" {
+			name = e.joinedAs(ctx, d)
+		}
+		u.Devices = append(u.Devices, DeviceInfo{ID: d, Name: orID(name, d), Self: d == e.st.Device(),
 			Files: len(f.changes) + len(f.snaps), Bytes: f.bytes})
 		u.Bytes += f.bytes
 	}

@@ -138,3 +138,31 @@ One full run (no `--no-build`, layout-sanity included): 97 passed, 1 failed of 9
 check itself (its Undo selector matched a hidden notice from another page); the selector was scoped to that notice and the
 file's check then passed on its own. The batch 2 delete check was also run alone with a word filter and passed. `gofmt`,
 `go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
+
+## Items 21 to 24, fixed in pass 5 (branch m3/qol5)
+
+Each has a check, run first against the old code and seen to fail (the Go checks for 22 and 23 failed to build, because
+the command and the method they test did not exist yet; item 21 failed in the real app before its fix). Real-app checks are
+in `frontend/e2e/qol5.e2e.mjs`. Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 816 and
+900 x 700, light and dark (`library-empty`, `bin-many`), plus `qol5-joined-device.png`.
+
+| # | Severity | Cause | Fix | Check (failed first) |
+| --- | --- | --- | --- | --- |
+| 21 | cosmetic | The Traditions and rules fold is the last thing in the Library's catalogue column, so with no books it sat under the empty state, apart from the Collections column. | It is hidden while the whole library has no books (there is nothing for traditions and rules to describe); it shows as soon as there is a book, and in any folder or collection of a library that has books. | Real app "Library, empty with the Collections column ..." (a second app on a book-less copy: the fold was visible in the catalogue column). Shots `library-empty`. |
+| 22 | cosmetic | `bin.list` stops at 500 and both numbers were its length. | New `bin.count` (the true number) and an `offset` on `bin.list` (pages of 500). The Bin entry in My work reads `bin.count`; the Bin page shows the true count and loads 200 at a time with **Show more (N left)**; the pages already open stay open when something is restored. | Go `TestBinCountIsTrueAndTheListPages` (620 things: count, first page 500, the rest by offset, no overlap, order). Real app "Bin: a bin of more than 500 things ..." (510 notes deleted: both numbers, the pages, Show more, Restore; the bin is emptied again afterwards). Shots `bin-many`. |
+| 23 | cosmetic | A device showed in the folder only once it had written a change file. | Joining (`sync.setup`, and every sync) leaves a small encrypted marker, `joined`, in the device's folder holding its name (kind `J`, like a change file: nothing is readable in the folder). `Devices` lists a device that has only joined, with 0 files; the first-sync preview does not count it as data; forgetting it removes it, and joining again does not bring a forgotten device back. | Go `TestDeviceIsListedAsSoonAsItHasJoined`. Real app "Sync: a device that has joined but not written anything ..." (two apps: B only sets up, A lists, forgets it, B's sync is refused). Shot `qol5-joined-device.png`. |
+| 24 | cosmetic | "Deleted together" was worked out from `deleted_at` times. | **Migration 0017** adds `deletion_batch` to folders, notes, documents and collections. `folder.delete` and `collection.delete` stamp one new id on everything they delete (set just before the delete, in the same write). `bin.list`, `bin.restore` and `bin.purge` use the batch; a folder or collection with no batch (deleted before 0017) uses the old time rule. Restoring clears the batch. It syncs as an ordinary field change (not per-device). ADR 0015, status Proposed. | Go: `TestRestoreOfAFolderBringsBackExactlyItsBatch` (a note in the folder stamped later but not in the batch stays in the bin; the old rule brought it back), `TestRestoreOfAnOldFolderFallsBackToTheTimeRule`, `TestCollectionRestoreBringsBackExactlyItsBatch`, sync `TestDeletionBatchRoundTrips` (batch reaches the other device, restore there brings back exactly the batch). |
+
+## New things noticed in pass 5 (not fixed)
+
+| # | Severity | Steps | What happens | What should happen |
+| --- | --- | --- | --- | --- |
+| 25 | cosmetic | Bin page with more than one page of things, delete or restore something in another window or by sync, then Show more | The list is paged by offset, so a page can repeat or skip a row when the bin changes between two loads (the count is always right). | Page by "older than the last row shown" instead of by offset, or reload the open pages on any change (it does already for this window's own Restore and Delete). |
+| 26 | cosmetic | Rename a device in Sync, before it has written a change file | Other devices list it by the name in its `joined` marker, which is written once, so they show the old name until the device writes a change file (which carries the current name). Each sync also tries to create the marker again (a cheap, harmless no-op). | Rewrite the marker when the device is renamed, and skip the attempt once it has written a change file. |
+| 27 | cosmetic | A new library with no books: Library | The Traditions and rules fold is hidden until the first book is added (item 21), so traditions and rules cannot be set up before importing. | Move the fold to Settings (or the Collections column) so it is reachable any time. |
+| 28 | cosmetic | Restore a folder deleted before migration 0017, in a library where times were rewritten by sync | Old rows have no batch and still use the time rule, so the old rare mix-up (a note deleted separately at nearly the same time as the folder on another device) can still happen for them. | Nothing is planned: such folders leave the bin when it is emptied. Mentioned in ADR 0015. |
+
+### After pass 5
+
+One full run (no `--no-build`, layout-sanity included): 101 passed, 0 failed of 101 checks (three new in `qol5.e2e.mjs`). `gofmt`,
+`go vet ./...` and `go test ./...` were clean; vitest 385 tests passed. Migration 0017 is the new schema version.

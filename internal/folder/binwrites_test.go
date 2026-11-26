@@ -186,3 +186,161 @@ func TestCollectionGoesToBinRestoresAndPurges(t *testing.T) {
 		t.Fatalf("purge a live collection: %v", err)
 	}
 }
+
+// set changes columns of one row, as a merge from another device would.
+func (e *env) set(table, id string, fields store.Row) {
+	e.t.Helper()
+	if err := e.st.Write(context.Background(), "test.set", func(tx *store.Tx) error { return tx.Update(table, store.ByID(id), fields) }); err != nil {
+		e.t.Fatal(err)
+	}
+}
+
+// seedNote writes a note straight into a folder with a given deleted_at and batch, like a row that
+// arrived from another device or from before deletion batches existed.
+func seedNote(t *testing.T, e *env, folder string, deletedAt int64, batch any) string {
+	t.Helper()
+	id := store.NewID()
+	row := store.Row{"id": id, "body_md": "seeded", "folder_id": folder, "created_at": int64(1), "updated_at": int64(1), "deleted_at": deletedAt}
+	if batch != nil {
+		row["deletion_batch"] = batch
+	}
+	if err := e.st.Write(context.Background(), "test.seed", func(tx *store.Tx) error { return tx.Create("notes", row) }); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestRestoreOfAFolderBringsBackExactlyItsBatch(t *testing.T) {
+	e := setup(t)
+	var f Folder
+	e.must("folder.create", map[string]any{"name": "Series"}, &f)
+	var n core.Note
+	e.must("note.create", map[string]any{"body": "inside", "folder_id": f.ID}, &n)
+	e.must("folder.delete", map[string]any{"id": f.ID}, nil)
+	// A note in the folder deleted on its own, stamped later than the folder (as a merge from another
+	// device can leave it): the time rule would bring it back with the folder.
+	apart := seedNote(t, e, f.ID, 9_000_000_000_000, nil)
+
+	bin := binOf(e)
+	var entry BinEntry
+	for _, b := range bin {
+		if b.ID == f.ID {
+			entry = b
+		}
+	}
+	if entry.Notes != 1 {
+		t.Fatalf("the folder's bin entry counts %d notes, want only its batch (1): %+v", entry.Notes, bin)
+	}
+	var back Restored
+	e.must("bin.restore", map[string]any{"kind": "folder", "id": f.ID}, &back)
+	if back.Notes != 1 || back.Folders != 1 {
+		t.Fatalf("restored = %+v", back)
+	}
+	for _, b := range binOf(e) {
+		if b.ID == n.ID {
+			t.Fatalf("the note deleted with the folder is still in the bin")
+		}
+	}
+	var deletedAt, batch any
+	if err := e.st.QueryRow(context.Background(), `SELECT deleted_at, deletion_batch FROM notes WHERE id = ?`, n.ID).Scan(&deletedAt, &batch); err != nil || deletedAt != nil || batch != nil {
+		t.Fatalf("restored note: deleted_at=%v batch=%v err=%v", deletedAt, batch, err)
+	}
+	stay := binOf(e)
+	if len(stay) != 1 || stay[0].ID != apart {
+		t.Fatalf("the note deleted separately should still be in the bin: %+v", stay)
+	}
+}
+
+func TestRestoreOfAnOldFolderFallsBackToTheTimeRule(t *testing.T) {
+	e := setup(t)
+	var f Folder
+	e.must("folder.create", map[string]any{"name": "Old"}, &f)
+	var n core.Note
+	e.must("note.create", map[string]any{"body": "inside", "folder_id": f.ID}, &n)
+	e.must("folder.delete", map[string]any{"id": f.ID}, nil)
+	// Make everything look as it did before batches: no ids anywhere.
+	e.set("folders", f.ID, store.Row{"deletion_batch": nil})
+	e.set("notes", n.ID, store.Row{"deletion_batch": nil})
+	early := seedNote(t, e, f.ID, 1, nil)
+	bin := binOf(e)
+	if len(bin) != 1 || bin[0].Kind != "folder" {
+		t.Fatalf("bin = %+v", bin)
+	}
+	for _, b := range bin {
+		if b.Kind == "folder" && b.Notes != 1 {
+			t.Fatalf("old data: the folder should count the note deleted at or after it: %+v", b)
+		}
+	}
+	var back Restored
+	e.must("bin.restore", map[string]any{"kind": "folder", "id": f.ID}, &back)
+	if back.Notes != 1 {
+		t.Fatalf("restored = %+v", back)
+	}
+	stay := binOf(e)
+	if len(stay) != 1 || stay[0].ID != early {
+		t.Fatalf("a note deleted before the folder stays in the bin: %+v", stay)
+	}
+}
+
+func TestCollectionRestoreBringsBackExactlyItsBatch(t *testing.T) {
+	e := setup(t)
+	library.Register(e.r)
+	var top, inner, early library.CollectionResult
+	e.must("collection.create", map[string]any{"name": "Top"}, &top)
+	e.must("collection.create", map[string]any{"name": "Inner", "parent_id": top.ID}, &inner)
+	e.must("collection.create", map[string]any{"name": "Early", "parent_id": top.ID}, &early)
+	e.must("collection.delete", map[string]any{"id": early.ID}, nil)
+	e.must("collection.delete", map[string]any{"id": top.ID}, nil)
+	// Make the one deleted on its own look as if it was stamped at the same moment or later.
+	e.set("collections", early.ID, store.Row{"deleted_at": int64(9_000_000_000_000)})
+	var back Restored
+	e.must("bin.restore", map[string]any{"kind": "collection", "id": top.ID}, &back)
+	if back.Collections != 2 {
+		t.Fatalf("restored = %+v, want Top and Inner only", back)
+	}
+	bin := binOf(e)
+	if len(bin) != 1 || bin[0].ID != early.ID {
+		t.Fatalf("bin = %+v", bin)
+	}
+}
+
+func TestBinCountIsTrueAndTheListPages(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	const total = 620
+	if err := e.st.Write(ctx, "test.seed", func(tx *store.Tx) error {
+		for i := 0; i < total; i++ {
+			err := tx.Create("notes", store.Row{"id": store.NewID(), "body_md": "x", "created_at": int64(1), "updated_at": int64(1), "deleted_at": int64(1000 + i)})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var c BinCount
+	e.must("bin.count", map[string]any{}, &c)
+	if c.Count != total {
+		t.Fatalf("bin.count = %d, want %d", c.Count, total)
+	}
+	first := binOf(e)
+	if len(first) != 500 {
+		t.Fatalf("the default list holds %d, want a page of 500", len(first))
+	}
+	var rest []BinEntry
+	e.must("bin.list", map[string]any{"offset": 500}, &rest)
+	if len(rest) != total-500 {
+		t.Fatalf("the next page holds %d, want %d", len(rest), total-500)
+	}
+	seen := map[string]bool{}
+	for _, b := range append(first, rest...) {
+		seen[b.ID] = true
+	}
+	if len(seen) != total {
+		t.Fatalf("the two pages cover %d different things, want %d", len(seen), total)
+	}
+	if first[0].DeletedAt < first[499].DeletedAt || first[499].DeletedAt < rest[0].DeletedAt {
+		t.Fatal("pages are not in most-recently-deleted order")
+	}
+}

@@ -254,6 +254,9 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
     renderChips();
     renderScope();
     results.dataset.mode = mode;
+    // With no books at all there is nothing for traditions and rules to describe: the fold would only
+    // float under the empty state, away from the Collections column.
+    rules.el.hidden = all.length === 0 && !since && !folder && !collection;
     if (list.length === 0) {
       clear(results, all.length === 0
         ? emptyLib(since || folder || collection ? "No books here" : "No books yet", since || folder || collection ? "Nothing in this part of your library." : "Choose Add books, or drop files on the window.")

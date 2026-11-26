@@ -12,7 +12,11 @@ import { BinEntry, binContents, binKind, binTitle, purgeQuestion } from "../work
 
 const ICON: Record<BinEntry["kind"], string> = { folder: "folder", note: "notes", document: "sermon", list: "list", plan: "plan", collection: "library" };
 
+// The list loads a page at a time; the number in the heading is the true count (bin.count).
+const PAGE = 200;
+
 export function binView() {
+  let shown = PAGE; // how many are loaded; it grows with Show more and is kept when the page refreshes
   const msg = new Message();
   const sub = h("p", { class: "hint work-sub", "aria-live": "polite" });
   const list = h("ul", { class: "bin-list", "aria-label": "In the bin" });
@@ -21,14 +25,23 @@ export function binView() {
     msg.el, list);
 
   async function refresh() {
-    const got = await msg.attempt(() => run<BinEntry[]>("bin.list"));
-    if (!got) return;
-    sub.textContent = got.length
-      ? `${got.length} ${got.length === 1 ? "thing" : "things"}, most recently deleted first. Restore puts each back where it was.`
+    const [got, total] = await Promise.all([
+      msg.attempt(() => run<BinEntry[]>("bin.list", { limit: shown })),
+      msg.attempt(() => run<{ count: number }>("bin.count")),
+    ]);
+    if (!got || !total) return;
+    const n = total.count;
+    sub.textContent = n
+      ? `${n} ${n === 1 ? "thing" : "things"}, most recently deleted first. Restore puts each back where it was.`
       : "Deleted notes, sermons, lists, reading plans, collections and folders wait here until you restore them.";
     clear(list, got.length === 0
       ? h("li", { class: "work-empty" }, emptyState("bin", "The bin is empty", "Anything you delete in My work comes here first, so nothing is lost by mistake."))
-      : got.map(row));
+      : [...got.map(row), ...(n > got.length ? [more(got.length, n)] : [])]);
+  }
+
+  function more(loaded: number, n: number): HTMLElement {
+    return h("li", { class: "bin-more" },
+      button(`Show more (${n - loaded} left)`, () => { shown = loaded + PAGE; void refresh(); }));
   }
 
   function row(e: BinEntry): HTMLElement {

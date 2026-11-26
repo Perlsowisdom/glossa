@@ -28,7 +28,8 @@ func Register(r *command.Registry) {
 		command.Define("folder.move", "Move a folder to the top or inside another top-level folder, optionally to a position among its neighbours.", true, move),
 		command.Define("folder.delete", "Delete a folder with its subfolders, notes and sermons. They wait in the bin together until restored.", true, del),
 		command.Define("folder.list", "List the folders, top-level ones first in their order, each with how many notes and documents it holds.", false, list),
-		command.Define("bin.list", "List what is in the bin: deleted folders, notes, sermons, lists and reading plans, most recently deleted first.", false, binList),
+		command.Define("bin.list", "List what is in the bin: deleted folders, notes, sermons, lists and reading plans, most recently deleted first. Pages of 500; use offset for the next, and bin.count for the total.", false, binList),
+		command.Define("bin.count", "Count everything in the bin. bin.list stops at its limit (500 by default); this is the true number.", false, binCount),
 		command.Define("bin.restore", "Bring something back from the bin. A folder comes back with what was deleted with it.", true, binRestore),
 		command.Define("bin.purge", "Delete something in the bin for good. Its text is also removed from the change history. This cannot be undone.", true, binPurge),
 	)
@@ -274,6 +275,7 @@ func del(ctx context.Context, env *command.Env, p IDParams) (Deleted, error) {
 	}
 	// The folder goes first, so everything deleted with it has a deleted_at no earlier than its own:
 	// that is how a restore knows what to bring back.
+	batch := store.NewID() // everything that goes now goes with this one id (ADR 0015)
 	err = env.Store.Write(ctx, "folder.delete", func(tx *store.Tx) error {
 		if _, err := live(tx, p.ID); err != nil {
 			return err
@@ -283,6 +285,9 @@ func del(ctx context.Context, env *command.Env, p IDParams) (Deleted, error) {
 			ids   []string
 		}{{"folders", all}, {"notes", notes}, {"documents", docs}} {
 			for _, id := range x.ids {
+				if err := tx.Update(x.table, store.ByID(id), store.Row{"deletion_batch": batch}); err != nil {
+					return err
+				}
 				if err := tx.Delete(x.table, store.ByID(id)); err != nil {
 					return err
 				}
