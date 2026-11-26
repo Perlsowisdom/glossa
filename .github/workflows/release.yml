@@ -10,6 +10,10 @@ name: Release
 #
 # Jobs: prepare (version, kind, commit) -> windows and macos in parallel -> release (checksums,
 # latest.json, tag, GitHub Release). If either build fails, no tag and no release are made.
+#
+# latest.json is made for every kind of release, pre-releases and drafts included (once the key is
+# real). The Stable channel reads the one on the newest full release (releases/latest); the Preview
+# channel reads the newest non-draft release that has one (docs/releasing.md, Channels).
 
 on:
   push:
@@ -28,6 +32,10 @@ on:
         options: [auto, draft, prerelease, release]
       commit:
         description: "Commit or branch to release (empty: the commit this run was started on)"
+        required: false
+        type: string
+      notes:
+        description: "A sentence or two for the update notice in the app (empty: none). The release page has its own notes"
         required: false
         type: string
 
@@ -247,11 +255,25 @@ jobs:
 
       - name: Checksums, signature and latest.json
         shell: pwsh
+        env:
+          RELEASE_NOTES: ${{ github.event_name == 'workflow_dispatch' && inputs.notes || '' }}
         run: >
           ./scripts/release-files.ps1 -Version ${{ needs.prepare.outputs.version }}
           -Setup "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe"
           -Msix "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64.msix"
           -Mac "dl/macos/Glossa-${{ needs.prepare.outputs.version }}-macos-universal.dmg"
+
+      - name: Check latest.json is there (every kind of release, so the Preview channel can find it)
+        shell: pwsh
+        run: |
+          $real = -not (Select-String -Path internal/update/pubkey.txt -Pattern PLACEHOLDER -Quiet)
+          $file = 'build/release/latest.json'
+          if ($real -and $env:GLOSSA_UPDATE_KEY -and -not (Test-Path $file)) { throw 'The key is real but no latest.json was made; the release would not be offered as an update.' }
+          if (Test-Path $file) {
+            $m = Get-Content -Raw $file | ConvertFrom-Json
+            if ($m.version -ne '${{ needs.prepare.outputs.version }}') { throw "latest.json says version $($m.version), not ${{ needs.prepare.outputs.version }}" }
+            Write-Host "latest.json for ${{ needs.prepare.outputs.version }} goes into the ${{ needs.prepare.outputs.kind }} release."
+          }
 
       - name: Tag the commit (button runs only)
         if: github.event_name == 'workflow_dispatch'

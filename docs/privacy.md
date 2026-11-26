@@ -1,7 +1,8 @@
 # What Glossa sends over the network
 
 ADR 0009: Glossa sends no telemetry. Only the features below use the network, each off until you turn
-it on. This page says exactly what each one sends. Other features add their sections when they are built.
+it on, with one exception: checking for updates (direct download only) is on unless you turn it off
+(ADR 0016). This page says exactly what each one sends. Other features add their sections when they are built.
 
 ## Bible catalogues (T25)
 
@@ -49,25 +50,41 @@ nothing, and nothing about your Logos library leaves your computer.
 
 ## Updates (T23, direct download only)
 
-Off until you turn it on: the first time Glossa starts, it asks once whether to check for updates, and
-"No thanks" leaves it off. Turn it on or off later in Settings → Updates (`update.settings.set`).
-The Microsoft Store build has no updater at all; the Store installs its updates.
+**On unless you turn it off** (ADR 0016, which changes ADR 0009's "off until you turn it on" for this one
+feature). Glossa checks once a day while it is open; there is no question at first start. Turn it off any time in
+Settings → Updates (the switch "Check for updates automatically", or `update.settings.set {"enabled": false}`):
+then no request is made at all. Someone who answered "No thanks" to the old first-run question stays off; someone
+who never answered is on. The Microsoft Store build has no updater at all; the Store installs its updates.
 
 Every request is an HTTPS `GET` with the header `User-Agent: Glossa`, and nothing else: no cookies,
-account, identifier or information about your library or this computer. GitHub sees your IP address and
-which file you ask for, as with any download.
+account, identifier, version of this app, or information about your library or this computer. GitHub sees your IP
+address and which file you ask for, as with any download.
+
+Settings → Updates has a **channel**: Stable (finished releases only) or Preview (the newest release, test versions
+included). Until you choose, a test version of Glossa is on Preview and any other is on Stable. Which version you
+are on is not sent; the channel only decides which address is asked.
 
 | When | Requests |
 | --- | --- |
-| Once a day while Glossa is open and updates are on, or when you press Check for updates (`update.auto`, `update.check`) | `https://github.com/Perlsowisdom/glossa/releases/latest/download/latest.json`: version, installer address, SHA-256 and signature of the newest published release |
-| You press Restart to update (`update.install`) | The installer named in `latest.json`, from the same release (GitHub forwards the download to its own file servers) |
+| Once a day while Glossa is open and updates are on, or when you press Check for updates (`update.auto`, `update.check`). Stable channel | `https://github.com/Perlsowisdom/glossa/releases/latest/download/latest.json`: version, installer address, SHA-256 and signature of the newest finished release |
+| The same, Preview channel | `https://api.github.com/repos/Perlsowisdom/glossa/releases?per_page=10` (GitHub's public list of releases; no key or account), then the `latest.json` of the newest release in it that is not a draft, from `https://github.com/Perlsowisdom/glossa/releases/download/…` (an address anywhere else is refused) |
+| You press Install and restart (`update.install`) | The same manifest again, then the installer it names, from the same release (GitHub forwards the download to its own file servers) |
+
+A check that fails (no internet, GitHub down) is tried again within the hour and says nothing outside Settings →
+Updates, which shows the last error. If GitHub says it is being asked too often (HTTP 403 or 429, `Retry-After`,
+`X-RateLimit-Reset`), Glossa waits at least until the next daily check. The settings (on or off, channel, last
+check) stay on this computer and are not synced.
+
+When a newer version is found you see a small notice (Install and restart, or Later) and a marker on the rail.
+Nothing is downloaded to install until you press Install and restart. A version that is not newer than the one you
+have is never offered, so switching channel never installs an older version.
 
 Before anything runs, the installer's SHA-256 must match `latest.json` and its Ed25519 signature must
 verify against the public key built into the app (`internal/update/pubkey.txt`). The setup is not
 code-signed, so this signature is what keeps updates safe: a file that fails either check is deleted and
 never run. The setup then installs over the old version and starts it again; your library is not touched.
 
-On macOS the app is not signed by Apple and cannot replace itself, so nothing is downloaded by Glossa: pressing Download only opens the new version's disk image (or the release page) in your web browser, and your browser fetches it. The same `latest.json` request is the only one Glossa makes.
+On macOS the app is not signed by Apple and cannot replace itself, so nothing is downloaded by Glossa: pressing Download only opens the new version's disk image (or the release page) in your web browser, and your browser fetches it. The check requests above are the only ones Glossa makes.
 
 ## AI assistant (T36a)
 

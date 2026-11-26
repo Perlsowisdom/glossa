@@ -11,8 +11,8 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/update"
 )
 
-// startUpdates looks for a newer version now and then, if the user turned that on (update.auto does
-// nothing otherwise). The Store build has no updater; see update_store.go.
+// startUpdates looks for a newer version now and then (update.auto does nothing if the user turned
+// updates off, and a failed check is only recorded in the settings). The Store build has no updater; see update_store.go.
 func (a *App) startUpdates(ctx, bg context.Context) {
 	a.every(bg, time.Hour, "update.auto", func(res any) {
 		if r, ok := res.(update.CheckResult); ok && r.Newer {

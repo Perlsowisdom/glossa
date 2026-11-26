@@ -78,16 +78,21 @@ func ParseManifest(data []byte, allowHTTP bool) (Manifest, error) {
 // Config says where updates come from and how they are checked. Tests replace the parts that would
 // touch the network or start programs.
 type Config struct {
-	Endpoint  string
-	PubKey    ed25519.PublicKey
-	Current   string
-	HTTP      *http.Client
-	AllowHTTP bool // tests only: serve from http://127.0.0.1
-	TempDir   string
-	Launch    func(installer string) error
+	Endpoint string
+	// ReleasesURL lists the newest releases, pre-releases included: the Preview channel reads it.
+	ReleasesURL string
+	PubKey      ed25519.PublicKey
+	Current     string
+	HTTP        *http.Client
+	AllowHTTP   bool // tests only: serve from http://127.0.0.1
+	TempDir     string
+	Launch      func(installer string) error
 	// Manual is true where the app cannot replace itself (macOS, unsigned): a newer version is offered
 	// as a download that opens in the browser instead of being installed.
 	Manual bool
+	// Placeholder is true while the embedded key is the placeholder: nothing can verify, so an install
+	// only offers the release page (set by DefaultConfig).
+	Placeholder bool
 	// DownloadPrefix is where a manifest-given download address must be (tests change it).
 	DownloadPrefix string
 	Now            func() time.Time
@@ -96,7 +101,8 @@ type Config struct {
 // DefaultConfig is the real updater: the public endpoint, the embedded key, this build's version.
 func DefaultConfig() Config {
 	key, _ := updatesig.ParsePublicKey(pubkeyText)
-	return Config{Endpoint: DefaultEndpoint, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin"}
+	c := Config{Endpoint: DefaultEndpoint, ReleasesURL: DefaultReleasesURL, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin", Placeholder: PlaceholderKey()}
+	return c.withTestServer()
 }
 
 func (c Config) client() *http.Client {
@@ -125,7 +131,7 @@ func (c Config) get(ctx context.Context, address string, limit int64) (io.ReadCl
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, fmt.Errorf("%s answered %s", req.URL.Host, resp.Status)
+		return nil, c.statusError(req.URL.Host, resp)
 	}
 	return struct {
 		io.Reader
@@ -133,9 +139,11 @@ func (c Config) get(ctx context.Context, address string, limit int64) (io.ReadCl
 	}{io.LimitReader(resp.Body, limit+1), resp.Body}, nil
 }
 
-// Check fetches latest.json. It sends one HTTP GET and nothing else.
-func (c Config) Check(ctx context.Context) (Manifest, error) {
-	body, err := c.get(ctx, c.Endpoint, maxManifest)
+// Check fetches latest.json (the Stable channel). It sends one HTTP GET and nothing else.
+func (c Config) Check(ctx context.Context) (Manifest, error) { return c.fetchManifest(ctx, c.Endpoint) }
+
+func (c Config) fetchManifest(ctx context.Context, address string) (Manifest, error) {
+	body, err := c.get(ctx, address, maxManifest)
 	if err != nil {
 		return Manifest{}, err
 	}

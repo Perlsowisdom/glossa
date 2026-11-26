@@ -22,8 +22,8 @@ import { dataSection } from "./data";
 import { logosSection } from "./logos";
 import { readingControls } from "./reader";
 import { syncSection } from "./sync";
-import { restartToUpdate } from "../updates";
-import { UpdateInfo, lastCheckedText, updateAction, versionLine } from "../updatewords";
+import { refreshUpdates, restartToUpdate } from "../updates";
+import { CHANNELS, Channel, NO_KEY_LINE, UpdateInfo, channelHint, lastCheckedText, lastErrorText, updateAction, versionLine } from "../updatewords";
 
 interface KeyStatus {
   key_set: boolean;
@@ -287,49 +287,55 @@ function privacyPage(): PageView {
   return { el, show };
 }
 
-// Updates: off until turned on. The check is one HTTPS GET of the release's latest.json on GitHub;
-// a download is signed and checked before it runs (docs/privacy.md).
+// Updates: on unless turned off (ADR 0016). The check is one HTTPS GET of the release's latest.json on
+// GitHub (the Preview channel also reads the release list); a download is signed and checked before it
+// runs (docs/privacy.md).
 function updatesPage(): PageView {
   const msg = new Message();
   const body = h("div", {});
   const el = pageEl("Updates",
-    "Glossa can look for new versions on its public releases page on GitHub, once a day. It sends nothing but that web request. Off until you turn it on.",
+    "Glossa can look for new versions on its public releases page on GitHub, once a day. It sends nothing but that web request: no account, no identifier. You can turn it off here.",
     body, msg.el);
-  let newer = false;
 
   async function setOn(on: boolean) {
-    if ((await msg.attempt(() => run("update.settings.set", { enabled: on }))) !== undefined) void show();
+    if ((await msg.attempt(() => run("update.settings.set", { enabled: on }))) === undefined) return;
+    await refreshUpdates();
+    void show();
   }
-  async function checkNow() {
-    const r = await msg.attempt(() => run<{ newer: boolean; latest?: string }>("update.check"));
-    if (!r) return;
-    newer = r.newer;
-    if (r.newer) msg.ok(`Version ${r.latest} is available.`);
-    else msg.ok("You have the newest version.");
+  async function setChannel(channel: Channel) {
+    if ((await msg.attempt(() => run("update.settings.set", { channel }))) === undefined) return;
+    // The new channel may offer something else: look at once, so the page and the notice say what is true now.
+    const info = await refreshUpdates();
+    if (info?.enabled) await checkNow(true);
+    else void show();
+  }
+  async function checkNow(quiet = false) {
+    const r = await msg.attempt(() => run<{ newer: boolean; latest?: string; message?: string }>("update.check"));
+    if (r) {
+      if (r.message) msg.info(r.message);
+      else if (r.newer) msg.ok(`Version ${r.latest} is available.`);
+      else if (!quiet || r.latest) msg.ok("You have the newest version.");
+    }
+    await refreshUpdates();
     void show(true);
   }
   async function show(keep = false) {
     if (!keep) msg.clear();
     const info = await msg.attempt(() => run<UpdateInfo>("update.settings.get"));
     if (!info) return;
-    if (!keep) newer = !!info.latest && newerThan(info.latest, info.current);
+    const newer = !!info.enabled && !!info.newer;
+    const noKey = !info.key_set && !info.manual;
     const check = button("Check for updates", () => void checkNow(), { class: "check-updates" });
     check.disabled = !info.enabled;
     clear(body,
       toggleSwitch({ label: "Check for updates automatically", hint: "Looks at GitHub once a day while Glossa is open.", checked: info.enabled, onChange: (on) => void setOn(on) }),
-      h("div", { class: "row wrap" }, check, newer ? button(updateAction(info.manual), () => void restartToUpdate(msg), { class: "primary" }) : null),
+      settingRow("Channel", channelHint(info.channel), segmented<Channel>({ label: "Channel", options: CHANNELS, value: info.channel, onChange: (c) => void setChannel(c) })),
+      h("div", { class: "row wrap update-actions" }, check, newer ? button(updateAction(info.manual, noKey), () => void restartToUpdate(msg), { class: "primary" }) : null),
       h("p", { class: "hint update-status" }, lastCheckedText(info.last_checked), " ", versionLine(info, newer)),
-      info.key_set || info.manual ? null : h("p", { class: "hint" }, "This build does not have its update key yet, so it cannot install updates."));
+      info.last_error ? h("p", { class: "hint update-error" }, lastErrorText(info.last_error)) : null,
+      noKey ? h("p", { class: "hint" }, NO_KEY_LINE) : null);
   }
   return { el, show: () => void show() };
-}
-
-// newerThan compares plain x.y.z versions, as the app does.
-function newerThan(a: string, b: string): boolean {
-  const n = (v: string) => v.replace(/^v/, "").split(/[-+]/)[0].split(".").map((x) => parseInt(x, 10) || 0);
-  const [x, y] = [n(a), n(b)];
-  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
-  return false;
 }
 
 function dataPage(): PageView {
