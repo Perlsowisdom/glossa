@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
 // SignIn is how the person signs in to a connection.
@@ -72,6 +74,12 @@ type Connection interface {
 	// called while the connection is on. A failure the person can fix is a TestResult with
 	// OK false; the error is for the unexpected.
 	Test(ctx context.Context, cfg Config) (TestResult, error)
+}
+
+// EnvTester is an optional extra for a connection whose check needs the library (for example to read a
+// folder setting kept there). The service calls TestEnv instead of Test.
+type EnvTester interface {
+	TestEnv(ctx context.Context, env *command.Env, cfg Config) (TestResult, error)
 }
 
 // Registry holds the known connections.
