@@ -156,7 +156,7 @@ export default [
       const onBook = await app.run("note.list", { item_id: book.id, limit: 50 });
       t.assert.equal(onBook.length, 1, "the matched book has one note");
       t.assert.ok(onBook[0].body.includes("Pride is the complete anti-god state of mind.") && onBook[0].body.includes("Read this twice."), onBook[0].body);
-      const free = notes.filter((n) => n.title.startsWith("Knowing God"));
+      const free = notes.filter((n) => (n.title ?? "").startsWith("Knowing God"));
       t.assert.ok(!free[0].item_id, "an unmatched source is attached to a book");
       t.assert.ok(!free[0].body.includes("Thrown away."), "a discarded highlight came in");
 
@@ -201,7 +201,7 @@ export default [
       // (the check before leaves the library imported; this one starts from there, or from nothing)
       await readwiseOn(t);
       if (!(await app.run("readwise.status")).last_import) await app.run("readwise.import", {});
-      const pilgrim = (await app.run("note.list", { limit: 500 })).find((n) => n.title.startsWith("The Pilgrim"));
+      const pilgrim = (await app.run("note.list", { limit: 500 })).find((n) => (n.title ?? "").startsWith("The Pilgrim"));
       await app.run("note.update", { id: pilgrim.id, body: `${pilgrim.body}\n\nMy own thought.` });
       fake.add(102, 1022, "Now I saw in my dream.", 40);
       const c = await card(t);
@@ -229,7 +229,7 @@ export default [
       await c2.locator(".readwise-conflict").waitFor({ state: "detached", timeout: 15000 });
       const notes = await app.run("note.list", { limit: 500 });
       t.assert.equal((await app.run("note.get", { id: pilgrim.id })).body, mine, "keep both changed my note");
-      const theirs = notes.filter((n) => n.title.startsWith("The Pilgrim") && n.id !== pilgrim.id);
+      const theirs = notes.filter((n) => (n.title ?? "").startsWith("The Pilgrim") && n.id !== pilgrim.id);
       t.assert.equal(theirs.length, 1, "no second note");
       t.assert.ok(theirs[0].body.includes("Now I saw in my dream.") && !theirs[0].body.includes("My own thought."), theirs[0].body);
 
