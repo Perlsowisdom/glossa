@@ -1,5 +1,5 @@
 // Reader: a slim top bar (Read | Study, search in what is open, reading settings, grid presets, a ⋯
-// menu and the sidebar toggle), today's reading as one line, then the study grid
+// menu), today's reading as one line, then the study grid
 // (document/studygrid.ts). Study mode shows the whole grid; Read mode shows the selected pane's
 // document alone, full width, and switching keeps your place because the same view stays mounted.
 
@@ -105,10 +105,8 @@ export function readerView() {
     else msg.info(NOTHING_TO_PRINT);
   }
 
-  const sideBtn = iconButton("panel", "Right sidebar", () => side.toggle(), { "aria-controls": "rightbar", title: "Right sidebar (Ctrl+.)", "aria-keyshortcuts": "Control+." });
-
   const bar = h("div", { class: "topbar", role: "group", "aria-label": "Reader" },
-    modeSwitch, findBtn, findForm, aaBtn, controls, gridBtn, h("span", { class: "spacer" }), moreBtn, sideBtn);
+    modeSwitch, findBtn, findForm, aaBtn, controls, gridBtn, h("span", { class: "spacer" }), moreBtn);
 
   const el = h("div", { class: "view reader" },
     h("h1", { class: "sr-only" }, "Reader"),
@@ -129,7 +127,6 @@ export function readerView() {
     el.dataset.theme = r.theme;
     el.dataset.tagged = String(r.taggedWords);
     el.style.setProperty("--line-height", String(SPACINGS[r.spacing]));
-    sideBtn.setAttribute("aria-pressed", String(prefs.sidebar.open));
     if (r.mode !== lastMode) {
       lastMode = r.mode;
       grid.render();

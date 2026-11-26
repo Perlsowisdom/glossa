@@ -1,6 +1,6 @@
 // The right sidebar: study tools beside whatever is open. Its tabs are AI chat (views/chat.ts), Related, Notes,
 // Highlights, Word and Compare; Settings → Right sidebar chooses which show and in what order. It
-// opens and closes with the Reader's sidebar button and Ctrl+., so it has no close button of its own. Tools follow the
+// opens and closes with the toggle on the right rail (shell/rightrail.ts) and Ctrl+., so it has no close button of its own. Tools follow the
 // passage in the Reader and load only while they are visible. At phone width it is a sheet.
 
 import { bibleBooks as bibleTypedBooks, bookRows, openAt } from "../biblebooks";

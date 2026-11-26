@@ -77,7 +77,7 @@ code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; f
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* Shell: rail, main area, right sidebar (main.ts, shell/rail.ts, views/sidebar.ts) */
-.shell { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; height: 100vh; position: relative; }
+.shell { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; height: 100vh; position: relative; }
 /* main is placed explicitly: with the rail hidden automatically the rail is out of the flow, and an
    auto-placed main would fall into the rail's auto-width column and shrink to its content. */
 main { grid-column: 2; grid-row: 1; overflow: auto; min-width: 0; min-height: 0; }
@@ -111,7 +111,7 @@ main { grid-column: 2; grid-row: 1; overflow: auto; min-width: 0; min-height: 0;
 .shell.autohide.peek .rail { transform: none; box-shadow: 4px 0 18px rgb(0 0 0 / .18); }
 .shell.autohide .rail-edge { display: block; position: fixed; left: 0; top: 0; bottom: 0; width: 6px; z-index: 19; }
 /* The "show rail" button has a slim column of its own, so it never covers a page's title. */
-.shell.autohide { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.shell.autohide { grid-template-columns: 44px minmax(0, 1fr) auto auto; }
 .shell.autohide .rail-reveal { display: inline-grid; place-items: center; grid-column: 1; grid-row: 1; align-self: start; justify-self: center;
   width: 32px; height: 32px; margin-top: 10px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted);
   z-index: 18; transition: background-color .12s, color .12s, opacity .12s; }
@@ -150,6 +150,15 @@ kbd { font-family: inherit; font-size: .8rem; border: 1px solid var(--line); bor
 .place-tabs a:hover { color: var(--fg); }
 .place-tabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
 .place-tabs.back { border-bottom: 0; padding-bottom: 0; }
+
+/* Right rail: the slim column at the window's right edge with the one study tools toggle. It does not follow the
+   left rail's width or hiding. The sidebar sits in the column to its left, so the toggle never moves. */
+.right-rail { grid-column: 4; grid-row: 1; width: 44px; display: flex; flex-direction: column; align-items: center; padding: 10px 0; background: var(--rail-bg);
+  border-left: 1px solid var(--line); z-index: 20; }
+.rrail-toggle { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
+.rrail-toggle:hover { background: var(--rail-hover); color: var(--fg); border: 0; }
+.rrail-toggle[aria-pressed="true"] { background: var(--rail-on); color: var(--accent); }
+.rrail-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Right sidebar */
 .rightbar { grid-column: 3; grid-row: 1; width: 340px; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); background: var(--panel); }
@@ -609,9 +618,13 @@ mark.hl { color: inherit; border-radius: 2px; }
 }
 /* Phone width: the rail becomes a dock at the bottom and the right sidebar a sheet over the page. */
 @media (max-width: 700px) {
-  .shell, .shell.autohide { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .shell, .shell.autohide { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
   .shell.autohide::before { display: none; }
-  main { grid-row: 1; grid-column: 1; }
+  main { grid-row: 1; grid-column: 1 / -1; }
+  /* The right rail is the dock's last cell, so the study tools toggle stays in the dock. */
+  .right-rail { grid-row: 2; grid-column: 2; width: auto; flex-direction: row; align-items: center; padding: 4px 8px; border-left: 0; border-top: 1px solid var(--line); }
+  .rrail-toggle { display: flex; align-items: center; justify-content: center; width: auto; min-width: 56px; height: auto; min-height: 48px; padding: 2px 8px; flex-direction: column; gap: 0; font-size: .72rem; }
+  .rrail-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
   .rail, .shell.autohide .rail { grid-row: 2; grid-column: 1; position: static; transform: none; width: auto; flex-direction: row; justify-content: center;
     padding: 4px 8px; border-right: 0; border-top: 1px solid var(--line); box-shadow: none; }
   .rail-top { flex-direction: row; flex: 1; justify-content: space-around; }

@@ -118,7 +118,7 @@ export default [
     async run(t) {
       const { page } = t;
       const open = () => page.locator("#rightbar").isVisible().catch(() => false);
-      const control = () => page.locator("button[aria-controls=rightbar]:visible").first();
+      const control = () => page.locator(".right-rail button[aria-controls=rightbar]:visible").first();
       const settle = async (want) => { try { await page.locator("#rightbar").waitFor({ state: want ? "visible" : "hidden", timeout: 4000 }); } catch { /* reported below */ } };
       const problems = [];
       for (const hash of ["#reader", "#library", "#bibles", "#search", "#notes", "#settings/appearance", "#settings/model", "#settings/data"]) {
@@ -167,11 +167,134 @@ export default [
         await page.evaluate((x) => { location.hash = x; }, hash);
         await page.locator(".view:visible").first().waitFor();
         for (const want of [true, false]) {
-          if ((await open()) !== want) await page.locator("button[aria-controls=rightbar]:visible").first().click();
+          if ((await open()) !== want) await page.locator(".right-rail button[aria-controls=rightbar]:visible").first().click();
           await page.waitForTimeout(300);
           await looks(t, `sidebar-${name}-${want ? "open" : "closed"}`);
         }
       }
+    },
+  },
+  {
+    row: "Right rail: one Study tools toggle at the window's right edge on every page, even with the left rail hiding itself; it opens and closes the sidebar from the same spot",
+    shot: "qol-rightrail.png",
+    timeout: 420000,
+    async run(t) {
+      const { page, app } = t;
+      const toggle = page.locator(".right-rail button[aria-controls=rightbar]");
+      const open = () => page.locator("#rightbar").isVisible().catch(() => false);
+      const settle = async (want) => { await page.locator("#rightbar").waitFor({ state: want ? "visible" : "hidden", timeout: 5000 }).catch(() => {}); await page.waitForTimeout(200); };
+      const box = () => toggle.boundingBox();
+      const problems = [];
+      const saved = await page.evaluate(() => localStorage.getItem("glossa.rail"));
+      const setRail = async (v) => {
+        await page.evaluate((x) => { if (x === null) localStorage.removeItem("glossa.rail"); else localStorage.setItem("glossa.rail", x); }, v);
+        await page.reload();
+        await page.waitForSelector(".shell");
+      };
+      try {
+        await setRail(JSON.stringify({ width: "condensed", autoHide: true, hidden: [], gridOnRail: true }));
+        for (const [w, h] of [[1190, 800], [1536, 816], [900, 700]]) {
+          await app.resize(w, h);
+          for (const hash of ["#reader", "#library", "#bibles", "#notes", "#settings/appearance", "#settings/updates"]) {
+            const at = `${hash} at ${w} x ${h}`;
+            await page.evaluate((x) => { location.hash = x; }, hash);
+            await page.locator(".view:visible").first().waitFor({ timeout: 15000 });
+            await t.settled();
+            if (await toggle.count() !== 1 || !(await toggle.isVisible())) { problems.push(`${at}: no visible toggle`); continue; }
+            if (await open()) { await toggle.click(); await settle(false); }
+            const a = await box();
+            const win = await page.evaluate(() => [innerWidth, innerHeight]);
+            if (a.x < 0 || a.y < 0 || a.x + a.width > win[0] + 0.5 || a.y + a.height > win[1] + 0.5) problems.push(`${at}: toggle outside the window (${JSON.stringify(a)})`);
+            if (await toggle.getAttribute("aria-pressed") !== "false") problems.push(`${at}: not marked closed`);
+            await toggle.click();
+            await settle(true);
+            if (!(await open())) { problems.push(`${at}: did not open`); continue; }
+            const b = await box();
+            const side = await page.locator("#rightbar").boundingBox();
+            if (await toggle.getAttribute("aria-pressed") !== "true" || await toggle.getAttribute("aria-expanded") !== "true") problems.push(`${at}: not marked open`);
+            if (side.x + side.width > b.x + 1) problems.push(`${at}: the sidebar is not to the left of the toggle`);
+            await toggle.click();
+            await settle(false);
+            const c = await box();
+            if (await open()) problems.push(`${at}: did not close`);
+            for (const [k, o] of [["open", b], ["closed again", c]]) {
+              if (["x", "y", "width", "height"].some((f) => Math.abs(o[f] - a[f]) > 1)) problems.push(`${at}: toggle moved when ${k} (${JSON.stringify(a)} to ${JSON.stringify(o)})`);
+            }
+            const leftTools = await page.locator("nav.rail [aria-controls=rightbar], nav.rail .rail-tools").count();
+            const leftText = await page.locator("nav.rail").evaluate((n) => n.textContent.includes("Study tools"));
+            if (leftTools || leftText) problems.push(`${at}: the left rail still has Study tools`);
+          }
+        }
+        t.assert.deepEqual(problems, [], problems.join("; "));
+      } finally {
+        await app.resize(1480, 950).catch(() => {});
+        await setRail(saved).catch(() => {});
+      }
+    },
+  },
+  {
+    row: "Right rail: at phone width (600 x 800) the toggle stays reachable, opens the sheet and closes it",
+    shot: "qol-rightrail-phone.png",
+    timeout: 120000,
+    async run(t) {
+      const { page, app } = t;
+      const toggle = page.locator(".right-rail button[aria-controls=rightbar]");
+      const open = () => page.locator("#rightbar").isVisible().catch(() => false);
+      const settle = async (want) => { await page.locator("#rightbar").waitFor({ state: want ? "visible" : "hidden", timeout: 5000 }).catch(() => {}); await page.waitForTimeout(200); };
+      const problems = [];
+      try {
+        await app.resize(600, 800);
+        for (const hash of ["#reader", "#bibles", "#settings/appearance"]) {
+          await page.evaluate((x) => { location.hash = x; }, hash);
+          await page.locator(".view:visible").first().waitFor({ timeout: 15000 });
+          await t.settled();
+          if (await open()) { await toggle.click(); await settle(false); }
+          if (!(await toggle.isVisible())) { problems.push(`${hash}: no toggle`); continue; }
+          await toggle.click();
+          await settle(true);
+          if (!(await open())) { problems.push(`${hash}: did not open`); continue; }
+          // The sheet must not cover the toggle: a click at its centre reaches it.
+          const reach = await toggle.evaluate((el) => { const r = el.getBoundingClientRect(); const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!e && el.contains(e); });
+          if (!reach) problems.push(`${hash}: the open sheet covers the toggle`);
+          if (hash === "#reader") await app.shot("qol-rightrail-phone-open.png");
+          await toggle.click();
+          await settle(false);
+          if (await open()) problems.push(`${hash}: did not close`);
+        }
+        t.assert.deepEqual(problems, [], problems.join("; "));
+      } finally {
+        await app.resize(1480, 950).catch(() => {});
+      }
+    },
+  },
+  {
+    row: "Right rail: Reader and Get Bibles with the sidebar open and closed, at 1536 x 816 and 900 x 700, light and dark (and 1190 x 800 open)",
+    shot: "qol-rightrail-fit.png",
+    timeout: 300000,
+    async run(t) {
+      const { page, app } = t;
+      const open = () => page.locator("#rightbar").isVisible().catch(() => false);
+      const toggle = () => page.locator(".right-rail button[aria-controls=rightbar]").first();
+      for (const [hash, name] of [["#reader", "reader"], ["#bibles", "bibles"]]) {
+        await page.evaluate((x) => { location.hash = x; }, hash);
+        await page.locator(".view:visible").first().waitFor();
+        for (const want of [true, false]) {
+          if ((await open()) !== want) await toggle().click();
+          await page.waitForTimeout(300);
+          await looks(t, `rrail-${name}-${want ? "open" : "closed"}`);
+        }
+      }
+      await page.evaluate(() => { location.hash = "#bibles"; });
+      await page.locator(".view:visible").first().waitFor();
+      if (!(await open())) await toggle().click();
+      try {
+        await app.resize(1190, 800);
+        await page.waitForTimeout(300);
+        await app.shot("qol-rrail-bibles-open-1190x800.png");
+      } finally {
+        await app.resize(1480, 950).catch(() => {});
+      }
+      if (await open()) await toggle().click();
     },
   },
   // ---- 3. Assistant settings and the assistant sidebar -------------------------------------------
