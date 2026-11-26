@@ -3,7 +3,8 @@
 // has updates on and is never asked; an old install that said no stays off; a newer version shows a
 // notice with its one button and "Later" and an Update entry on the rail; Later hides the notice
 // for that version; Settings → Updates has the switch, the Stable / Preview choice, the version and the
-// last check; a failed check says nothing outside Settings; the placeholder key offers the download page, not Install. Screenshots (m3-updates-<what>-<size>-<theme>.png) at 1536 x 816 and 900 x 700,
+// last check; a failed check says nothing outside Settings; a build without its key offers the download page, not Install;
+// with the key, a badly signed update is refused in a plain sentence before anything is downloaded. Screenshots (m3-updates-<what>-<size>-<theme>.png) at 1536 x 816 and 900 x 700,
 // light and dark.
 
 const SIZES = [[1536, 816], [900, 700]];
@@ -65,6 +66,10 @@ async function openUpdates(t) {
 const banner = (t) => t.app.page.locator("#update-banner");
 const railEntry = (t) => t.app.page.locator(".rail-update");
 const noticeShown = (t) => until(t, async () => ((await banner(t).count()) ? banner(t) : null), "the notice");
+// With its update key the app offers Install; without (the placeholder, or GLOSSA_UPDATE_NO_KEY) the download page.
+const keyed = async (t) => (await t.app.run("update.settings.get")).key_set;
+const titleOf = (v, k) => (k ? `Glossa ${v} is ready.` : `Glossa ${v} is out.`);
+const actOf = (k) => (k ? "Install and restart" : "Open the download page");
 
 export default [
   {
@@ -141,12 +146,13 @@ export default [
       app.releases.set({ stable: "0.8.0", releases: LIST });
       await startFresh(t, null);
       const b = await noticeShown(t);
+      const k = await keyed(t);
       const text = await b.innerText();
       // Preview picks the newest release that is not a draft and has a manifest: 0.9.0-beta.1.
-      t.assert.ok(text.includes("Glossa 0.9.0-beta.1 is out."), text);
+      t.assert.ok(text.includes(titleOf("0.9.0-beta.1", k)), text);
       t.assert.ok(text.includes(["What’s new:", "Notes for 0.9.0-beta.1", "A second line"].join("\n")), `the label and the notes are on their own lines: ${JSON.stringify(text)}`);
       t.assert.ok(!text.includes("1.0.0-alpha.1") && !text.includes("0.7.0-beta.1"), "a draft and a release without a manifest are not offered");
-      t.assert.equal(await b.getByRole("button", { name: "Open the download page" }).count(), 1);
+      t.assert.equal(await b.getByRole("button", { name: actOf(k) }).count(), 1);
       t.assert.equal(await b.getByRole("button", { name: "Later" }).count(), 1);
       // The rail says so too, and the notice does not take the keyboard from what the person is doing.
       const entry = railEntry(t);
@@ -165,7 +171,7 @@ export default [
       const sec = app.page.locator(".settings-section:visible");
       await sec.getByRole("heading", { name: "Updates" }).waitFor();
       t.assert.ok((await sec.locator(".update-status").innerText()).includes("Version 0.9.0-beta.1 is available"));
-      t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 1);
+      t.assert.equal(await sec.getByRole("button", { name: actOf(k) }).count(), 1);
       // The same version found again stays hidden; a newer one shows again.
       await sec.getByRole("button", { name: "Check for updates" }).click();
       await sec.locator(".msg.ok").waitFor();
@@ -174,7 +180,7 @@ export default [
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
       await sec.getByRole("button", { name: "Check for updates" }).click();
       const again = await noticeShown(t);
-      t.assert.ok((await again.innerText()).includes("Glossa 0.9.0-beta.2 is out."));
+      t.assert.ok((await again.innerText()).includes(titleOf("0.9.0-beta.2", k)));
       // Later again; at the next start the notice is back (it was only put off).
       await again.getByRole("button", { name: "Later" }).click();
       await app.page.reload();
@@ -190,6 +196,7 @@ export default [
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
       await app.page.reload();
       await app.page.waitForSelector(".shell");
+      const k = await keyed(t);
       const sec = await openUpdates(t);
       const status = sec.locator(".update-status");
       const group = sec.getByRole("radiogroup", { name: "Channel" });
@@ -203,7 +210,7 @@ export default [
       t.assert.equal(app.releases.asked("/stable/latest.json"), stableBefore + 1, "Stable reads the latest release's manifest");
       t.assert.ok((await sec.innerText()).includes("finished releases"), "Stable says what it is");
       const b = await noticeShown(t);
-      t.assert.ok((await b.innerText()).includes("Glossa 0.8.0 is out."), "the notice follows the channel");
+      t.assert.ok((await b.innerText()).includes(titleOf("0.8.0", k)), "the notice follows the channel");
       // Back to Preview: the test version again.
       await group.locator(".seg-opt", { hasText: "Preview" }).click();
       await says("Version 0.9.0-beta.2 is available");
@@ -212,7 +219,7 @@ export default [
       app.releases.set({ stable: "0.0.0-a", releases: [] });
       await group.locator(".seg-opt", { hasText: "Stable" }).click();
       await says("You have version");
-      t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 0, "no install button for an older version");
+      t.assert.equal(await sec.getByRole("button", { name: actOf(k) }).count(), 0, "no install button for an older version");
       t.assert.equal(await railEntry(t).isVisible(), false, "the rail has no Update entry");
       t.assert.equal(await banner(t).count(), 0, "no notice for an older version");
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
@@ -258,15 +265,51 @@ export default [
     },
   },
   {
-    row: "Updates: with the placeholder key there is no Install button, only the download page, and it says why",
+    row: "Updates: a build without its update key has no Install button, only the download page, and it says why",
     shot: "m3-updates-refused.png",
+    async run(t) {
+      const { app } = t;
+      app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
+      await app.restart({ noKey: true });
+      await app.page.waitForSelector(".shell", { timeout: 30000 });
+      try {
+        await noKeyChecks(t);
+      } finally {
+        await app.restart({ noKey: false });
+        await app.page.waitForSelector(".shell", { timeout: 30000 });
+      }
+    },
+  },
+  {
+    row: "Updates: with the update key, Install refuses a badly signed update in a plain sentence and downloads nothing",
+    shot: "m3-updates-badsig.png",
     async run(t) {
       const { app } = t;
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
       await app.page.reload();
       await app.page.waitForSelector(".shell");
       const b = await noticeShown(t);
-      t.assert.equal((await app.run("update.settings.get")).key_set, false, "the build still has the placeholder key");
+      t.assert.equal(await keyed(t), true, "this build has its update key");
+      const before = app.releases.requests.length;
+      await b.getByRole("button", { name: "Install and restart" }).click();
+      const said = await until(t, async () => {
+        const m = b.locator(".msg.error");
+        return (await m.count()) ? m.first().innerText() : null;
+      }, "the refusal");
+      t.assert.ok(said.startsWith("Glossa could not install the update:"), said);
+      t.assert.ok(!said.includes("failed") && !said.includes("Something went wrong"), `a plain sentence: ${said}`);
+      t.assert.ok(!app.releases.requests.slice(before).some((p) => p.endsWith("-setup.exe")), "the installer was never asked for");
+      t.assert.equal(await app.page.locator(".shell").count(), 1, "the app is still open");
+      await t.shot();
+    },
+  },
+];
+
+// noKeyChecks: the notice and Settings of a build without its update key.
+async function noKeyChecks(t) {
+      const { app } = t;
+      const b = await noticeShown(t);
+      t.assert.equal((await app.run("update.settings.get")).key_set, false, "the app behaves as a build without its key");
       t.assert.equal(await b.getByRole("button", { name: "Install and restart" }).count(), 0, "no Install button in the notice");
       t.assert.ok((await b.innerText()).includes("does not have its update key yet"), "the notice says why");
       // The download page opens the way the Mac path opens URLs (the runtime's BrowserOpenURL); here it is caught, not opened.
@@ -283,6 +326,4 @@ export default [
       t.assert.equal(await sec.getByRole("button", { name: "Install and restart" }).count(), 0);
       t.assert.equal(await sec.getByRole("button", { name: "Open the download page" }).count(), 1);
       t.assert.ok((await sec.innerText()).includes("This build does not have its update key yet, so it cannot install updates."));
-    },
-  },
-];
+}

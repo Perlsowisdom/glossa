@@ -528,6 +528,24 @@ func TestTestServersAreOnlyHonouredOnThisComputer(t *testing.T) {
 	}
 }
 
+// The embedded key is real, and the no-key switch for interface tests counts only with a test server.
+func TestRealKeyAndTheNoKeySwitch(t *testing.T) {
+	if PlaceholderKey() {
+		t.Fatal("pubkey.txt is still the placeholder")
+	}
+	if c := DefaultConfig(); c.Placeholder || len(c.PubKey) != 32 {
+		t.Fatalf("the real key is not in use: placeholder %v, key %d bytes", c.Placeholder, len(c.PubKey))
+	}
+	t.Setenv(NoKeyEnv, "1")
+	if c := DefaultConfig(); c.Placeholder {
+		t.Fatal("the no-key switch counted without a test server")
+	}
+	t.Setenv(EndpointEnv, "http://127.0.0.1:9/latest.json")
+	if c := DefaultConfig(); !c.Placeholder {
+		t.Fatal("the no-key switch was ignored with a test server")
+	}
+}
+
 // A build whose key is still the placeholder cannot verify anything: it says so before anyone clicks
 // (key_set is false) and "install" only gives the release page to open, never runs an installer.
 func TestPlaceholderKeyOffersTheReleasePageNotAnInstall(t *testing.T) {

@@ -166,7 +166,7 @@ func (c Config) Download(ctx context.Context, m Manifest) (string, error) {
 		return "", errors.New("this build has no update key")
 	}
 	if err := updatesig.Verify(c.PubKey, m.Version, m.SHA256, m.Signature); err != nil {
-		return "", fmt.Errorf("refusing the update: %w", err) // before downloading anything large
+		return "", fmt.Errorf("%w, so it may not come from Glossa and nothing was downloaded", err) // before downloading anything large
 	}
 	body, err := c.get(ctx, m.URL, maxInstaller)
 	if err != nil {

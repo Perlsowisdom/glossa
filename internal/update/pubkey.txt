@@ -1,5 +1,4 @@
-# PLACEHOLDER public key for Glossa updates. Its private half was thrown away, so no real update
-# can verify against it: updating is safely inert until this is replaced. Replace it with your own
-# (docs/releasing.md, "Make the signing key"): run `glossa-sign keygen` and put the public key below.
-# Lines starting with # are ignored.
-9EmvdCSyZyyshL3mucxz5MIzhAa+OpOU8vS+/0OvCJk=
+# Public key for Glossa updates (Ed25519, base64). Every update's signature is checked against it.
+# The private half is a GitHub Actions secret (GLOSSA_UPDATE_KEY), never in this repository.
+# See docs/releasing.md, "Make the signing key" and "Rotating". Lines starting with # are ignored.
+QDUNjwb87hijXZqTYrSz4d+UD5ItLDXhmpteOAPenWs=

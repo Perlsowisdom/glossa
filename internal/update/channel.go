@@ -35,6 +35,9 @@ const maxReleases = 1 << 20
 const (
 	EndpointEnv    = "GLOSSA_UPDATE_ENDPOINT"
 	ReleasesURLEnv = "GLOSSA_UPDATE_RELEASES_URL"
+	// NoKeyEnv=1 makes a build with a real key behave as one with the placeholder key, so the
+	// interface tests can check that case. It counts only together with a test server above.
+	NoKeyEnv = "GLOSSA_UPDATE_NO_KEY"
 )
 
 func (c Config) withTestServer() Config {
@@ -47,6 +50,9 @@ func (c Config) withTestServer() Config {
 		*dst = v
 		c.AllowHTTP = true
 		c.DownloadPrefix = u.Scheme + "://" + u.Host + "/"
+	}
+	if c.AllowHTTP && os.Getenv(NoKeyEnv) == "1" {
+		c.Placeholder = true
 	}
 	return c
 }

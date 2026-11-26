@@ -42,7 +42,7 @@ describe("updateAction", () => {
     expect(NO_KEY_LINE).toBe("This build does not have its update key yet, so it cannot install updates.");
   });
   it("says an install failure in a plain sentence, without codes", () => {
-    expect(installFailure("update.install: refusing the update: the signature does not match")).toBe("Glossa could not install the update: refusing the update: the signature does not match.");
+    expect(installFailure("update.install: the signature does not match, so it may not come from Glossa and nothing was downloaded")).toBe("Glossa could not install the update: the signature does not match, so it may not come from Glossa and nothing was downloaded.");
     expect(installFailure("could not start the installer: access denied.")).toBe("Glossa could not install the update: could not start the installer: access denied.");
   });
 });

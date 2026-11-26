@@ -245,6 +245,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   // library and WebView2 profile, so a restart shows what a person who quits and reopens sees.
   let log = "";
   const seen = [];
+  // noKey makes the app behave as a build without its update key (GLOSSA_UPDATE_NO_KEY; see restart).
+  let noKey = false;
   const remember = (m) => { seen.push(m.slice(0, 300)); if (seen.length > 50) seen.shift(); };
   const launch = async (port) => {
     const child = spawn(EXE, [], {
@@ -264,6 +266,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_CSL_RAW_URL: styles.rawUrl,
         GLOSSA_UPDATE_ENDPOINT: releases.endpointUrl,
         GLOSSA_UPDATE_RELEASES_URL: releases.releasesUrl,
+        ...(noKey ? { GLOSSA_UPDATE_NO_KEY: "1" } : {}),
         // A net the app should never reach (GitHub, anything else) goes to a proxy that is not there, so
         // a check that forgot its fake fails at once instead of going out. This computer's own fakes are exempt.
         HTTPS_PROXY: "http://127.0.0.1:9", HTTP_PROXY: "http://127.0.0.1:9", NO_PROXY: "127.0.0.1,localhost",
@@ -426,9 +429,11 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     },
     // restart quits the app and opens it again on the same library copy; app.page is then the
     // new window's page. updates: null starts it as a fresh install (no update answer at all), a string
-    // is the update.settings row an older version left (see setUpdateSettings).
-    async restart({ updates } = {}) {
+    // is the update.settings row an older version left (see setUpdateSettings). noKey: true starts it as a
+    // build without its update key, false as the build it is; left out, it stays as it was.
+    async restart({ updates, noKey: nk } = {}) {
       await quit(cur);
+      if (nk !== undefined) noKey = nk;
       if (updates !== undefined) setUpdateSettings(join(lib, "library.db"), updates);
       await start(await freePort());
       app.page = cur.page;
