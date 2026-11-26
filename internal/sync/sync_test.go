@@ -927,3 +927,103 @@ func TestSyncWritesNoJoinMarkerWhenNothingChanged(t *testing.T) {
 		t.Fatalf("nothing changed but the folder saw %d creates and %d removes", w.creates, w.removes)
 	}
 }
+
+// observer lists the devices as another device would, after every write this engine makes to the
+// folder, and records what the renamed device was listed as.
+type observer struct {
+	Transport
+	look func() string
+	seen []string
+}
+
+func (o *observer) note() { o.seen = append(o.seen, o.look()) }
+
+func (o *observer) Create(ctx context.Context, name string, data []byte) error {
+	err := o.Transport.Create(ctx, name, data)
+	o.note()
+	return err
+}
+
+func (o *observer) Remove(ctx context.Context, name string) error {
+	err := o.Transport.Remove(ctx, name)
+	o.note()
+	return err
+}
+
+func TestRenameNeverLeavesTheDeviceWithoutAName(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	ea := a.connect(folderDir)
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.st.SetDeviceName(ctx, "Study PC"); err != nil {
+		t.Fatal(err)
+	}
+	o := &observer{Transport: eb.t}
+	o.look = func() string {
+		u, err := ea.Devices(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range u.Devices {
+			if d.ID == b.st.Device() {
+				return d.Name
+			}
+		}
+		return "(not listed)"
+	}
+	eb.t = o
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(o.seen) == 0 {
+		t.Fatal("the rename wrote nothing")
+	}
+	for i, n := range o.seen {
+		if n != "Desktop" && n != "Study PC" {
+			t.Fatalf("after step %d another device lists %q, want the old or the new name (seen %q)", i+1, n, o.seen)
+		}
+	}
+}
+
+func TestLeftoverMarkerTempFilesAreIgnoredAndCleanedUp(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	ea := a.connect(folderDir)
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(folderDir, RootName, b.st.Device())
+	for _, n := range []string{joinedTmpName, ".tmp-123"} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte("junk"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u, err := ea.Devices(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(u.Devices) != 1 || u.Devices[0].Name != "Desktop" {
+		t.Fatalf("devices = %+v", u.Devices)
+	}
+	if err := b.st.SetDeviceName(ctx, "Study PC"); err != nil {
+		t.Fatal(err)
+	}
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	es, _ := os.ReadDir(dir)
+	for _, e := range es {
+		if e.Name() != joinedName {
+			t.Fatalf("leftover %q was not cleaned up", e.Name())
+		}
+	}
+	if n := ea.joinedAs(ctx, b.st.Device()); n != "Study PC" {
+		t.Fatalf("marker names %q, want Study PC", n)
+	}
+}

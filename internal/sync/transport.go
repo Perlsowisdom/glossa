@@ -31,6 +31,9 @@ type Transport interface {
 	// Create writes a new file all at once, so a reader never sees half of it, and refuses to
 	// replace one that exists (ErrExists).
 	Create(ctx context.Context, name string, data []byte) error
+	// Replace renames a file in one step, replacing a file already at the new name, so a reader sees the
+	// old file or the new one and never neither (ErrNotExist if from is missing).
+	Replace(ctx context.Context, from, to string) error
 	// Remove deletes a file. A file that is not there is not an error.
 	Remove(ctx context.Context, name string) error
 	// RemoveAll deletes a folder and everything in it.
@@ -145,6 +148,28 @@ func (f *FolderTransport) Create(ctx context.Context, name string, data []byte) 
 	}
 	if err := os.Rename(tmp.Name(), p); err != nil {
 		os.Remove(tmp.Name())
+		return wrapDisk(err)
+	}
+	return nil
+}
+
+// Replace renames over an existing file; on Windows Go's os.Rename replaces it atomically too.
+func (f *FolderTransport) Replace(ctx context.Context, from, to string) error {
+	if err := f.check(); err != nil {
+		return err
+	}
+	pf, err := f.abs(from)
+	if err != nil {
+		return err
+	}
+	pt, err := f.abs(to)
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(pf, pt); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return ErrNotExist
+		}
 		return wrapDisk(err)
 	}
 	return nil
