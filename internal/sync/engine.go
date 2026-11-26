@@ -671,6 +671,14 @@ func (e *Engine) join(ctx context.Context) error {
 		return err
 	}
 	name, _ := e.st.DeviceName(ctx, self)
+	if had, ok := e.readJoined(ctx, self); ok && had == name {
+		return nil // already there under the current name: nothing to write
+	} else if ok {
+		// Renamed since it joined: the marker is replaced so the other devices show the new name.
+		if err := e.t.Remove(ctx, self+"/"+joinedName); err != nil {
+			return err
+		}
+	}
 	schema, err := e.st.SchemaVersion()
 	if err != nil {
 		return err
@@ -685,19 +693,25 @@ func (e *Engine) join(ctx context.Context) error {
 
 // joinedAs reads the name a device gave when it joined; empty if it left no marker or it cannot be read.
 func (e *Engine) joinedAs(ctx context.Context, dev string) string {
+	name, _ := e.readJoined(ctx, dev)
+	return name
+}
+
+// readJoined reads a device's marker: its name, and whether a readable marker exists.
+func (e *Engine) readJoined(ctx context.Context, dev string) (string, bool) {
 	raw, err := e.t.Read(ctx, dev+"/"+joinedName)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	plain, err := open(e.key, raw, kindJoin, dev, 0)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	var b fileBody
 	if json.Unmarshal(plain, &b) != nil || b.Device != dev {
-		return ""
+		return "", false
 	}
-	return b.DeviceName
+	return b.DeviceName, true
 }
 
 // Compact writes a snapshot of everything this device knows and removes this device's older change

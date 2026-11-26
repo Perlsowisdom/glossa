@@ -860,3 +860,70 @@ func TestDeviceIsListedAsSoonAsItHasJoined(t *testing.T) {
 		t.Fatalf("joining again must not bring a forgotten device back: %+v", u.Devices)
 	}
 }
+
+// writeCounter counts the writes a sync makes to the folder.
+type writeCounter struct {
+	Transport
+	creates, removes int
+}
+
+func (w *writeCounter) Create(ctx context.Context, name string, data []byte) error {
+	w.creates++
+	return w.Transport.Create(ctx, name, data)
+}
+
+func (w *writeCounter) Remove(ctx context.Context, name string) error {
+	w.removes++
+	return w.Transport.Remove(ctx, name)
+}
+
+func TestRenamedDeviceIsListedUnderTheNewNameBeforeAnyChangeFile(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	a.connect(folderDir)
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.st.SetDeviceName(ctx, "Study PC"); err != nil { // what sync.setup does with a new name
+		t.Fatal(err)
+	}
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	u, err := a.eng.Devices(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]string{}
+	for _, d := range u.Devices {
+		names[d.ID] = d.Name
+	}
+	if names[b.st.Device()] != "Study PC" {
+		t.Fatalf("the other device lists %q, want the new name; devices = %+v", names[b.st.Device()], u.Devices)
+	}
+}
+
+func TestSyncWritesNoJoinMarkerWhenNothingChanged(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	b := newDev(t, "Desktop")
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	w := &writeCounter{Transport: eb.t}
+	eb.t = w
+	for i := 0; i < 2; i++ {
+		if _, err := eb.Sync(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := eb.Join(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if w.creates != 0 || w.removes != 0 {
+		t.Fatalf("nothing changed but the folder saw %d creates and %d removes", w.creates, w.removes)
+	}
+}
