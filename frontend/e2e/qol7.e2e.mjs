@@ -45,6 +45,8 @@ export default [
         for (const [w, h] of [[1536, 816], [900, 700]]) {
           await inst.resize(w, h);
           t.assert.ok((await fold.getByRole("button", { name: AGAIN }).count()) === 0, `button shown at ${w} x ${h}`);
+          const over = await page.locator(".collections").first().evaluate((el) => el.scrollWidth - el.clientWidth);
+          t.assert.ok(over <= 1, `the Collections column scrolls sideways by ${over} px at ${w} x ${h} with the fold open`);
         }
         await inst.resize(1480, 950);
         await looks({ page, app: inst }, "qol7-library-empty", async () => { await openFold(page); });
@@ -73,6 +75,9 @@ export default [
       for (const [w, h] of [[1536, 816], [900, 700]]) {
         await t.app.resize(w, h);
         t.assert.ok((await fold.getByRole("button", { name: AGAIN }).count()) > 0, `button missing at ${w} x ${h}`);
+        const over = await page.locator(".collections").first().evaluate((el) => el.scrollWidth - el.clientWidth);
+        if (over > 1) console.log("  [qol7] wide:", JSON.stringify(await page.locator(".collections").first().evaluate((col) => { const r = col.getBoundingClientRect().right; return [...col.querySelectorAll("*")].filter((e) => e.getBoundingClientRect().right > r + 1).slice(0, 8).map((e) => `${e.tagName}.${e.className} w=${Math.round(e.getBoundingClientRect().width)} ${e.textContent.slice(0, 40)}`); })));
+        t.assert.ok(over <= 1, `the Collections column scrolls sideways by ${over} px at ${w} x ${h} with the fold open`);
       }
       await t.app.resize(1480, 950);
       await looks(t, "qol7-library-books", async () => { await openFold(page); });

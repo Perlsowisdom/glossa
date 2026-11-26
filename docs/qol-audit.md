@@ -214,3 +214,9 @@ One full run (layout-sanity included): 105 checks, 103 passed on the first pass;
 | --- | --- | --- | --- | --- |
 | 31 | cosmetic | A device crashes between writing `joined.new` and renaming it, and never syncs again | The temporary file stays (it is ignored and harmless, but counts for nothing) until that device next joins. | Nothing planned; another device could clean it up when it forgets the device (Forget already removes the whole folder). |
 | 32 | cosmetic | Library, a folder or collection selected, many books | The button's visibility asks `library.items` for one book each time the list refreshes (a cheap extra call). | Keep the whole-library count from the facet vocabulary or the folders list instead. |
+
+Found by the coordinator while reviewing pass 7, and fixed in it:
+
+| # | Severity | Steps | What happened | Fix and check |
+| --- | --- | --- | --- | --- |
+| 33 | annoying | Library with books, open Traditions and rules (now in the narrow Collections column, pass 6) | The column scrolled sideways by 46 px: the "Look again at books without a type" button did not wrap, and the rule fields kept their own width. | In `.collections`, buttons wrap and fields, inputs and selects take the column's width. `qol7.e2e.mjs` checks the column has no sideways scroll at 1536 x 816 and 900 x 700 with the fold open (failed with 46 px before the fix). |
