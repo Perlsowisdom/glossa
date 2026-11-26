@@ -206,7 +206,7 @@ No schema change.
 
 ### After pass 7
 
-See the run recorded below.
+One full run (layout-sanity included): 105 checks, 103 passed on the first pass; the two Any checks failed because an earlier full run was still alive in the background and shared the app and its fake server, and both passed when `any.e2e.mjs` was rerun alone (4 of 4). `qol7.e2e.mjs` adds two checks. `gofmt`, `go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
 
 ## New things noticed in pass 7 (not fixed)
 
