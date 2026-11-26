@@ -33,15 +33,16 @@ export function installFailure(message: string): string {
   return `Glossa could not install the update: ${why}.`;
 }
 
-// noticeTitle is the line at the top of the notice that a newer version is ready.
-export function noticeTitle(version: string): string {
-  return `Glossa ${version} is ready.`;
+// noticeTitle is the line at the top of the notice that a newer version is ready (or, when this
+// build cannot install it, simply out).
+export function noticeTitle(version: string, noKey?: boolean): string {
+  return noKey ? `Glossa ${version} is out.` : `Glossa ${version} is ready.`;
 }
 
 // noticeHelp says what the button will do.
 export function noticeHelp(manual?: boolean, noKey?: boolean): string {
   if (manual) return "Download it, open the disk image and drag Glossa to Applications. Your library is not touched.";
-  if (noKey) return "It is out. Open the download page to get it. Your library is not touched.";
+  if (noKey) return "Open the download page to get it. Your library is not touched.";
   return "It installs in a moment and Glossa opens again. Your library is not touched.";
 }
 

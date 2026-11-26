@@ -84,7 +84,7 @@ function notice(a: Available): HTMLElement {
   const msg = new Message();
   const notes = shortNotes(a.notes);
   const el = h("div", { class: "update-banner update-notice", role: "region", "aria-label": "Update ready", id: "update-banner" },
-    h("p", {}, h("strong", {}, noticeTitle(a.version)), " ", noticeHelp(a.manual, a.noKey)),
+    h("p", {}, h("strong", {}, noticeTitle(a.version, a.noKey)), " ", noticeHelp(a.manual, a.noKey)),
     notes ? h("p", { class: "update-notes" }, h("strong", {}, "What’s new:"), h("br"), notes) : null,
     a.noKey && !a.manual ? h("p", { class: "hint" }, NO_KEY_LINE) : null,
     h("div", { class: "row" },

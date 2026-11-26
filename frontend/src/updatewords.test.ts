@@ -50,6 +50,7 @@ describe("updateAction", () => {
 describe("the notice", () => {
   it("names the version and what the button does", () => {
     expect(noticeTitle("0.5.0-alpha.2")).toBe("Glossa 0.5.0-alpha.2 is ready.");
+    expect(noticeTitle("0.5.0-alpha.2", true)).toBe("Glossa 0.5.0-alpha.2 is out.");
     expect(noticeHelp(false)).toContain("opens again");
     expect(noticeHelp(true)).toContain("disk image");
     expect(noticeHelp(false)).toContain("library is not touched");

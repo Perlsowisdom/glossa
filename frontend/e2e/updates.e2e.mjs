@@ -143,7 +143,7 @@ export default [
       const b = await noticeShown(t);
       const text = await b.innerText();
       // Preview picks the newest release that is not a draft and has a manifest: 0.9.0-beta.1.
-      t.assert.ok(text.includes("Glossa 0.9.0-beta.1 is ready."), text);
+      t.assert.ok(text.includes("Glossa 0.9.0-beta.1 is out."), text);
       t.assert.ok(text.includes(["What’s new:", "Notes for 0.9.0-beta.1", "A second line"].join("\n")), `the label and the notes are on their own lines: ${JSON.stringify(text)}`);
       t.assert.ok(!text.includes("1.0.0-alpha.1") && !text.includes("0.7.0-beta.1"), "a draft and a release without a manifest are not offered");
       t.assert.equal(await b.getByRole("button", { name: "Open the download page" }).count(), 1);
@@ -174,7 +174,7 @@ export default [
       app.releases.set({ stable: "0.8.0", releases: LIST_NEWER });
       await sec.getByRole("button", { name: "Check for updates" }).click();
       const again = await noticeShown(t);
-      t.assert.ok((await again.innerText()).includes("Glossa 0.9.0-beta.2 is ready."));
+      t.assert.ok((await again.innerText()).includes("Glossa 0.9.0-beta.2 is out."));
       // Later again; at the next start the notice is back (it was only put off).
       await again.getByRole("button", { name: "Later" }).click();
       await app.page.reload();
@@ -203,7 +203,7 @@ export default [
       t.assert.equal(app.releases.asked("/stable/latest.json"), stableBefore + 1, "Stable reads the latest release's manifest");
       t.assert.ok((await sec.innerText()).includes("finished releases"), "Stable says what it is");
       const b = await noticeShown(t);
-      t.assert.ok((await b.innerText()).includes("Glossa 0.8.0 is ready."), "the notice follows the channel");
+      t.assert.ok((await b.innerText()).includes("Glossa 0.8.0 is out."), "the notice follows the channel");
       // Back to Preview: the test version again.
       await group.locator(".seg-opt", { hasText: "Preview" }).click();
       await says("Version 0.9.0-beta.2 is available");
