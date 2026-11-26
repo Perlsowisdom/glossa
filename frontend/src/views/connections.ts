@@ -11,6 +11,7 @@ import {
 import { toggleSwitch } from "../controls";
 import { badge, button, clear, field, h } from "../dom";
 import { anySection } from "./anycard";
+import { readwiseSection } from "./readwisecard";
 
 export function connectionsSection(): { el: HTMLElement; show: () => void; focus: () => void } {
   const list = h("div", { class: "connections" });
@@ -103,6 +104,7 @@ export function connectionsSection(): { el: HTMLElement; show: () => void; focus
       body.append(keyShownByDefault(c) ? keyForm
         : moreOptions(c.id, keyForm));
     }
+    if (c.id === "readwise") body.append(readwiseSection(c.key_set, say));
     return body;
   }
 
