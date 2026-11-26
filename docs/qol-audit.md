@@ -192,3 +192,31 @@ One full run (no `--no-build`, layout-sanity included): 103 passed, 0 failed of 
 | 29 | cosmetic | Rename a device in Sync while another device lists devices at that moment | The marker is replaced by remove then create, so for a moment the folder holds no marker for it (the device then shows under its id until the new one lands). | Write the new marker under a temporary name and rename over the old one (needs a replace call on the transport). |
 | 30 | cosmetic | Library with no books, open Traditions and rules, press "Look again at books without a type" | Not checked: the button now shows in an empty library, where there is nothing for it to look at. | Hide it or say there are no books. |
 
+## Items 29 and 30, fixed in pass 7 (branch m3/qol7)
+
+Each has a check, run first against the old code and seen to fail. Item 29 has Go checks; item 30 has real-app checks in
+`frontend/e2e/qol7.e2e.mjs`. Screenshots are `frontend/e2e/shots/qol-<name>-<w>x<h>-<theme>.png` at 1536 x 816 and 900 x 700,
+light and dark (`qol7-library-empty`, `qol7-library-books`), plus `qol7-library-empty.png` and `qol7-library-books.png`.
+No schema change.
+
+| # | Severity | Cause | Fix | Check (failed first) |
+| --- | --- | --- | --- | --- |
+| 29 | cosmetic | A rename replaced the `joined` marker by remove then create, so between the two steps the folder held no marker. | New transport call `Replace(from, to)` (rename over an existing file; `FolderTransport` uses `os.Rename`, which replaces an existing file on Windows too; the only other implementations in tests embed the transport). `Engine.join` writes the new marker as `joined.new` and renames it over `joined`. Listings ignore any file that is not a change file or snapshot, and `join` removes leftover `joined.new` and `.tmp-*` files in the device's own folder. | Go `TestRenameNeverLeavesTheDeviceWithoutAName` (failed: after the remove, another device listed the device under its id, "01M8C89M..."; passes: always "Desktop" or "Study PC") and `TestLeftoverMarkerTempFilesAreIgnoredAndCleanedUp` (failed: leftover `.tmp-123` stayed). |
+| 30 | cosmetic | The button was always added to the fold. Before the fix, pressing it in an empty library ran the lookup and said "Set 0 books automatically (0 had nothing to go on). Anything you chose yourself was left alone." | The button is hidden while the whole library (not just the folder or collection on screen) has no books, and shows as soon as one is added. | Real app "Library, empty: ... no Look again button" (failed: button shown) and "Library, with books: the Look again button shows ..." (passes before and after). |
+
+### After pass 7
+
+One full run (layout-sanity included): 105 checks, 103 passed on the first pass; the two Any checks failed because an earlier full run was still alive in the background and shared the app and its fake server, and both passed when `any.e2e.mjs` was rerun alone (4 of 4). `qol7.e2e.mjs` adds two checks. `gofmt`, `go vet ./...` and `go test ./...` were clean; vitest 385 tests passed.
+
+## New things noticed in pass 7 (not fixed)
+
+| # | Severity | Steps | What happens | What should happen |
+| --- | --- | --- | --- | --- |
+| 31 | cosmetic | A device crashes between writing `joined.new` and renaming it, and never syncs again | The temporary file stays (it is ignored and harmless, but counts for nothing) until that device next joins. | Nothing planned; another device could clean it up when it forgets the device (Forget already removes the whole folder). |
+| 32 | cosmetic | Library, a folder or collection selected, many books | The button's visibility asks `library.items` for one book each time the list refreshes (a cheap extra call). | Keep the whole-library count from the facet vocabulary or the folders list instead. |
+
+Found by the coordinator while reviewing pass 7, and fixed in it:
+
+| # | Severity | Steps | What happened | Fix and check |
+| --- | --- | --- | --- | --- |
+| 33 | annoying | Library with books, open Traditions and rules (now in the narrow Collections column, pass 6) | The column scrolled sideways by 46 px: the "Look again at books without a type" button did not wrap, and the rule fields kept their own width. | In `.collections`, buttons wrap and fields, inputs and selects take the column's width. `qol7.e2e.mjs` checks the column has no sideways scroll at 1536 x 816 and 900 x 700 with the fold open (failed with 46 px before the fix). |

@@ -683,6 +683,10 @@ details.more > summary { cursor: pointer; color: var(--accent); }
 .coll-bar p { margin: 4px 0; }
 .rule-builder .examples { margin: 0 0 8px; padding-left: 18px; }
 .collections .card { margin: 10px 0; }
+/* The Traditions and rules form sits in this narrow column: its fields take the column's width, never more. */
+.collections .row .field { flex: 1 1 100%; }
+.collections input, .collections select { box-sizing: border-box; max-width: 100%; min-width: 0; }
+.collections button { max-width: 100%; white-space: normal; text-align: left; }
 @media (max-width: 860px) {
   .lib-body { grid-template-columns: minmax(0, 1fr); }
   .collections { position: static; max-height: none; }

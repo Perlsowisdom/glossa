@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	gosync "sync"
 	"time"
 
@@ -655,6 +656,9 @@ func (e *Engine) writeFile(ctx context.Context, kind byte, body fileBody, name s
 // joinedName is the file a device writes when it joins, before it has any change to send.
 const joinedName = "joined"
 
+// joinedTmpName is where a replacement marker is written before it is renamed over the old one.
+const joinedTmpName = "joined.new"
+
 // Join leaves a small encrypted marker in this device's folder, so the other devices list it (and can
 // forget it) as soon as it has joined, not only after its first change file. Doing it again is harmless,
 // and a device that was forgotten is not brought back.
@@ -670,14 +674,11 @@ func (e *Engine) join(ctx context.Context) error {
 	if err != nil || forgotten[self] {
 		return err
 	}
+	e.cleanMarkerTemps(ctx, self)
 	name, _ := e.st.DeviceName(ctx, self)
-	if had, ok := e.readJoined(ctx, self); ok && had == name {
+	had, ok := e.readJoined(ctx, self)
+	if ok && had == name {
 		return nil // already there under the current name: nothing to write
-	} else if ok {
-		// Renamed since it joined: the marker is replaced so the other devices show the new name.
-		if err := e.t.Remove(ctx, self+"/"+joinedName); err != nil {
-			return err
-		}
 	}
 	schema, err := e.st.SchemaVersion()
 	if err != nil {
@@ -685,10 +686,36 @@ func (e *Engine) join(ctx context.Context) error {
 	}
 	body := fileBody{Format: formatVersion, Kind: "join", Device: self, DeviceName: name, Schema: schema,
 		Created: e.Now().UnixMilli(), Changes: []store.Change{}}
-	if err := e.writeFile(ctx, kindJoin, body, joinedName); err != nil && !errors.Is(err, ErrExists) {
+	if !ok {
+		if err := e.writeFile(ctx, kindJoin, body, joinedName); err != nil && !errors.Is(err, ErrExists) {
+			return err
+		}
+		return nil
+	}
+	// Renamed since it joined: the new marker is written under a temporary name and renamed over the old
+	// one, so another device listing the folder always finds a marker.
+	if err := e.writeFile(ctx, kindJoin, body, joinedTmpName); err != nil {
+		return err
+	}
+	if err := e.t.Replace(ctx, self+"/"+joinedTmpName, self+"/"+joinedName); err != nil {
+		_ = e.t.Remove(ctx, self+"/"+joinedTmpName)
 		return err
 	}
 	return nil
+}
+
+// cleanMarkerTemps removes temporary files a crashed write left in this device's folder. Listings
+// ignore them anyway.
+func (e *Engine) cleanMarkerTemps(ctx context.Context, self string) {
+	es, err := e.t.List(ctx, self)
+	if err != nil {
+		return
+	}
+	for _, en := range es {
+		if !en.Dir && (en.Name == joinedTmpName || strings.HasPrefix(en.Name, ".tmp-")) {
+			_ = e.t.Remove(ctx, self+"/"+en.Name)
+		}
+	}
 }
 
 // joinedAs reads the name a device gave when it joined; empty if it left no marker or it cannot be read.
