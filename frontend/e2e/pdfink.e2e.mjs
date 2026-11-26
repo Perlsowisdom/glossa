@@ -197,7 +197,7 @@ const checks = [
       for (const k of ["x0", "y0", "x1", "y1"]) near(t, b[k], shared.box[k], 0.004, `${k} after restart`);
       // the Highlights tool lists it, and choosing it goes to the page
       const openedSidebar = !(await page.locator("#rightbar").isVisible().catch(() => false));
-      if (openedSidebar) await page.locator("button[aria-label='Right sidebar']").click();
+      if (openedSidebar) await page.locator(".right-rail button[aria-controls=rightbar]").click();
       await page.locator("#rightbar [role=tab]", { hasText: "Highlights" }).click();
       const row = page.locator("#rightbar .hl-row", { hasText: "Ink · page 1" }).first();
       await row.waitFor({ timeout: 8000 });
@@ -223,7 +223,7 @@ const checks = [
       await page.locator("#rightbar .hl-row", { hasText: "Ink · page 1" }).waitFor({ timeout: 8000 });
       await page.waitForTimeout(500);
       t.assert.equal((await inkBox(t)).strokes, 2, "Undo restored both strokes on the page");
-      if (openedSidebar) await page.locator("button[aria-label='Right sidebar']").click();
+      if (openedSidebar) await page.locator(".right-rail button[aria-controls=rightbar]").click();
     },
   },
 ];

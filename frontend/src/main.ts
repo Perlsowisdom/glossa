@@ -1,5 +1,5 @@
-// The interface shell: the left rail of places (shell/rail.ts), the main area, and the right sidebar
-// of study tools (views/sidebar.ts). Places hold the views: Library (your library, Get Bibles, From Logos),
+// The interface shell: the left rail of places (shell/rail.ts), the main area, the right sidebar
+// of study tools (views/sidebar.ts) and the slim right rail with its one toggle (shell/rightrail.ts). Places hold the views: Library (your library, Get Bibles, From Logos),
 // Reader (reading, and its reading plans page), My work (notes, sermons, lists, reports), Search and
 // Settings (with Commands under Advanced). Every action in the views calls a registered command
 // (api.ts); the shell itself only switches views.
@@ -11,6 +11,7 @@ import { button, h } from "./dom";
 import { closePopover } from "./popover";
 import { closeMarking } from "./marking";
 import { rail } from "./shell/rail";
+import { rightRail } from "./shell/rightrail";
 import { PLACES, PlaceId, isView, placeForKey, placeOf, viewLabel } from "./shellwords";
 import { applyTheme, loadPref, onPrefs, prefs, savePref, setNavigator } from "./state";
 import { binView } from "./views/bin";
@@ -163,10 +164,9 @@ function boot(tries = 10) {
     go: (p) => goPlace(p),
     search: (q) => searchFor(q),
     settings: (page) => show(page ? `settings/${page}` : "settings", true),
-    toggleSidebar: () => sidebar().toggle(),
   });
   const side = sidebar();
-  shell.append(theRail.edge, theRail.reveal, theRail.el, main, side.el);
+  shell.append(theRail.edge, theRail.reveal, theRail.el, main, side.el, rightRail(() => side.toggle()));
   app.replaceChildren(shell);
   setNavigator((id) => show(id));
   onPrefs(() => theRail.setContext(placeOf(current).id, prefs.reading.mode));

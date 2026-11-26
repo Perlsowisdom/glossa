@@ -21,7 +21,6 @@ export interface RailHooks {
   go(place: PlaceId): void;
   search(query: string): void;
   settings(page?: string): void;
-  toggleSidebar(): void;
 }
 
 const ICONS: Record<string, string> = { search: "search", library: "library", reader: "reader", work: "work" };
@@ -55,9 +54,6 @@ export function rail(shell: HTMLElement, hooks: RailHooks) {
   }
   const grid = item("button", "grid", "Grid presets", { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false", class: "rail-item rail-grid" });
   grid.addEventListener("click", () => openGridPresets(grid));
-  // The right sidebar opens and closes from here on every page; the Reader's top bar has the same button.
-  const toolsBtn = item("button", "panel", "Study tools", { type: "button", class: "rail-item rail-tools", "aria-controls": "rightbar", "aria-pressed": "false", title: "Show or hide the study tools (Ctrl+.)", "aria-keyshortcuts": "Control+." });
-  toolsBtn.addEventListener("click", () => hooks.toggleSidebar());
   const settingsBtn = item("button", "sliders", "Rail settings", { type: "button", "aria-haspopup": "dialog", "aria-expanded": "false" });
   settingsBtn.addEventListener("click", () => togglePopover(settingsBtn, () => h("div", { class: "pop-body" },
     h("h2", { class: "pop-title" }, "Rail settings"),
@@ -103,7 +99,7 @@ export function rail(shell: HTMLElement, hooks: RailHooks) {
 
   const nav = h("nav", { class: "rail", "aria-label": "Places" },
     h("div", { class: "rail-top" }, [...links.values()], grid),
-    h("div", { class: "rail-bottom" }, updateBtn, syncBtn, toolsBtn, settingsBtn, helpBtn));
+    h("div", { class: "rail-bottom" }, updateBtn, syncBtn, settingsBtn, helpBtn));
   const edge = h("div", { class: "rail-edge", "aria-hidden": "true" });
   const reveal = h("button", { type: "button", class: "rail-reveal", "aria-label": "Show the rail", title: "Show the rail (Alt+0)" }, icon("rail"));
 
@@ -187,7 +183,6 @@ export function rail(shell: HTMLElement, hooks: RailHooks) {
     const shown = railPlaces(r);
     for (const [p, el] of links) el.hidden = !shown.includes(p);
     grid.hidden = !(place === "reader" && gridButtonPlace(mode, r) === "rail");
-    toolsBtn.setAttribute("aria-pressed", String(prefs.sidebar.open));
   }
   onPrefs(apply);
   apply();

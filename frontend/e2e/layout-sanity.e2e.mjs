@@ -193,7 +193,7 @@ export default [...SIZES.flatMap(([w, h]) => THEMES.map((theme) => ({
     async run(t) {
       const { page, app } = t;
       const problems = [];
-      const tools = page.locator(".rail-tools:visible").first();
+      const tools = page.locator(".right-rail .rrail-toggle:visible").first();
       const sidebar = async (open) => {
         if ((await tools.getAttribute("aria-pressed") === "true") !== open) await tools.click();
         await page.waitForFunction((o) => (document.querySelector("#rightbar")?.getClientRects().length > 0) === o, open, { timeout: 5000 });
