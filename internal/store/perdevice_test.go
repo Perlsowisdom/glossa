@@ -43,3 +43,37 @@ func TestUpdateSettingsAreNotSynced(t *testing.T) {
 		}
 	}
 }
+
+// Readwise (ADR 0014): the links from Readwise sources and highlights to notes travel between devices, so a
+// second device that imports updates the same notes instead of making copies; the time of the last import
+// is a "connect." setting and stays on its device.
+func TestReadwiseLinksSyncButLastImportDoesNot(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	err := s.Write(ctx, "test", func(tx *Tx) error {
+		if err := tx.Create("readwise_sources", Row{"source_id": "1", "note_id": "n", "state": "linked", "body_hash": "h", "meta_json": "{}", "synced_at": int64(1)}); err != nil {
+			return err
+		}
+		if err := tx.Create("readwise_highlights", Row{"highlight_id": "9", "source_id": "1", "block": "> x"}); err != nil {
+			return err
+		}
+		return tx.Create("settings", Row{"key": "connect.readwise.sync", "value_json": `{"at":"2026-01-01T00:00:00Z"}`})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes, err := s.LocalChanges(ctx, "", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, c := range changes {
+		got[c.ObjectType] = true
+		if c.ObjectType == "settings" && c.ObjectID == `["connect.readwise.sync"]` {
+			t.Error("the last import time would be sent to other devices")
+		}
+	}
+	if !got["readwise_sources"] || !got["readwise_highlights"] {
+		t.Errorf("the link tables are not synced: %v", got)
+	}
+}

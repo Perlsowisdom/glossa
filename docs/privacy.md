@@ -165,6 +165,29 @@ Nothing from your Glossa library (notes, documents, books) is sent to Zotero. Th
 title, authors and other details, as Zotero describes them) are kept in `library.db` so documents still show their
 citations without Zotero, and they sync with your other devices like the rest of your library (ADR 0013).
 
+## Connections: Readwise (T40d)
+
+Off until you turn it on: the switch "Use Readwise" in Settings → Connections, or `connect.enable {"id": "readwise"}`.
+Turning it off (`connect.disable`) stops every request; the notes already made stay. ADR 0014 has the design.
+
+Glossa only ever **reads** from Readwise, and only talks to `https://readwise.io`. Every request is an HTTPS `GET`
+with the headers `Authorization: Token <your token>` and `User-Agent: Glossa`, and no cookies. Readwise sees your IP
+address, your token (so which account) and what you ask for. Nothing from your Glossa library (books, notes,
+documents, the titles of your books) is sent: the matching of Readwise sources to your library books happens on this
+computer.
+
+| When | Requests |
+| --- | --- |
+| You turn it on, press Test connection, or open Settings → Connections while it is on (`connect.test`, `readwise.test`) | `GET https://readwise.io/api/v2/auth/` |
+| You press Preview or Import (`readwise.preview`, `readwise.import`) | `GET https://readwise.io/api/v2/export/?includeDeleted=true`, plus `updatedAfter=<time of your last import>` after the first import, plus `pageCursor=<cursor Readwise gave>` for each further page |
+
+The time of the last import is kept in `library.db` on this device only. When Readwise answers "too many requests",
+Glossa waits for the number of seconds in its `Retry-After` header before asking again, a few times at most. The token
+is kept in the system keychain (`connect.readwise.key`), never in `library.db`, a file or a log, and is never shown
+again. The highlights, notes and links Readwise sent are kept in `library.db` as notes, and sync with your other
+devices like the rest of your library (ADR 0013); the link tables from Readwise sources to those notes sync too, so a
+second device updates the same notes instead of making copies.
+
 ## Citation styles (T40b)
 
 Off until you turn it on: the switch "Download more styles" in Settings → Citations, or `cite.styles_enable`.
