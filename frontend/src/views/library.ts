@@ -48,6 +48,7 @@ export function libraryView() {
     changed: () => items.refresh(), say: (t) => items.say(t),
   });
   items.slot.append(side.bar);
+  side.el.append(items.rules.el); // reachable any time, with or without books
   const refreshAll = () => { void items.refresh(); void side.reload(); };
 
   // Adding books: one button, two ways.
@@ -204,8 +205,7 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
     slot,
     h("div", { class: "work-tools lib-tools" }, text, filterBtn, chipsRow, h("div", { class: "lib-right" }, count, modeSwitch)),
     scopeRow, msg.el, selection, bulk,
-    h("div", { class: "lib-panes" }, h("div", { class: "lib-main" }, results, more), detail),
-    rules.el);
+    h("div", { class: "lib-panes" }, h("div", { class: "lib-main" }, results, more), detail));
 
   // Data ------------------------------------------------------------------------------------------
 
@@ -254,9 +254,6 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
     renderChips();
     renderScope();
     results.dataset.mode = mode;
-    // With no books at all there is nothing for traditions and rules to describe: the fold would only
-    // float under the empty state, away from the Collections column.
-    rules.el.hidden = all.length === 0 && !since && !folder && !collection;
     if (list.length === 0) {
       clear(results, all.length === 0
         ? emptyLib(since || folder || collection ? "No books here" : "No books yet", since || folder || collection ? "Nothing in this part of your library." : "Choose Add books, or drop files on the window.")
@@ -535,7 +532,7 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
   }
 
   return {
-    el, refresh, slot, vocab: () => vocab, say: (t: string) => msg.ok(t),
+    el, refresh, slot, rules, vocab: () => vocab, say: (t: string) => msg.ok(t),
     filterCollection(n: CollectionNode | null) {
       collection = n;
       since = 0;

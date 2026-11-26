@@ -17,6 +17,7 @@ const PAGE = 200;
 
 export function binView() {
   let shown = PAGE; // how many are loaded; it grows with Show more and is kept when the page refreshes
+  let rows: BinEntry[] = [];
   const msg = new Message();
   const sub = h("p", { class: "hint work-sub", "aria-live": "polite" });
   const list = h("ul", { class: "bin-list", "aria-label": "In the bin" });
@@ -30,7 +31,12 @@ export function binView() {
       msg.attempt(() => run<{ count: number }>("bin.count")),
     ]);
     if (!got || !total) return;
-    const n = total.count;
+    rows = got;
+    draw(total.count);
+  }
+
+  function draw(n: number) {
+    const got = rows;
     sub.textContent = n
       ? `${n} ${n === 1 ? "thing" : "things"}, most recently deleted first. Restore puts each back where it was.`
       : "Deleted notes, sermons, lists, reading plans, collections and folders wait here until you restore them.";
@@ -41,7 +47,19 @@ export function binView() {
 
   function more(loaded: number, n: number): HTMLElement {
     return h("li", { class: "bin-more" },
-      button(`Show more (${n - loaded} left)`, () => { shown = loaded + PAGE; void refresh(); }));
+      button(`Show more (${n - loaded} left)`, () => void next()));
+  }
+
+  // The next page is "older than the last row shown", so a bin that changed meanwhile gives no repeat or gap.
+  async function next() {
+    const last = rows[rows.length - 1];
+    const got = await msg.attempt(() => run<BinEntry[]>("bin.list", { limit: PAGE, after_deleted_at: last.deleted_at, after_id: last.id }));
+    if (!got) return;
+    const seen = new Set(rows.map((r) => r.kind + r.id));
+    rows = [...rows, ...got.filter((r) => !seen.has(r.kind + r.id))];
+    shown = rows.length;
+    const total = await msg.attempt(() => run<{ count: number }>("bin.count"));
+    if (total) draw(total.count);
   }
 
   function row(e: BinEntry): HTMLElement {
