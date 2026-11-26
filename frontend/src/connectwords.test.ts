@@ -61,3 +61,20 @@ describe("failureText", () => {
     expect(failureText(new Error("unavailable: Zotero is not running."))).toBe("Zotero is not running.");
   });
 });
+
+describe("Readwise", () => {
+  const readwise: ConnectionInfo = {
+    id: "readwise", name: "Readwise", sign_in: "key", capabilities: ["import"], enabled: false, key_set: false,
+    sends: "Glossa sends your Readwise token to readwise.io.", key: { label: "Readwise token", help: "Copy it from readwise.io/access_token.", required: true },
+  };
+  it("says what it does and what it needs in its own words", () => {
+    expect(whatItDoes(readwise)).toBe("Readwise lets you bring in your highlights as notes, one for each book or article.");
+    expect(howItSignsIn(readwise)).toBe("Needs your Readwise token.");
+  });
+  it("shows the token box straight away, and never the token", () => {
+    expect(keyShownByDefault(readwise)).toBe(true);
+    expect(keyState(readwise)).toBe("No Readwise token saved.");
+    expect(switchLabel(readwise)).toBe("Use Readwise");
+    expect(switchHint(readwise)).toBe("Glossa sends your Readwise token to readwise.io. Off until you turn it on.");
+  });
+});

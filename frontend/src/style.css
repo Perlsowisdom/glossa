@@ -1859,3 +1859,12 @@ dialog.any-dialog h3 { margin: 0 0 6px; }
 .provider-row { flex-wrap: wrap; }
 .provider-row .provider-current { flex: 1 1 12rem; min-width: 0; }
 .provider-row > button { flex: none; }
+
+/* Readwise (a connection): import controls, and the choice for a note changed on both sides */
+.readwise-card { display: flex; flex-direction: column; gap: 10px; max-width: 34rem; }
+.readwise-card .hint { margin: 0; }
+.readwise-conflicts { display: flex; flex-direction: column; gap: 10px; }
+.readwise-conflict { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.readwise-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.readwise-sides p { margin: 2px 0 0; font-size: .88rem; overflow-wrap: anywhere; white-space: pre-line; }
+@media (max-width: 640px) { .readwise-sides { grid-template-columns: 1fr; } }

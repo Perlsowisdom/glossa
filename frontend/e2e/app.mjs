@@ -23,6 +23,7 @@ import { chromium } from "playwright-core";
 import { startFakeStyles } from "./fake-styles.mjs";
 import { startFakeZotero } from "./fake-zotero.mjs";
 import { startFakeAny } from "./fake-any.mjs";
+import { startFakeReadwise } from "./fake-readwise.mjs";
 import { startFakeReleases } from "./fake-releases.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -234,6 +235,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   const zotero = await startFakeZotero();
   // ... and this fake Any, never the Any app on port 31009.
   const anyApp = await startFakeAny();
+  // ... and this fake Readwise, never readwise.io.
+  const readwise = await startFakeReadwise();
   // Downloaded citation styles come from this fake, never from GitHub.
   const styles = await startFakeStyles();
   // Updates come from this fake GitHub, never from the real one.
@@ -262,6 +265,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_ZOTERO_LOCAL_URL: zotero.localUrl,
         GLOSSA_ZOTERO_WEB_URL: zotero.webUrl,
         GLOSSA_ANY_URL: anyApp.url,
+        GLOSSA_READWISE_URL: readwise.url,
         GLOSSA_CSL_LIST_URL: styles.listUrl,
         GLOSSA_CSL_RAW_URL: styles.rawUrl,
         GLOSSA_UPDATE_ENDPOINT: releases.endpointUrl,
@@ -346,6 +350,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     library: lib,
     zotero,
     any: anyApp,
+    readwise,
     styles,
     releases,
     log: () => log,
@@ -381,6 +386,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       // Connections: the switch and key as found, and the fake Zotero answering again.
       app.zotero.mode = "ok";
       app.any.reset();
+      app.readwise.reset();
       const conns = (await app.run("connect.list").catch(() => null)) ?? [];
       for (const was of b.connections ?? []) {
         const now = conns.find((x) => x.id === was.id);
@@ -445,6 +451,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       } finally {
         await zotero.close().catch(() => {});
         await anyApp.close().catch(() => {});
+        await readwise.close().catch(() => {});
         await styles.close().catch(() => {});
         await releases.close().catch(() => {});
         await removeRun(run);

@@ -1,7 +1,7 @@
 # 0014: Connections
 
 Status: **Proposed** (T40a). Builds on 0005, 0009 and 0011; **adds Zotero (the app on this computer, and
-zotero.org) to the list of network features in ADR 0009.**
+zotero.org) to the list of network features in ADR 0009.** Addenda add Any (T40c) and Readwise (T40d).
 
 ## Context
 
@@ -165,3 +165,58 @@ text is saved as a new note, then Glossa's goes to Any). A page deleted in Any i
 
 **Not done.** Sermon outlines are not sent separately (the text is); a page imported becomes a note, never a
 sermon; pictures, files and links inside pages are not carried; no automatic or background syncing.
+
+## Addendum: Readwise, import (T40d part 1; still Proposed)
+
+ADR 0009's list of network features gains **Readwise** (`https://readwise.io` only), off until the switch is
+turned on, with its own section in `docs/privacy.md`. Glossa only reads. The token is the connection's key
+(required) and lives in the keychain (`connect.readwise.key`).
+
+**What was confirmed** (from `https://readwise.io/api_deets`; the real API was never called, only a fake):
+
+| Part | Detail |
+| --- | --- |
+| Auth | `GET /api/v2/auth/` with `Authorization: Token <token>`; 204 when good, 401 when not |
+| Export | `GET /api/v2/export/`; optional `updatedAfter` (ISO 8601, UTC), `pageCursor` (the `nextPageCursor` of the last answer, until it is null), `includeDeleted=true` (also returns deleted highlights, so deletions can be synced) |
+| Answer | `{count, nextPageCursor, results}`; each result is a source (`user_book_id, title, author, category, readwise_url, source_url, book_tags, document_note, highlights`), each highlight has `id, text, note, location, location_type, highlighted_at, updated_at, is_discard, is_deleted, readwise_url`. The docs do not say whether `updatedAfter` trims each source's `highlights`; Glossa assumes it does and keeps every highlight it has seen, so either works |
+| Limits | 20 requests a minute on the list endpoints, 240 on the rest; on 429 `Retry-After` gives the seconds to wait. Glossa waits that long (at most three times, never more than 90 seconds) and otherwise stops with a plain message |
+
+**Commands.** `readwise.test`, `readwise.preview`, `readwise.import`, `readwise.status`, `readwise.resolve`.
+The first import is complete; later ones send `updatedAfter` with the time the last successful import *started*
+(kept per device in the setting `connect.readwise.sync`), and `full` asks for everything again, which is also what
+removes highlights that were deleted in Readwise without being flagged. An import that fails part-way does not
+move that time; it can simply be run again.
+
+**Matching.** A Readwise source of the category "books" matches a library book when the **title** and the
+**authors** both agree after plain tidying: letter case, accents, punctuation, a leading "The/A/An", "Last, First"
+against "First Last", and the part after a colon (a subtitle one side lacks is ignored; two different subtitles
+do not match). The authors must be the same set. Nothing fuzzier: no spelling guesses, no initials against full
+names, no title-only matches, and when two library books fit, none is chosen. Only titles and authors are read
+from the library, on this computer.
+
+**Where highlights go.** One note per Readwise source, titled "Title — Author", tagged `readwise` and the source's
+tags, holding each highlight as a quote block, then the reader's own note, the place (page or location) and a
+link back to Readwise. A matched source's note is **attached to the library book** (as a note on its first
+section, which the book's notes panel lists). Glossa's own book highlights are anchored to a text position;
+Readwise's places are Kindle locations that cannot be mapped to a position in a file here, and a guessed position
+would put a mark in the wrong place, so they are not made. Unmatched sources become free-standing notes.
+
+**Links and sync.** Migration `0018_readwise.sql` adds `readwise_sources(source_id, note_id, item_id, state,
+body_hash, meta_json, synced_at)` and `readwise_highlights(highlight_id, source_id, block, loc, at, updated_at)`.
+The highlights are kept as Markdown blocks so a note can be rebuilt when an incremental import sends only some of
+its highlights. **Both tables sync** (unlike `any_links`): the notes they point to sync, so a second device that
+imports finds the links and updates the same notes instead of making copies. The time of the last import is a
+`connect.` setting and stays on its device, so each device's first import is a complete one that finds every note
+already up to date.
+
+**Discarded and deleted highlights** (`is_discard`, `is_deleted`) are taken out of the note on the next import.
+
+**Edited notes.** `body_hash` is the title and text as Glossa last wrote them. A note whose hash still matches is
+updated; one the person changed is **never overwritten**. The import lists it under `conflicts` (with the
+differing text of both sides) and changes nothing in it, while still keeping Readwise's newer highlights, so
+`readwise.resolve` needs no network: `readwise` replaces the note with Readwise's text, `mine` keeps the person's
+note and stops updating it, `both` leaves the person's note and puts Readwise's text in a new, kept-up-to-date
+note. A note the person deleted is not made again.
+
+**Not done.** A source that only later matches a library book is not moved onto it; sources deleted whole in
+Readwise leave their notes; no automatic or background import; no sending to Readwise.

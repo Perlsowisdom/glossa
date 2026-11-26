@@ -15,6 +15,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/connect"
 	anyapp "github.com/Perlsowisdom/glossa/internal/connect/any"
+	"github.com/Perlsowisdom/glossa/internal/connect/readwise"
 	"github.com/Perlsowisdom/glossa/internal/connect/zotero"
 	"github.com/Perlsowisdom/glossa/internal/csl"
 	"github.com/Perlsowisdom/glossa/internal/document"
@@ -60,10 +61,11 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	assistant.Register(r, s)
 	foldersync.Register(r, s, foldersync.Locations{BooksDir: filepath.Join(dataDir, "synced-books"),
 		ModulesDir: filepath.Join(dataDir, "modules"), ReleaseModule: bibles.Release})
-	z, an := zotero.New(), anyapp.New()
-	svc := connect.Register(r, s, z, an)
+	z, an, rw := zotero.New(), anyapp.New(), readwise.New()
+	svc := connect.Register(r, s, z, an, rw)
 	z.Register(r, svc)
 	an.Register(r, svc)
+	rw.Register(r, svc)
 	csl.Register(r, filepath.Join(dataDir, "styles"))
 	cite.Register(r, filepath.Join(dataDir, "styles"))
 	update.Register(r) // nothing in the Store build

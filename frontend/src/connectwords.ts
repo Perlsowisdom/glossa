@@ -34,6 +34,7 @@ function joinAnd(parts: string[]): string {
 
 // whatItDoes: "Zotero lets you bring in your sources and cite them in your writing."
 export function whatItDoes(c: ConnectionInfo): string {
+  if (c.id === "readwise") return "Readwise lets you bring in your highlights as notes, one for each book or article.";
   if (c.id === "any") return "Any lets you send notes and sermons to a space in the Any app, and bring its pages in as notes.";
   const parts = (["import", "export", "cite"] as Capability[]).filter((k) => c.capabilities.includes(k)).map((k) => DOES[k]);
   return parts.length ? `${c.name} lets you ${joinAnd(parts)}.` : `${c.name} is a link to another program.`;
@@ -41,6 +42,7 @@ export function whatItDoes(c: ConnectionInfo): string {
 
 // howItSignsIn: the one line about what the person needs for it.
 export function howItSignsIn(c: ConnectionInfo): string {
+  if (c.id === "readwise") return "Needs your Readwise token.";
   switch (c.sign_in) {
     case "app": return c.key ? `Works with the ${c.name} app on this computer. A key is only needed if the app is not there.` : `Works with the ${c.name} app on this computer.`;
     case "key": return `Needs a key from ${c.name}.`;
