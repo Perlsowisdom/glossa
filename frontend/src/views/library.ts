@@ -189,7 +189,9 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
   const bulk = h("div", { class: "card", hidden: true });
   const slot = h("div", {});
   const rules = traditionsPanel(() => { void loadVocab().then(changedBooks); });
-  rules.el.append(h("p", {}, button("Look again at books without a type", () => void suggestAll())));
+  // Nothing to look at in a library with no books, so the button is hidden until there is one.
+  const lookAgain = h("p", { hidden: true }, button("Look again at books without a type", () => void suggestAll()));
+  rules.el.append(lookAgain);
 
   let all: ItemSummary[] = [];
   let filters: Filters = {};
@@ -233,9 +235,17 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
       if (got.length >= r.total || r.items.length === 0) break;
     }
     all = got;
+    void showLookAgain(!!(collection || folder || since));
     for (const id of [...ticked]) if (!all.some((b) => b.id === id)) ticked.delete(id);
     render();
     if (selectedId && !detail.hidden && all.some((b) => b.id === selectedId)) void openDetail(selectedId);
+  }
+
+  // showLookAgain shows the button when the whole library (not just what is on screen) has a book.
+  async function showLookAgain(scoped: boolean) {
+    if (!scoped) { lookAgain.hidden = all.length === 0; return; }
+    const r = await run<{ total: number }>("library.items", { limit: 1 }).catch(() => null);
+    if (r) lookAgain.hidden = r.total === 0;
   }
 
   function shown(): ItemSummary[] {
