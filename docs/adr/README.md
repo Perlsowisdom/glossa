@@ -18,3 +18,4 @@ Each decision is final until a later record replaces it.
 | [0012](0012-ccel-source.md) | CCEL as an opt-in source of free public-domain books | Accepted |
 | [0013](0013-folder-sync.md) | Folder sync: encrypted per-device change files in a folder you already sync | Accepted |
 | [0014](0014-connections.md) | Connections: opt-in links to other programs (Zotero first), with a privacy switch and keychain keys | Proposed |
+| [0015](0015-deletion-batches.md) | Deletion batches: a stored id says what was deleted with a folder or collection | Proposed |

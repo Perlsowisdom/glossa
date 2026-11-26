@@ -28,13 +28,13 @@ type BinEntry struct {
 }
 
 // Things inside a deleted folder are listed with the folder, not on their own.
-const binQuery = `
+var binQuery = `
 SELECT 'folder', f.id, f.name, '', f.deleted_at,
-	(SELECT COUNT(*) FROM folders s WHERE s.parent_id = f.id AND s.deleted_at >= f.deleted_at),
-	(SELECT COUNT(*) FROM notes n WHERE n.deleted_at >= f.deleted_at AND n.folder_id IN
-		(SELECT f.id UNION SELECT s.id FROM folders s WHERE s.parent_id = f.id AND s.deleted_at >= f.deleted_at)),
-	(SELECT COUNT(*) FROM documents d WHERE d.deleted_at >= f.deleted_at AND d.folder_id IN
-		(SELECT f.id UNION SELECT s.id FROM folders s WHERE s.parent_id = f.id AND s.deleted_at >= f.deleted_at))
+	(SELECT COUNT(*) FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `),
+	(SELECT COUNT(*) FROM notes n WHERE ` + with("n", "f") + ` AND n.folder_id IN
+		(SELECT f.id UNION SELECT s.id FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `)),
+	(SELECT COUNT(*) FROM documents d WHERE ` + with("d", "f") + ` AND d.folder_id IN
+		(SELECT f.id UNION SELECT s.id FROM folders s WHERE s.parent_id = f.id AND ` + with("s", "f") + `))
 	FROM folders f LEFT JOIN folders p ON p.id = f.parent_id
 	WHERE f.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
 UNION ALL
@@ -54,6 +54,13 @@ SELECT 'collection', c.id, c.name, '', c.deleted_at, 0, 0, 0
 	FROM collections c LEFT JOIN collections p ON p.id = c.parent_id
 	WHERE c.deleted_at IS NOT NULL AND (p.id IS NULL OR p.deleted_at IS NULL)
 ORDER BY 5 DESC, 2 LIMIT ?`
+
+// with is the condition that row c was deleted together with row p: the same deletion batch or, for rows
+// deleted before batches existed (no batch on p), a deleted_at no earlier than p's.
+func with(c, p string) string {
+	return "(" + c + ".deleted_at IS NOT NULL AND (" + p + ".deletion_batch IS NOT NULL AND " + c + ".deletion_batch = " + p + ".deletion_batch OR " +
+		p + ".deletion_batch IS NULL AND " + c + ".deleted_at >= " + p + ".deleted_at))"
+}
 
 type BinListParams struct {
 	Limit int `json:"limit,omitempty" desc:"Most entries to return (default 500)"`
@@ -86,7 +93,11 @@ func binList(ctx context.Context, env *command.Env, p BinListParams) ([]BinEntry
 		if out[i].Kind != "collection" {
 			continue
 		}
-		inside, err := collectionContents(ctx, env, out[i].ID, out[i].DeletedAt)
+		d, err := deletedRow(ctx, env, BinParams{Kind: "collection", ID: out[i].ID})
+		if err != nil {
+			return nil, err
+		}
+		inside, err := collectionContents(ctx, env, out[i].ID, d)
 		if err != nil {
 			return nil, err
 		}
@@ -111,47 +122,82 @@ type Restored struct {
 	Collections int `json:"collections"`
 }
 
-// deletedRow reads a row in the bin and its deleted_at.
-func deletedRow(ctx context.Context, env *command.Env, p BinParams) (int64, error) {
-	table, ok := binTables[p.Kind]
-	if !ok {
-		return 0, command.Errorf("bad_params", "kind must be folder, note, document, list, plan or collection")
-	}
-	var at sql.NullInt64
-	err := env.Store.QueryRow(ctx, `SELECT deleted_at FROM `+table+` WHERE id = ?`, p.ID).Scan(&at)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, command.Errorf("not_found", "no %s %s", p.Kind, p.ID)
-	} else if err != nil {
-		return 0, err
-	}
-	if !at.Valid {
-		return 0, command.Errorf("bad_params", "%s %s is not in the bin", p.Kind, p.ID)
-	}
-	return at.Int64, nil
+// deletion says when a row in the bin was deleted and, if it has one, which deletion batch it went
+// with. Rows deleted before batches existed have no batch and are matched by time (ADR 0015).
+type deletion struct {
+	at    int64
+	batch string
 }
 
-// folderContents finds what was deleted with a folder at or after since: its subfolders, and the
-// notes and documents in it or them.
-func folderContents(ctx context.Context, env *command.Env, id string, since int64) (subs, notes, docs []string, err error) {
-	if subs, err = ids(ctx, env, `SELECT id FROM folders WHERE parent_id = ? AND deleted_at >= ?`, id, since); err != nil {
+// together is the SQL condition that a row went with this deletion, and its arguments.
+func (d deletion) together() (string, []any) {
+	if d.batch != "" {
+		return "deletion_batch = ?", []any{d.batch}
+	}
+	return "deleted_at >= ?", []any{d.at}
+}
+
+// apart is the opposite: not deleted with this deletion (a live row counts as apart).
+func (d deletion) apart() (string, []any) {
+	if d.batch != "" {
+		return "(deleted_at IS NULL OR COALESCE(deletion_batch, '') <> ?)", []any{d.batch}
+	}
+	return "(deleted_at IS NULL OR deleted_at < ?)", []any{d.at}
+}
+
+// hasBatch tells whether this kind of row carries a deletion batch.
+func hasBatch(kind string) bool {
+	return kind == "folder" || kind == "note" || kind == "document" || kind == "collection"
+}
+
+// deletedRow reads a row in the bin and its deletion.
+func deletedRow(ctx context.Context, env *command.Env, p BinParams) (deletion, error) {
+	table, ok := binTables[p.Kind]
+	if !ok {
+		return deletion{}, command.Errorf("bad_params", "kind must be folder, note, document, list, plan or collection")
+	}
+	q := `SELECT deleted_at, NULL FROM ` + table + ` WHERE id = ?`
+	if hasBatch(p.Kind) {
+		q = `SELECT deleted_at, deletion_batch FROM ` + table + ` WHERE id = ?`
+	}
+	var at sql.NullInt64
+	var batch sql.NullString
+	err := env.Store.QueryRow(ctx, q, p.ID).Scan(&at, &batch)
+	if errors.Is(err, sql.ErrNoRows) {
+		return deletion{}, command.Errorf("not_found", "no %s %s", p.Kind, p.ID)
+	} else if err != nil {
+		return deletion{}, err
+	}
+	if !at.Valid {
+		return deletion{}, command.Errorf("bad_params", "%s %s is not in the bin", p.Kind, p.ID)
+	}
+	return deletion{at.Int64, batch.String}, nil
+}
+
+// folderContents finds what was deleted with a folder: its subfolders, and the notes and documents
+// in it or them.
+func folderContents(ctx context.Context, env *command.Env, id string, d deletion) (subs, notes, docs []string, err error) {
+	cond, carg := d.together()
+	if subs, err = ids(ctx, env, `SELECT id FROM folders WHERE parent_id = ? AND `+cond, append([]any{id}, carg...)...); err != nil {
 		return
 	}
 	all := append([]string{id}, subs...)
-	args := append(anys(all), since)
-	if notes, err = ids(ctx, env, `SELECT id FROM notes WHERE folder_id IN (`+marks(all)+`) AND deleted_at >= ?`, args...); err != nil {
+	args := append(anys(all), carg...)
+	if notes, err = ids(ctx, env, `SELECT id FROM notes WHERE folder_id IN (`+marks(all)+`) AND `+cond, args...); err != nil {
 		return
 	}
-	docs, err = ids(ctx, env, `SELECT id FROM documents WHERE folder_id IN (`+marks(all)+`) AND deleted_at >= ?`, args...)
+	docs, err = ids(ctx, env, `SELECT id FROM documents WHERE folder_id IN (`+marks(all)+`) AND `+cond, args...)
 	return
 }
 
-// collectionContents finds the collections inside one that were deleted with it at or after since,
-// at any depth, parents before the collections inside them.
-func collectionContents(ctx context.Context, env *command.Env, id string, since int64) ([]string, error) {
+// collectionContents finds the collections inside one that were deleted with it, at any depth,
+// parents before the collections inside them.
+func collectionContents(ctx context.Context, env *command.Env, id string, d deletion) ([]string, error) {
 	var out []string
+	cond, carg := d.together()
 	for next := []string{id}; len(next) > 0; {
-		subs, err := ids(ctx, env, `SELECT id FROM collections WHERE parent_id IN (`+marks(next)+`) AND deleted_at >= ?`,
-			append(anys(next), since)...)
+		subs, err := ids(ctx, env, `SELECT id FROM collections WHERE parent_id IN (`+marks(next)+`) AND `+cond,
+			append(anys(next), carg...)...)
 		if err != nil {
 			return nil, err
 		}
@@ -165,18 +211,18 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 	if err := needStore(env); err != nil {
 		return Restored{}, err
 	}
-	since, err := deletedRow(ctx, env, p)
+	d, err := deletedRow(ctx, env, p)
 	if err != nil {
 		return Restored{}, err
 	}
 	var subs, notes, docs, colls []string
 	if p.Kind == "folder" {
-		if subs, notes, docs, err = folderContents(ctx, env, p.ID, since); err != nil {
+		if subs, notes, docs, err = folderContents(ctx, env, p.ID, d); err != nil {
 			return Restored{}, err
 		}
 	}
 	if p.Kind == "collection" {
-		if colls, err = collectionContents(ctx, env, p.ID, since); err != nil {
+		if colls, err = collectionContents(ctx, env, p.ID, d); err != nil {
 			return Restored{}, err
 		}
 	}
@@ -188,6 +234,9 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 			return err
 		}
 		fields := store.Row{"deleted_at": nil}
+		if hasBatch(p.Kind) {
+			fields["deletion_batch"] = nil
+		}
 		// Something whose folder is still in the bin comes back at the top.
 		switch p.Kind {
 		case "folder":
@@ -211,7 +260,7 @@ func binRestore(ctx context.Context, env *command.Env, p BinParams) (Restored, e
 			ids   []string
 		}{{"folders", subs}, {"notes", notes}, {"documents", docs}, {"collections", colls}} {
 			for _, id := range x.ids {
-				if err := tx.Update(x.table, store.ByID(id), store.Row{"deleted_at": nil}); err != nil {
+				if err := tx.Update(x.table, store.ByID(id), store.Row{"deleted_at": nil, "deletion_batch": nil}); err != nil {
 					return err
 				}
 			}
@@ -253,7 +302,7 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 	if err := needStore(env); err != nil {
 		return Purged{}, err
 	}
-	since, err := deletedRow(ctx, env, p)
+	d, err := deletedRow(ctx, env, p)
 	if err != nil {
 		return Purged{}, err
 	}
@@ -263,7 +312,7 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 	switch p.Kind {
 	case "folder":
 		var subs []string
-		if subs, notes, docs, err = folderContents(ctx, env, p.ID, since); err != nil {
+		if subs, notes, docs, err = folderContents(ctx, env, p.ID, d); err != nil {
 			return Purged{}, err
 		}
 		folders = append(subs, p.ID) // subfolders before the folder that holds them
@@ -277,7 +326,7 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 			return Purged{}, err
 		}
 	case "collection":
-		inside, err := collectionContents(ctx, env, p.ID, since)
+		inside, err := collectionContents(ctx, env, p.ID, d)
 		if err != nil {
 			return Purged{}, err
 		}
@@ -335,8 +384,9 @@ func binPurge(ctx context.Context, env *command.Env, p BinParams) (Purged, error
 		}
 	}
 	if len(folders) > 0 {
-		args := append(anys(folders), since)
-		q := ` WHERE folder_id IN (` + marks(folders) + `) AND (deleted_at IS NULL OR deleted_at < ?)`
+		cond, carg := d.apart()
+		args := append(anys(folders), carg...)
+		q := ` WHERE folder_id IN (` + marks(folders) + `) AND ` + cond
 		if strayNotes, err = ids(ctx, env, `SELECT id FROM notes`+q, args...); err != nil {
 			return Purged{}, err
 		}

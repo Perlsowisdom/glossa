@@ -274,6 +274,7 @@ func del(ctx context.Context, env *command.Env, p IDParams) (Deleted, error) {
 	}
 	// The folder goes first, so everything deleted with it has a deleted_at no earlier than its own:
 	// that is how a restore knows what to bring back.
+	batch := store.NewID() // everything that goes now goes with this one id (ADR 0015)
 	err = env.Store.Write(ctx, "folder.delete", func(tx *store.Tx) error {
 		if _, err := live(tx, p.ID); err != nil {
 			return err
@@ -283,6 +284,9 @@ func del(ctx context.Context, env *command.Env, p IDParams) (Deleted, error) {
 			ids   []string
 		}{{"folders", all}, {"notes", notes}, {"documents", docs}} {
 			for _, id := range x.ids {
+				if err := tx.Update(x.table, store.ByID(id), store.Row{"deletion_batch": batch}); err != nil {
+					return err
+				}
 				if err := tx.Delete(x.table, store.ByID(id)); err != nil {
 					return err
 				}

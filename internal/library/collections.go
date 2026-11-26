@@ -791,8 +791,12 @@ func collectionDelete(ctx context.Context, env *command.Env, p DeleteParams) (De
 			}
 		}
 	}
+	batch := store.NewID() // everything that goes now goes with this one id (ADR 0015)
 	err = env.Store.Write(ctx, "collection.delete", func(tx *store.Tx) error {
 		for _, id := range doomed {
+			if err := tx.Update("collections", store.ByID(id), store.Row{"deletion_batch": batch}); err != nil {
+				return err
+			}
 			if err := tx.Delete("collections", store.ByID(id)); err != nil {
 				return err
 			}

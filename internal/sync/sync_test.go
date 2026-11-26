@@ -2,12 +2,17 @@ package sync
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Perlsowisdom/glossa/internal/command"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
+	"github.com/Perlsowisdom/glossa/internal/folder"
 	"github.com/Perlsowisdom/glossa/internal/store"
 )
 
@@ -732,5 +737,72 @@ func TestCollectionBinRestoreAndPurgePropagate(t *testing.T) {
 		if n := count(b, `SELECT COUNT(*) FROM `+q); n != 0 {
 			t.Fatalf("B still has %d rows in %s after the purge", n, q)
 		}
+	}
+}
+
+// A deletion batch is an ordinary synced field: the other device sees the same batch on the folder
+// and what went with it, and restoring there brings back exactly that batch.
+func TestDeletionBatchRoundTrips(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	a, b := newDev(t, "Laptop"), newDev(t, "Desktop")
+	a.connect(folderDir)
+	b.connect(folderDir)
+	reg := command.NewRegistry()
+	core.Register(reg)
+	folder.Register(reg)
+	run := func(d *dev, id string, params any, out any) {
+		t.Helper()
+		raw, _ := json.Marshal(params)
+		res, err := reg.Run(ctx, &command.Env{Store: d.st}, id, raw)
+		if err != nil {
+			t.Fatalf("%s %s: %v", d.name, id, err)
+		}
+		if out != nil {
+			bs, _ := json.Marshal(res)
+			_ = json.Unmarshal(bs, out)
+		}
+	}
+	var f struct{ ID string }
+	run(a.at(1000), "folder.create", map[string]any{"name": "Series"}, &f)
+	var with, apart struct{ ID string }
+	run(a.at(1100), "note.create", map[string]any{"body": "with", "folder_id": f.ID}, &with)
+	run(a.at(1200), "note.create", map[string]any{"body": "apart", "folder_id": f.ID}, &apart)
+	run(a.at(1300), "note.delete", map[string]any{"id": apart.ID}, nil)
+	run(a.at(2000), "folder.delete", map[string]any{"id": f.ID}, nil)
+	a.sync()
+	b.at(2500).sync()
+
+	batch := func(d *dev, table, id string) (got string) {
+		t.Helper()
+		var s sql.NullString
+		if err := d.st.QueryRow(ctx, `SELECT deletion_batch FROM `+table+` WHERE id = ?`, id).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s.String
+	}
+	fb := batch(b, "folders", f.ID)
+	if fb == "" || fb != batch(a, "folders", f.ID) || fb != batch(b, "notes", with.ID) {
+		t.Fatalf("B's batches: folder %q, note %q; A's folder %q", fb, batch(b, "notes", with.ID), batch(a, "folders", f.ID))
+	}
+	if batch(b, "notes", apart.ID) != "" {
+		t.Fatal("the note deleted on its own must have no batch on B")
+	}
+	var back struct{ Notes int }
+	run(b.at(3000), "bin.restore", map[string]any{"kind": "folder", "id": f.ID}, &back)
+	if back.Notes != 1 {
+		t.Fatalf("B restored %d notes, want just the one deleted with the folder", back.Notes)
+	}
+	a.at(3500).sync()
+	b.at(3600).sync()
+	a.at(3700).sync()
+	var liveA, liveB int
+	for d, n := range map[*dev]*int{a: &liveA, b: &liveB} {
+		if err := d.st.QueryRow(ctx, `SELECT COUNT(*) FROM notes WHERE deleted_at IS NULL`).Scan(n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if liveA != 1 || liveB != 1 || batch(a, "notes", with.ID) != "" {
+		t.Fatalf("after the restore reached A: live notes A=%d B=%d, batch %q", liveA, liveB, batch(a, "notes", with.ID))
 	}
 }
