@@ -19,6 +19,7 @@ import { editedText } from "./workwords";
 import { editorInserts } from "./insertpop";
 import { citeStyleMenu } from "./citepicker";
 import { anyHook } from "./anyaction";
+import { obsidianHook } from "./obsidianaction";
 import { registerDoc } from "./activedoc";
 
 const SAVE_AFTER = 900;
@@ -164,6 +165,7 @@ export function notePage(o: NotePageOptions): NotePage {
   }
 
   const anyLink = anyHook("note");
+  const obsidianLink = obsidianHook("note");
 
   function print() {
     if (note) openExport({ title: noteName(note), sources: [{ kind: "note", id: note.id }] });
@@ -178,6 +180,7 @@ export function notePage(o: NotePageOptions): NotePage {
       ["Turn into…", () => setTimeout(() => turnMenu(b), 0)],
       ["Citation style…", () => setTimeout(() => { if (n) void citeStyleMenu(b, n.id, () => editor?.refreshCites(true), (w) => msg.info(w)); else msg.info("Write something first."); }, 0)],
       anyLink.entry(n?.id ?? null, msg, save),
+      obsidianLink.entry(n?.id ?? null, msg, save),
       ["Print or export…", print],
       ["History", () => { if (n) void drawer.open(n); else msg.info("A new note has no history yet."); }],
       "-",
@@ -250,6 +253,7 @@ export function notePage(o: NotePageOptions): NotePage {
       const made = !note;
       note = got;
       if (made) void anyLink.refresh(got.id);
+      if (made) void obsidianLink.refresh(got.id);
       status.set("saved", got.updated_at);
       if (made || noteName(got) !== before) {
         o.onSaved?.(got);
@@ -276,6 +280,7 @@ export function notePage(o: NotePageOptions): NotePage {
     note = n;
     title = n.title;
     void anyLink.refresh(n.id);
+    void obsidianLink.refresh(n.id);
     tags = [...n.tags];
     ref = n.ref ?? null;
     folder = n.folder_id ?? "";

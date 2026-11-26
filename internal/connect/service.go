@@ -226,7 +226,12 @@ func (s *Service) test(ctx context.Context, env *command.Env, p IDParams) (TestO
 	if err != nil {
 		return TestOutput{}, err
 	}
-	res, err := c.Test(ctx, cfg)
+	var res TestResult
+	if et, ok := c.(EnvTester); ok {
+		res, err = et.TestEnv(ctx, env, cfg)
+	} else {
+		res, err = c.Test(ctx, cfg)
+	}
 	if err != nil {
 		return TestOutput{}, command.Errorf("failed", "%s: %v", c.Name(), err)
 	}

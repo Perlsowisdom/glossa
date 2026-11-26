@@ -1868,3 +1868,13 @@ dialog.any-dialog h3 { margin: 0 0 6px; }
 .readwise-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .readwise-sides p { margin: 2px 0 0; font-size: .88rem; overflow-wrap: anywhere; white-space: pre-line; }
 @media (max-width: 640px) { .readwise-sides { grid-template-columns: 1fr; } }
+
+/* Obsidian (a connection): vault and folder, the list for choosing what to export */
+.obsidian-card { max-width: 38rem; }
+.obsidian-vault { overflow-wrap: anywhere; }
+.obsidian-folder-form .field { flex: 1 1 14rem; }
+.obsidian-folder { width: 100%; }
+.obsidian-conflict small { overflow-wrap: anywhere; }
+.obsidian-pick { max-height: min(50vh, 24rem); overflow: auto; margin: 10px 0; padding: 0; }
+.obsidian-pick li[hidden] { display: none; }
+.obsidian-pick .any-page-text { flex-direction: row; align-items: center; gap: 8px; flex: 1; }

@@ -1,8 +1,6 @@
 package readwise
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"sort"
 	"strconv"
 	"strings"
@@ -170,13 +168,4 @@ func bodyOf(m Meta, hls []HL) string {
 		out = append(out, h.Block)
 	}
 	return strings.Join(out, "\n\n---\n\n")
-}
-
-func hashOf(parts ...string) string {
-	h := sha256.New()
-	for _, p := range parts {
-		h.Write([]byte(p))
-		h.Write([]byte{0})
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }

@@ -24,6 +24,7 @@ import { deleteSermon } from "./views/notes";
 import { editorInserts } from "./insertpop";
 import { citeStyleMenu } from "./citepicker";
 import { anyHook } from "./anyaction";
+import { obsidianHook } from "./obsidianaction";
 
 const SAVE_AFTER = 1000;
 
@@ -214,6 +215,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
   }
 
   const anyLink = anyHook("sermon");
+  const obsidianLink = obsidianHook("sermon");
 
   function menu(b: HTMLElement) {
     actionsMenu(b, "Sermon actions", [
@@ -221,6 +223,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
       ["Move to folder…", () => void moveTo(b)],
       ["Citation style…", () => setTimeout(() => { if (d) void citeStyleMenu(b, d.id, () => editor?.refreshCites(true), (w) => msg.info(w)); }, 0)],
       anyLink.entry(d?.id ?? null, msg, save),
+      obsidianLink.entry(d?.id ?? null, msg, save),
       ["Print or export…", () => printBtn.click()],
       "-",
       ["Delete", () => void remove(), "danger"],
@@ -244,6 +247,7 @@ export function sermonPage(o: SermonPageOptions): SermonPage {
     if (!got || !alive) return;
     d = got;
     void anyLink.refresh(got.id);
+    void obsidianLink.refresh(got.id);
     try { folded = !o.fresh && localStorage.getItem(FOLD_KEY) === "1"; } catch { folded = false; }
     title = got.title === untitled(got.kind) && o.fresh ? "" : got.title;
     passages = (got.passages?.length ? got.passages : got.passage ? [got.passage] : [])

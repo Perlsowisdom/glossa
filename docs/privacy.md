@@ -188,6 +188,35 @@ again. The highlights, notes and links Readwise sent are kept in `library.db` as
 devices like the rest of your library (ADR 0013); the link tables from Readwise sources to those notes sync too, so a
 second device updates the same notes instead of making copies.
 
+## Connections: Obsidian (T40d)
+
+Off until you turn it on: the switch "Use Obsidian" in Settings → Connections, or `connect.enable {"id": "obsidian"}`.
+ADR 0014 has the design.
+
+**Nothing is sent over the network.** This connection is files on this computer and nothing else: it has no
+network code at all. Glossa only reads and writes Markdown (`.md`) files in the Obsidian vault folder you choose,
+and your notes and sermons never go anywhere else. What Obsidian or a sync service does with the vault afterwards
+(Obsidian Sync, iCloud, Dropbox) is theirs.
+
+| When | What Glossa does on this computer |
+| --- | --- |
+| You choose the vault (`obsidian.set_vault`) | Checks the folder exists and can be written to (makes and removes a small `.glossa-check-*` file) |
+| You export (`obsidian.export`, or "Send to Obsidian" in a note's or sermon's ⋯ menu) | Writes one `.md` file per note or sermon you chose into one subfolder of the vault (default `Glossa`, changeable), with the title, `glossa_id`, `glossa_kind`, passages, tags and dates as front matter, and the text as Markdown. A file that is already up to date is not touched; one that changed in Obsidian is not overwritten |
+| You import (`obsidian.import`) | Reads the `.md` files in that subfolder, another folder of the vault you choose, or the whole vault (not folders starting with a dot, such as `.obsidian`) and makes or updates notes. It never changes a file when importing |
+
+**Where it writes.** Only inside the vault folder you chose: a path with `..`, an absolute path, a drive or stream
+name (`:`), or a folder that is a symbolic link or Windows junction is refused, so nothing can be written or read
+outside the vault through a link. A file is written to a temporary file in the same folder and renamed, and a
+file that is itself a link is never written through. **It never deletes a file**, never renames one, and never
+overwrites a file Glossa did not make (a name already in use gets " (2)"). Files over 5 MB and files that are not
+UTF-8 text are skipped, with the reason shown.
+
+**What is kept in `library.db`**, on this device only and never synced to your other devices: the vault folder and
+subfolder (the setting `connect.obsidian.config`), the time and counts of the last export and import
+(`connect.obsidian.sync`), and the table `obsidian_links` (migration `0019`), which remembers for each note or
+sermon the file it is linked to (a path relative to the vault) and a fingerprint of what each side held at the last
+sync. The fingerprints are what tell Glossa which side changed.
+
 ## Citation styles (T40b)
 
 Off until you turn it on: the switch "Download more styles" in Settings → Citations, or `cite.styles_enable`.

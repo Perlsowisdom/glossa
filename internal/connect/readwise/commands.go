@@ -11,6 +11,7 @@ import (
 
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/connect"
+	"github.com/Perlsowisdom/glossa/internal/connect/syncutil"
 )
 
 // Register adds the readwise.* commands. svc is the framework service that connect.Register returned.
@@ -282,7 +283,7 @@ func (s *commands) one(ctx context.Context, env *command.Env, m *Matcher, src So
 		if err != nil {
 			return err
 		}
-		d.Source = &source{ID: sid, NoteID: id, ItemID: item, State: stateLinked, BodyHash: hashOf(title, body), Meta: meta}
+		d.Source = &source{ID: sid, NoteID: id, ItemID: item, State: stateLinked, BodyHash: syncutil.Hash(title, body), Meta: meta}
 	case link.State != stateLinked:
 		res.Skipped++
 		d.Source = &source{ID: sid, NoteID: link.NoteID, ItemID: link.ItemID, State: link.State, BodyHash: link.BodyHash, Meta: meta}
@@ -297,9 +298,9 @@ func (s *commands) one(ctx context.Context, env *command.Env, m *Matcher, src So
 		case !cur.Exists:
 			res.Skipped++
 			next.State = stateRemoved
-		case hashOf(title, body) == link.BodyHash:
+		case syncutil.Hash(title, body) == link.BodyHash:
 			res.NotesUnchanged++
-		case hashOf(cur.Title, cur.Body) != link.BodyHash:
+		case syncutil.Hash(cur.Title, cur.Body) != link.BodyHash:
 			res.Conflicts = append(res.Conflicts, conflictOf(link.ID, link.NoteID, cur, title, body))
 		default:
 			res.NotesUpdated++
@@ -307,7 +308,7 @@ func (s *commands) one(ctx context.Context, env *command.Env, m *Matcher, src So
 				if err := s.rewrite(ctx, env, link.NoteID, title, body, meta.NoteTags(), cur.Tags); err != nil {
 					return err
 				}
-				next.BodyHash = hashOf(title, body)
+				next.BodyHash = syncutil.Hash(title, body)
 			}
 		}
 		if !dry {
@@ -321,25 +322,8 @@ func (s *commands) one(ctx context.Context, env *command.Env, m *Matcher, src So
 }
 
 func conflictOf(sid, noteID string, cur noteState, title, body string) Conflict {
-	mine, theirs := fromDifference(cur.Body, body)
+	mine, theirs := syncutil.FromDifference(cur.Body, body)
 	return Conflict{SourceID: sid, NoteID: noteID, Title: cur.Title, YourExcerpt: excerpt(mine), ReadwiseExcerpt: excerpt(theirs)}
-}
-
-// fromDifference cuts both texts at the line where they first differ, so the excerpts show what is different.
-func fromDifference(a, b string) (string, string) {
-	ra, rb := []rune(a), []rune(b)
-	i := 0
-	for i < len(ra) && i < len(rb) && ra[i] == rb[i] {
-		i++
-	}
-	for i > 0 && ra[i-1] != '\n' {
-		i--
-	}
-	pre := ""
-	if i > 0 {
-		pre = "… "
-	}
-	return pre + string(ra[i:]), pre + string(rb[i:])
 }
 
 // Writing notes, through the note commands ------------------------------------------------------------
@@ -425,7 +409,7 @@ func (s *commands) status(ctx context.Context, env *command.Env, _ struct{}) (St
 		if err != nil {
 			return out, err
 		}
-		if !cur.Exists || hashOf(cur.Title, cur.Body) == src.BodyHash {
+		if !cur.Exists || syncutil.Hash(cur.Title, cur.Body) == src.BodyHash {
 			continue
 		}
 		hls, err := loadHighlights(ctx, env, src.ID)
@@ -433,7 +417,7 @@ func (s *commands) status(ctx context.Context, env *command.Env, _ struct{}) (St
 			return out, err
 		}
 		title, body := src.Meta.NoteTitle(), bodyOf(src.Meta, list(hls))
-		if hashOf(title, body) != src.BodyHash {
+		if syncutil.Hash(title, body) != src.BodyHash {
 			out.Conflicts = append(out.Conflicts, conflictOf(src.ID, src.NoteID, cur, title, body))
 		}
 	}
@@ -490,14 +474,14 @@ func (s *commands) resolve(ctx context.Context, env *command.Env, p ResolveParam
 		if err := s.rewrite(ctx, env, src.NoteID, title, body, src.Meta.NoteTags(), cur.Tags); err != nil {
 			return ResolveResult{}, err
 		}
-		next.BodyHash, out.NoteID = hashOf(title, body), src.NoteID
+		next.BodyHash, out.NoteID = syncutil.Hash(title, body), src.NoteID
 		out.Message = "The note now has Readwise's text."
 	case "both":
 		id, err := s.makeNote(ctx, env, title, body, src.Meta.NoteTags(), src.ItemID)
 		if err != nil {
 			return ResolveResult{}, err
 		}
-		next.NoteID, next.BodyHash, out.NoteID = id, hashOf(title, body), id
+		next.NoteID, next.BodyHash, out.NoteID = id, syncutil.Hash(title, body), id
 		out.Message = "Your note is untouched. Readwise's text is in a new note, which is kept up to date."
 	}
 	return out, apply(ctx, env, src.ID, delta{Source: &next})

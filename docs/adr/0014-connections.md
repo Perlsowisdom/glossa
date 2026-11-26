@@ -220,3 +220,56 @@ note. A note the person deleted is not made again.
 
 **Not done.** A source that only later matches a library book is not moved onto it; sources deleted whole in
 Readwise leave their notes; no automatic or background import; no sending to Readwise.
+
+## Addendum: Obsidian, export and import (T40d part 2; still Proposed)
+
+Obsidian is a connection with sign-in kind `folder` and the capabilities import and export. It has no network code:
+`Sends()` says it only reads and writes Markdown files in the chosen vault folder. The vault folder and the
+subfolder in it (default `Glossa`) are the per-device setting `connect.obsidian.config`, chosen with the folder dialog
+(`obsidian.set_vault`); the frontend calls the same `pick("folder")` as the sync folder, and a test replaces the dialog by
+setting `window.go.main.App.PickFolder` in the page, as `sync.e2e.mjs` does.
+
+**Files.** `obsidian.export` writes one `.md` per note or sermon: front matter `title`, `glossa_id`, `glossa_kind`
+(`note` or `sermon`), `glossa_doc_kind` (only for a lesson or study), `passages` (plain references such as "John 3:16"),
+`tags` (spaces turned into hyphens, because Obsidian tags have none), `created`, `updated`, and for a sermon `preached`
+and `theme`; then the stored Markdown text as it is (the citation chip is already `[@lib:ID, p. 12]` there). The
+title is not repeated as a heading. Front matter is written and read by a small hand-written reader of the subset
+Obsidian itself writes (text, quoted text, `[a, b]` and `- item` lists); no YAML library was added. Keys Glossa does not
+write (`aliases`, `cssclasses`, other plugins' keys) are kept as they were when a file is rewritten. File names are
+the title made safe for Windows, macOS and Linux and for Obsidian links (reserved names, `\/:*?"<>|`, `#^[]`, length,
+trailing dots), and a taken name gets " (2)". `obsidian.import` reads `.md` files from the subfolder, another folder or the
+whole vault. Front matter `title`, `tags` and `passages` are used; otherwise the file name is the title. `[[wikilinks]]`
+become plain text (the alias, else the title of the note the target file becomes in the same import, else the target's
+name); `![[embeds]]` and `#tags` stay as text, and the result counts the embeds so the interface can say so. A note
+holds one passage, so only the first readable one is attached and the rest are reported.
+
+**No `glossa://` scheme.** Glossa registers no URL scheme, so passages and notes are linked by plain references (the
+passage as text, a note by its title). A `glossa://` scheme (open a passage or note from Obsidian) is a possible
+follow-up: it needs the app to register the scheme with the operating system and handle the link at start-up.
+
+**Links, and why they are per device.** Migration `0019_obsidian_links.sql` adds `obsidian_links(kind, item_id, path,
+glossa_hash, file_hash, synced_at)`. It is a per-device table, like `any_links` (`store/remote.go`): the path is relative
+to the vault chosen on this computer, and another computer has another vault, or none, so a link made here would be
+wrong there. (Readwise's links sync because they point at notes that exist everywhere; these point at files on one disk.)
+The vault setting and the sync times are `connect.` settings, per device too. Choosing a different vault drops the links
+(the files stay). A note's file is found again after a rename or move by the `glossa_id` in its front matter (a file
+without one, by the text it had at the last sync).
+
+**Which side wins.** `glossa_hash` and `file_hash` are the same fingerprint of title, text, passages and tags, taken from
+each side when they last matched. Exporting or importing compares today's fingerprints with them (the shared rule is
+`internal/connect/syncutil`, which Readwise now uses too for its hash and excerpt): unchanged on both sides, nothing; only
+Glossa changed, export rewrites the file and import leaves it; only the file changed, import updates the note and export
+leaves the file; both changed, nothing is changed and the item is listed under `conflicts`. `obsidian.resolve` settles it
+with `obsidian`, `glossa` or `both` (the file's text becomes a new note, then Glossa's goes to the file), the same three
+choices as Readwise and Any. Re-exporting an unchanged note does not rewrite its file, and re-importing an unchanged file
+changes nothing. A file found by `glossa_id` with no baseline is compared as if both sides changed.
+
+**Safety.** Every path goes through one check: no `..`, no absolute path, no `:` (drive or stream names), and no folder on
+the way that is a symbolic link or a Windows junction (Go's `EvalSymlinks` does not follow junctions since Go 1.23, so
+they are looked for directly), so nothing is read or written outside the vault. A file that is itself a link is never
+written through. Writes go to a temporary file that is renamed. Glossa never deletes or renames a file, and never
+overwrites a file it did not make. Files over 5 MB and files that are not UTF-8 are skipped with the reason.
+
+**Not done.** No background or automatic sync, no watching the vault; a sermon's outline points are not exported (only
+title, passages, text, details); a note's other passages beyond the first are not attached; a title change in Glossa does
+not rename the file; wikilinks rewritten to plain text are not turned back into links when Glossa rewrites the file.

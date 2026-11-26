@@ -78,3 +78,19 @@ describe("Readwise", () => {
     expect(switchHint(readwise)).toBe("Glossa sends your Readwise token to readwise.io. Off until you turn it on.");
   });
 });
+
+describe("Obsidian", () => {
+  const obsidian: ConnectionInfo = {
+    id: "obsidian", name: "Obsidian", sign_in: "folder", capabilities: ["import", "export"], enabled: false, key_set: false,
+    sends: "Glossa only reads and writes Markdown files in the Obsidian vault folder you choose; it never uses the network.",
+  };
+  it("says what it does and what it needs in its own words", () => {
+    expect(whatItDoes(obsidian)).toBe("Obsidian lets you export notes and sermons as Markdown files into your vault, and bring the Markdown files in your vault in as notes.");
+    expect(howItSignsIn(obsidian)).toBe("Needs the folder of your Obsidian vault on this computer.");
+  });
+  it("has no key box, and its privacy sentence says it never uses the network", () => {
+    expect(keyShownByDefault(obsidian)).toBe(false);
+    expect(keyState(obsidian)).toBe("");
+    expect(switchHint(obsidian)).toContain("never uses the network. Off until you turn it on.");
+  });
+});
