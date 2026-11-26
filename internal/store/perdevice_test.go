@@ -77,3 +77,44 @@ func TestReadwiseLinksSyncButLastImportDoesNot(t *testing.T) {
 		t.Errorf("the link tables are not synced: %v", got)
 	}
 }
+
+// Obsidian (ADR 0014): a link ties a note to a file path inside the vault chosen on this computer, so it is per
+// device like any_links; neither the links nor the vault setting are sent to another device.
+func TestObsidianLinksAndVaultAreNotSynced(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	err := s.Write(ctx, "test", func(tx *Tx) error {
+		if err := tx.Create("obsidian_links", Row{"kind": "note", "item_id": "n", "path": "Glossa/n.md", "synced_at": int64(1)}); err != nil {
+			return err
+		}
+		if err := tx.Create("settings", Row{"key": "connect.obsidian.vault", "value_json": `{"vault":"C:\v"}`}); err != nil {
+			return err
+		}
+		return tx.Create("settings", Row{"key": "reading.font", "value_json": `"serif"`})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, get := range map[string]func() ([]Change, error){
+		"local changes": func() ([]Change, error) { return s.LocalChanges(ctx, "", 100) },
+		"snapshot":      func() ([]Change, error) { return s.SnapshotChanges(ctx) },
+	} {
+		changes, err := get()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ordinary := false
+		for _, c := range changes {
+			if c.ObjectType == "obsidian_links" || c.ObjectType == "settings" && c.ObjectID == `["connect.obsidian.vault"]` {
+				t.Errorf("%s include %s %s", name, c.ObjectType, c.ObjectID)
+			}
+			ordinary = ordinary || c.ObjectType == "settings" && c.ObjectID == `["reading.font"]`
+		}
+		if !ordinary {
+			t.Errorf("%s lost an ordinary setting", name)
+		}
+	}
+	if !PerDevice("obsidian_links", `["note","n"]`) {
+		t.Error("obsidian_links is not per device")
+	}
+}
