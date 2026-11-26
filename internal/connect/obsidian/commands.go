@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -57,6 +58,7 @@ type StatusResult struct {
 	LastExport *Last      `json:"last_export,omitempty"`
 	LastImport *Last      `json:"last_import,omitempty"`
 	Linked     int        `json:"linked" desc:"Notes and sermons that have a file"`
+	ItemPath   string     `json:"item_path,omitempty" desc:"With kind and id: the file of that note or sermon, when it has one"`
 	Conflicts  []Conflict `json:"conflicts" desc:"Changed in both Glossa and the file; settle each with obsidian.resolve"`
 }
 
@@ -102,12 +104,30 @@ func (s *commands) setVault(ctx context.Context, env *command.Env, p VaultParams
 	return s.statusOf(ctx, env, false)
 }
 
-func (s *commands) status(ctx context.Context, env *command.Env, _ struct{}) (StatusResult, error) {
+// StatusParams optionally names one note or sermon, to ask only whether it has a file.
+type StatusParams struct {
+	Kind string `json:"kind,omitempty" enum:"note,sermon"`
+	ID   string `json:"id,omitempty" desc:"With kind: only say whether this note or sermon has a file (item_path), without reading the files"`
+}
+
+func (s *commands) status(ctx context.Context, env *command.Env, p StatusParams) (StatusResult, error) {
 	if env == nil || env.Store == nil {
 		return StatusResult{}, command.Errorf("unavailable", "no library is open")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if p.Kind != "" && p.ID != "" {
+		out, err := s.statusOf(ctx, env, false)
+		if err != nil {
+			return out, err
+		}
+		if l, err := linkOfItem(ctx, env, p.Kind, p.ID); err != nil {
+			return out, err
+		} else if l != nil {
+			out.ItemPath = l.Path
+		}
+		return out, nil
+	}
 	return s.statusOf(ctx, env, true)
 }
 
@@ -331,6 +351,13 @@ func (s *commands) importFiles(ctx context.Context, env *command.Env, p ImportPa
 	case ".":
 		folder = ""
 	default:
+		if filepath.IsAbs(folder) {
+			rel, ok := r.v.inside(folder)
+			if !ok {
+				return ImportResult{}, command.Errorf("bad_params", "The folder must be inside the vault.")
+			}
+			folder = rel
+		}
 		if folder, err = cleanRel(folder); err != nil {
 			return ImportResult{}, command.Errorf("bad_params", "The folder must be inside the vault.")
 		}

@@ -987,3 +987,18 @@ func TestJunctionCannotLeadOutOfTheVault(t *testing.T) {
 		t.Fatalf("read through the junction: %v", err)
 	}
 }
+
+func TestImportAcceptsAFolderInsideTheVaultByItsFullPath(t *testing.T) {
+	g := newRig(t)
+	g.on()
+	g.put("Inbox/a.md", "text\n")
+	if im := g.importFrom(filepath.Join(g.vault, "Inbox")); im.Created != 1 || im.Folder != "Inbox" {
+		t.Fatalf("import: %+v", im)
+	}
+	if im := g.importFrom(g.vault); im.Unchanged != 1 {
+		t.Fatalf("the vault by its full path: %+v", im)
+	}
+	if err := g.run("obsidian.import", ImportParams{Folder: filepath.Dir(g.vault)}, nil); err == nil {
+		t.Error("the folder above the vault was accepted")
+	}
+}

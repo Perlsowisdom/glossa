@@ -300,3 +300,16 @@ func (v *vault) rel(abs string) string {
 	}
 	return filepath.ToSlash(r)
 }
+
+// inside turns an absolute path that lies in the vault (what a folder dialog returns) into a path relative to it.
+func (v *vault) inside(abs string) (string, bool) {
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil || !within(v.root, real) {
+		return "", false
+	}
+	r, err := filepath.Rel(v.root, real)
+	if err != nil || r == "." {
+		return "", err == nil
+	}
+	return filepath.ToSlash(r), true
+}
