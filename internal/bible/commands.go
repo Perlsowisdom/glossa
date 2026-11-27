@@ -3,6 +3,7 @@ package bible
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -319,22 +320,44 @@ func (c cmds) search(ctx context.Context, _ *command.Env, p SearchParams) ([]Hit
 		return nil, err
 	}
 	hits := []Hit{}
+	var failed error
+	searched := 0
 	for _, id := range ids {
-		m, err := c.module(id)
+		h, err := c.searchModule(ctx, id, p, r)
 		if err != nil {
+			// With several Bibles, one that cannot be searched is left out (and noted in the log); the
+			// others still answer. A search that fails everywhere fails.
+			if len(ids) > 1 {
+				slog.Warn("bible.search: module skipped", "module", id, "error", err)
+				failed = err
+				continue
+			}
 			return nil, err
 		}
-		h, err := searchOne(ctx, m, p, c.scope(ctx, m, r, p))
-		if err != nil {
-			return nil, command.Errorf("bad_params", "bible.search: %v", err)
-		}
+		searched++
 		hits = append(hits, h...)
+	}
+	if searched == 0 && failed != nil {
+		return nil, failed
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
 	if len(hits) > p.Limit {
 		hits = hits[:p.Limit]
 	}
 	return hits, nil
+}
+
+// searchModule searches one module; a module that is missing or cannot be read is an error of its own.
+func (c cmds) searchModule(ctx context.Context, id string, p SearchParams, r verse.Range) ([]Hit, error) {
+	m, err := c.module(id)
+	if err != nil {
+		return nil, err
+	}
+	h, err := searchOne(ctx, m, p, c.scope(ctx, m, r, p))
+	if err != nil {
+		return nil, command.Errorf("bad_params", "bible.search: %v", err)
+	}
+	return h, nil
 }
 
 func (c cmds) scope(ctx context.Context, m *Module, r verse.Range, p SearchParams) verse.Range {
