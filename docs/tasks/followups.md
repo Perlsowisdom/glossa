@@ -17,11 +17,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - The sermon toolbar was said to duplicate verse insertion (a Verse reference and a Quote verses button),
   and the sparkle icon reads as "AI" rather than "insert reference". Check that the Insert menu settled
   this. [4 Nov]
-- Notes: after Restore in Recently deleted, the view stays on the empty deleted list; go back to the
-  notes list instead. [29 Oct]
-- Notes: four filter menus are always shown; fold them under More filters, as in the Library. [29 Oct]
-- The "Notes on this passage" form sits below long commentary in the side column; the Save button
-  can fall below the window (Ctrl+Enter still saves). Give notes their own pane. [29 Oct]
 - "Insert into note" (assistant) inserts after the block with the caret of the note or sermon last
   typed in; it does not ask which when several are open side by side. [5 Nov]
 - Dragging a Related card into a note was checked with the data a card carries, not by dragging a real
@@ -42,8 +37,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - Study grid: at most 3 siblings per split and 9 panes; a drop that would break either is refused (use
   Move to… from the tab menu). "Equal sizes" evens every split. [after T38b]
 - Tagged words cannot be reached with the keyboard. [29 Oct]
-- A pane's ⋯ menu is one long list of items that feel out of place ("Unlink" duplicates the link
-  button). [3 Nov]
 
 ### Bibles and Bible-type books
 
@@ -175,18 +168,25 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 
 ### Other
 
-- Confirm dialogs say "wails.localhost says"; replace them with the app's own dialogs. [29 Oct]
 - Migrations are tracked by one version number, so an out-of-order merge could skip one; record each
   applied migration instead. [29 Oct]
 - Some secondary forms (export options, plan weekdays, licence choices, Move to…) still use native selects
   or tick-box lists rather than the new controls. [3 Nov]
 - Content must never be overlapped: "the sidebar cuts off part of the text UI" and the auto-hide "show
   rail" button covering page headers were reported; check both are gone everywhere. [3 Nov]
-- The right sidebar's own × button should go (the top-bar toggle is enough). [3 Nov]
 - Light, Dark and "Match the system" in Settings → Appearance: check the colour tokens cover every screen. [3 Nov]
 
 ## Fixed
 
+- Notes (checked in T41): Recently deleted is now the Bin view (it lists everything deleted and Restore stays there, with
+  the notice offering Undo); the notes list's filters are one Filter button (a popup) with a count; "Notes on this passage"
+  is the sidebar's own Notes tool with a compact page that saves as you type (no Save button to fall below the window).
+- The pane's ⋯ menu is grouped into "This pane" and "Layout"; "Unlink" is gone (the link button does it) (checked in T41).
+- No native confirm, alert or prompt box is left: `ask.ts` and notices replace them, and `nonative.test.ts` fails if one
+  comes back (checked in T41; T41 adds a real-app check that hooks them to throw).
+- The right sidebar has no × of its own; the top-bar toggle and Ctrl+. open and close it (checked in T41).
+- Audit item 31 (stale `joined.new`): `Sync` runs `join`, which already removes leftover temporary files; T41 adds
+  `TestSyncRemovesAStaleJoinedNew` to pin it.
 - HTML and Word exports showed `---` dividers as text: fixed in T34e (rules in HTML, Word, PDF).
 - Clicking on a verse quote's words put the caret where typing does nothing: the quote now takes the click
   and puts the caret on the line after it (followups-1).
