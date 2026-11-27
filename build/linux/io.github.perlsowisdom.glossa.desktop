@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Glossa
+GenericName=Bible study
+Comment=Read and study the Bible, offline, with your own library
+Exec=glossa
+Icon=io.github.perlsowisdom.glossa
+Terminal=false
+Categories=Education;Literature;
+Keywords=Bible;study;commentary;lexicon;
+StartupNotify=true
