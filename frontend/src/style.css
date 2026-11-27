@@ -710,6 +710,7 @@ details.more > summary { cursor: pointer; color: var(--accent); }
 .reader[data-tagged="true"] .w { cursor: pointer; border-radius: 3px; text-decoration: underline dotted color-mix(in srgb, var(--muted) 55%, transparent);
   text-underline-offset: 4px; transition: background-color .12s; }
 .reader[data-tagged="true"] .w:hover { background: color-mix(in srgb, var(--fill) 16%, transparent); }
+.reader[data-tagged="true"] .w:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; background: color-mix(in srgb, var(--fill) 16%, transparent); }
 .woc { color: var(--woc, #b3261e); }
 .study > section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
 .study h3 { margin: 0 0 6px; }
