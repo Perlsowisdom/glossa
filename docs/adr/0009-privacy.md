@@ -25,7 +25,7 @@
 - No analytics libraries or SDKs, including inside dependencies; dependency reviews check for them.
 - Integrations show what they send before first use.
 
-## Addendum, 26 November 2026: where reports go (Proposed)
+## Addendum, 26 November 2026: where reports go (Accepted by the user, 26 November 2026)
 
 This settles the open question above (T32).
 

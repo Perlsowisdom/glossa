@@ -284,7 +284,7 @@ function privacyPage(): PageView {
         !aiOn ? " Nothing is sent. Choose a provider in Assistant → Model."
           : ` ${providerLine(ai!)}. Before the first message, the chat shows exactly what is sent and where.`),
       h("dt", {}, "Problem reports"),
-      h("dd", {}, badge("Off"), " Nothing is sent. Glossa keeps a small problem log on this computer. A report is only ever opened in your browser as a public GitHub issue, and you press Submit yourself.",
+      h("dd", {}, badge(problemLog?.enabled ? "On this computer" : "Off", problemLog?.enabled ? "ok" : ""), " Nothing is sent by itself. Glossa keeps a small problem log on this computer. A report is only ever opened in your browser as a public GitHub issue, and you press Submit yourself.",
         h("div", { class: "problem-settings" },
           toggleSwitch({
             label: "Keep a problem log on this computer", checked: !!problemLog?.enabled,
