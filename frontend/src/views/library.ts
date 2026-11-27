@@ -49,7 +49,7 @@ export function libraryView() {
   });
   items.slot.append(side.bar);
   side.el.append(items.rules.el); // reachable any time, with or without books
-  const refreshAll = () => { void items.refresh(); void side.reload(); };
+  const refreshAll = () => { items.booksChanged(); void items.refresh(); void side.reload(); };
 
   // Adding books: one button, two ways.
   const menu = h("div", { class: "menu", role: "menu", hidden: true },
@@ -242,10 +242,16 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
   }
 
   // showLookAgain shows the button when the whole library (not just what is on screen) has a book.
+  // The whole-library answer is kept from the last time the whole library was listed; only a change to the
+  // books (books added or removed: refreshAll) asks again, so a refresh inside a folder or collection costs nothing.
+  let anyBooks: boolean | null = null;
   async function showLookAgain(scoped: boolean) {
-    if (!scoped) { lookAgain.hidden = all.length === 0; return; }
-    const r = await run<{ total: number }>("library.items", { limit: 1 }).catch(() => null);
-    if (r) lookAgain.hidden = r.total === 0;
+    if (!scoped) anyBooks = all.length > 0;
+    else if (anyBooks === null) {
+      const r = await run<{ total: number }>("library.items", { limit: 1 }).catch(() => null);
+      if (r) anyBooks = r.total > 0;
+    }
+    if (anyBooks !== null) lookAgain.hidden = !anyBooks;
   }
 
   function shown(): ItemSummary[] {
@@ -543,6 +549,7 @@ function catalogue(getFolders: () => Folder[], getSide: () => ReturnType<typeof 
 
   return {
     el, refresh, slot, rules, vocab: () => vocab, say: (t: string) => msg.ok(t),
+    booksChanged: () => { anyBooks = null; },
     filterCollection(n: CollectionNode | null) {
       collection = n;
       since = 0;
