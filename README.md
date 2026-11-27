@@ -4,7 +4,7 @@ A free, open-source Bible study app for Windows, macOS and Linux: fast, offline-
 
 Glossa keeps your library, notes and sermons on your own computer in open formats. It has no accounts and no telemetry; the few features that use the internet are off until you turn them on (see [what Glossa sends](docs/privacy.md)).
 
-Status: under active development. Windows and macOS are released together; a Linux build follows.
+Status: under active development. Windows, macOS and Linux (x86-64) are released together.
 
 ## Installing (Windows)
 
@@ -25,6 +25,15 @@ Glossa is not signed by an Apple Developer account yet, so macOS asks before the
 
 You can compare the file with `SHA256SUMS` on the release page. Your library is in `~/Library/Application Support/Glossa`; Claude Code and Codex are found in the usual places (`~/.local/bin`, Homebrew, nvm). An unsigned app cannot replace itself, so updates on macOS are a download: if you turn on update checks, Glossa tells you when a new version is out and opens its download page; drag the new Glossa onto Applications again, and your library is kept. Uninstall by moving Glossa to the Bin (and, if you want, deleting that folder).
 
+## Installing (Linux)
+
+Glossa is built for 64-bit Intel/AMD (x86-64) Linux. Take one of these from the [Releases page](https://github.com/Perlsowisdom/glossa/releases):
+
+- **Debian, Ubuntu and relatives** (Linux Mint, Pop!_OS and so on): `Glossa-<version>-linux-amd64.deb`. Open a terminal where you saved it and run `sudo apt install ./Glossa-<version>-linux-amd64.deb`. This also installs the libraries Glossa needs (GTK 3 and WebKitGTK 4.1) and adds Glossa to your application menu. It needs Ubuntu 22.04 or later, or Debian 12 or later.
+- **Any other distribution**: `Glossa-<version>-linux-amd64.tar.gz`. Unpack it (`tar xzf Glossa-<version>-linux-amd64.tar.gz`) and run `./glossa` from the new folder. `README-linux.txt` inside says how to add it to your menu. You need GTK 3 and WebKitGTK 4.1 from your distribution (Fedora: `gtk3` and `webkit2gtk4.1`; Arch: `gtk3` and `webkit2gtk-4.1`; openSUSE: `libgtk-3-0` and `libwebkit2gtk-4_1-0`) and a glibc as new as Ubuntu 22.04's.
+
+You can compare the file with `SHA256SUMS` on the release page. There is no AppImage or Flatpak yet. Your library is in `$XDG_CONFIG_HOME/Glossa`, which is `~/.config/Glossa` unless you have set that variable; Claude Code and Codex are found in the usual places (`~/.local/bin`, `/usr/local/bin`, npm's global folder, nvm). Glossa cannot replace itself on Linux, so updates are a download: if you turn on update checks, Glossa tells you when a new version is out and opens its download page; install the new `.deb` the same way (or unpack the new archive over the old program), and your library is kept. Uninstall with `sudo apt remove glossa` (or delete the unpacked folder); that keeps your library, and you can delete `~/.config/Glossa` as well if you want it gone.
+
 ## Coming from Xegesis
 
 Glossa is the new name of Xegesis. Nothing of yours is lost when you install it:
@@ -37,7 +46,7 @@ Glossa is the new name of Xegesis. Nothing of yours is lost when you install it:
 
 ## Building
 
-Needs Go (see `go.mod`). On Linux, also `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`. On macOS, `scripts/package-macos.sh`
+Needs Go (see `go.mod`). On Linux, also `libgtk-3-dev` and `libwebkit2gtk-4.1-dev`; `scripts/package-linux.sh` builds the `.deb` and `.tar.gz`. On macOS, `scripts/package-macos.sh`
 builds the universal app and disk image (to build just the binary, set
 `CGO_LDFLAGS="-framework UniformTypeIdentifiers"`).
 
@@ -47,7 +56,7 @@ go build ./cmd/glossa                                       # CLI
 go build -tags desktop,production -o glossa-desktop ./app   # desktop app (add ,webkit2_41 on Linux)
 ```
 
-Release builds (setup, Store package and macOS disk image) are made by `scripts/package-nsis.ps1`, `scripts/package-msix.ps1` and `scripts/package-macos.sh`; `docs/releasing.md` has the whole process. `go run ./cmd/glossa version` prints the version a build was stamped with.
+Release builds (setup, Store package, macOS disk image and Linux packages) are made by `scripts/package-nsis.ps1`, `scripts/package-msix.ps1`, `scripts/package-macos.sh` and `scripts/package-linux.sh`; `docs/releasing.md` has the whole process. `go run ./cmd/glossa version` prints the version a build was stamped with.
 
 ## Using the CLI
 

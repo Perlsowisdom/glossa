@@ -1,12 +1,13 @@
 # Releasing Glossa
 
-How a version gets to people: Windows and macOS, released together. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are three ways to get it (the update channels, Stable and Preview, are further down):
+How a version gets to people: Windows, macOS and Linux, released together. The app was called Xegesis before version 0.4; releases from then on are Glossa. There are three ways to get it (the update channels, Stable and Preview, are further down):
 
 | Channel | File | Who signs it | How people update |
 | --- | --- | --- | --- |
 | **Microsoft Store** | `Glossa-<version>-windows-x64.msix` (built with the `store` tag: no updater) | The Store, at certification | The Store |
 | **Direct download** | `Glossa-<version>-windows-x64-setup.exe` (NSIS, not code-signed) | Our own Ed25519 signature in `latest.json` | The app's own update (on unless the user turns it off; see Update channels) |
 | **Direct download (macOS)** | `Glossa-<version>-macos-universal.dmg` (arm64 + Intel; ad-hoc signed only, not Apple-signed or notarised) | Our own Ed25519 signature in `latest.json` (`mac` entry) | A download the app opens in the browser (the app cannot replace itself); update checks are on unless the user turns them off |
+| **Direct download (Linux)** | `Glossa-<version>-linux-amd64.deb` (Debian, Ubuntu and relatives) and `Glossa-<version>-linux-amd64.tar.gz` (everything else); x86-64 | Our own Ed25519 signature in `latest.json` (`linux` entry, the `.deb`) | A download the app opens in the browser (the app cannot replace itself); update checks are on unless the user turns them off |
 
 The version comes from the git tag. There is no version file to edit: a tag `v1.2.3` builds version
 `1.2.3`, and a build with no tag says `0.0.0-dev+<commit>`. `glossa version` and Settings → About show it.
@@ -22,8 +23,8 @@ No terminal needed. In the repository on github.com:
      optional `-suffix`. The run stops at once if it is not, or if the tag `v<version>` already exists.
    - **kind**: `auto` (default: a pre-release when the version has a `-` suffix, otherwise a draft),
      `draft`, `prerelease` or `release` (published at once; refused for a version with a `-` suffix).
-3. **Run workflow.** It builds, tests and packages exactly as the tag-triggered run does (Windows and macOS in parallel; if either fails there is no tag and no release), then creates the
-   tag `v<version>` on that commit and the GitHub release of the chosen kind, with the setup, the MSIX, the DMG,
+3. **Run workflow.** It builds, tests and packages exactly as the tag-triggered run does (Windows, macOS and Linux in parallel; if any fails there is no tag and no release), then creates the
+   tag `v<version>` on that commit and the GitHub release of the chosen kind, with the setup, the MSIX, the DMG, the `.deb`, the `.tar.gz`,
    `SHA256SUMS` and (when signed) `latest.json`. If the release cannot be created, the tag it just made
    is removed again. The workflow's own tag push does not start a second run.
 
@@ -91,6 +92,57 @@ signature). The Mac app never installs it: it opens the DMG address (only when t
 address is under this repository's releases; otherwise the release page). To build on a Mac:
 `cd frontend; npm ci; npm run build; cd ..; scripts/package-macos.sh 0.5.0-alpha`.
 
+## Linux notes
+
+The `linux` job (ubuntu-22.04) runs the Go and frontend tests, then `scripts/package-linux.sh`, which makes two files
+for x86-64 (arm64 is a later job):
+
+- `Glossa-<version>-linux-amd64.deb` for Debian, Ubuntu and their relatives, made with
+  `dpkg-deb --root-owner-group`. It installs `/usr/bin/glossa`, `/usr/share/applications/io.github.perlsowisdom.glossa.desktop`
+  (the same app id as macOS), the icon in eight sizes under `/usr/share/icons/hicolor/<size>/apps/`, and the
+  copyright and licence files under `/usr/share/doc/glossa/`. It depends on `libgtk-3-0` and `libwebkit2gtk-4.1-0`
+  (so `apt install ./Glossa-…deb` pulls them in) and `libc6 (>= 2.35)`, and recommends `xdg-utils`.
+- `Glossa-<version>-linux-amd64.tar.gz` for everything else: a folder holding `glossa`, the `.desktop` file,
+  `glossa.png`, `README-linux.txt` (the libraries needed and how to add Glossa to the menu) and the licences.
+
+**Version in the package.** The version is the tag's, with a suffix written the way Debian sorts it:
+`0.6.1-alpha` is package version `0.6.1~alpha` (`go run ./versionmap deb 0.6.1-alpha`, rules in `tools/relver`). The
+`~` sorts before everything, so `0.6.1~alpha` is older than `0.6.1` and `apt` upgrades an alpha to the release. File
+names keep the tag's version.
+
+**Why Ubuntu 22.04.** Its glibc (2.35) is older, so the program also runs on Debian 12 and later, Ubuntu 22.04 and
+later, and most current distributions; and it has WebKitGTK 4.1 (`libwebkit2gtk-4.1-dev`), which the build
+tag `webkit2_41` needs. The build is `go build -tags desktop,production,webkit2_41` with cgo. Systems older than that
+(Ubuntu 20.04, Debian 11) have no WebKitGTK 4.1 and are not supported. `scripts/check-linux.sh` then checks the
+`.deb` (control fields, file list, that a suffix sorts before its release), installs it with `apt`, validates the
+`.desktop` file with `desktop-file-validate`, starts the program without a window and then with a window under
+`xvfb-run` for a few seconds (it must keep running, make its library in `$XDG_CONFIG_HOME/Glossa` and report its
+version in the log), and removes it again. CI runs the same two scripts on every push (job `linux-package`).
+
+**No AppImage or Flatpak for now.** An AppImage would have to carry WebKitGTK (a few hundred megabytes, with its
+helper programs and sandbox that expect fixed paths), which is large and fragile across distributions, and
+it would need its own update path. A Flatpak needs a Flathub submission and review of its own, and a sandbox
+permission set for the library and the Claude Code and Codex tools. The `.deb` and the `.tar.gz` cover the common
+cases with the system's own WebKitGTK, which also gets its security fixes from the distribution. Revisit if people ask.
+
+**Updates.** Linux cannot replace itself safely (a package manager owns the files), so like macOS it is manual:
+Glossa says a new version is out and opens the download. `latest.json` has a `linux` entry for the `.deb` (address,
+SHA-256 and signature, made with the same update key as the others). The app opens that address only when the
+signature verifies and the address is under this repository's releases, and only when the running program was
+installed from the package (it lives under `/usr`); a copy unpacked from the `.tar.gz`, or anything that does not check
+out, gets the release page, which lists both files. The `.tar.gz` is in `SHA256SUMS` but not in `latest.json`.
+
+**Where things are.** The library, settings and the problem log are in `$XDG_CONFIG_HOME/Glossa` (`~/.config/Glossa`
+when it is unset): Go's `os.UserConfigDir`, the same folder logic Windows (`%APPDATA%`) and macOS (`Application Support`)
+use. It is the config folder, not `$XDG_DATA_HOME`: the library already lives with the other settings, and moving it
+would need a migration. Claude Code and Codex are searched on `PATH`, then in `~/.local/bin`,
+`~/.claude/local`, `~/.npm-global/bin`, `~/.volta/bin`, `~/.bun/bin`, `~/bin`, nvm's folders, and `/usr/local/bin`
+(npm's default global folder), because a program started from a menu has a short `PATH`.
+
+**Trying it by hand** on Ubuntu or Debian: `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev xvfb desktop-file-utils`,
+`cd frontend; npm ci; npm run build; cd ..`, `scripts/package-linux.sh 0.6.1-alpha`, then
+`scripts/check-linux.sh build/bin/Glossa-0.6.1-alpha-linux-amd64.deb 0.6.1-alpha` (it installs and removes the package with sudo).
+
 ## Once: make the signing key
 
 The direct download's updates are safe only because every update carries a signature that the app checks
@@ -152,9 +204,11 @@ release workflow warns.
    - `Glossa-1.2.3-windows-x64-setup.exe`
    - `Glossa-1.2.3-windows-x64.msix`
    - `Glossa-1.2.3-macos-universal.dmg`
+   - `Glossa-1.2.3-linux-amd64.deb`
+   - `Glossa-1.2.3-linux-amd64.tar.gz`
    - `latest.json` (what the updater reads; missing if no key was available)
    - `SHA256SUMS`
-5. **Check the draft** (Releases → the draft): all five files are there; download the setup on a clean
+5. **Check the draft** (Releases → the draft): all seven files are there; download the setup on a clean
    Windows PC or VM, install it, open it, check Help → About shows `1.2.3`, then uninstall and confirm the
    library is kept (and removed only with "Also remove my library" ticked).
 6. **Publish the release** (Edit → paste the notes → Publish release). Publishing is what makes the update
@@ -209,7 +263,8 @@ newer release. `latest.json` looks like:
 ```json
 { "version": "1.2.3", "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-windows-x64-setup.exe",
   "sha256": "...", "signature": "...", "notes": "",
-  "mac": { "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-macos-universal.dmg", "sha256": "...", "signature": "..." } }
+  "mac": { "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-macos-universal.dmg", "sha256": "...", "signature": "..." },
+  "linux": { "url": "https://github.com/Perlsowisdom/glossa/releases/download/v1.2.3/Glossa-1.2.3-linux-amd64.deb", "sha256": "...", "signature": "..." } }
 ```
 
 ## Rotating the key
