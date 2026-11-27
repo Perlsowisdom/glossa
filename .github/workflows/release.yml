@@ -3,13 +3,14 @@ name: Release
 # Two ways to start it (docs/releasing.md):
 #   - Push a version tag:   git tag v1.2.3 && git push origin v1.2.3     (makes a DRAFT release)
 #   - Press the button:     Actions > Release > Run workflow > version, kind
-# Either way it builds the Windows setup (NSIS), the Microsoft Store package (MSIX) and the macOS
-# disk image (DMG: not signed by Apple, only ad-hoc signed), signs the update with GLOSSA_UPDATE_KEY
+# Either way it builds the Windows setup (NSIS), the Microsoft Store package (MSIX), the macOS
+# disk image (DMG: not signed by Apple, only ad-hoc signed) and the Linux packages (.deb and
+# .tar.gz, x86-64), signs the update with GLOSSA_UPDATE_KEY
 # (skipped, with a warning, while internal/update/pubkey.txt is the placeholder), and makes the
 # GitHub Release. Nothing is public until a release is published.
 #
-# Jobs: prepare (version, kind, commit) -> windows and macos in parallel -> release (checksums,
-# latest.json, tag, GitHub Release). If either build fails, no tag and no release are made.
+# Jobs: prepare (version, kind, commit) -> windows, macos and linux in parallel -> release
+# (checksums, latest.json, tag, GitHub Release). If any build fails, no tag and no release are made.
 #
 # latest.json is made for every kind of release, pre-releases and drafts included (once the key is
 # real). The Stable channel reads the one on the newest full release (releases/latest); the Preview
@@ -47,7 +48,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Decides the version, the kind of release and the exact commit once, so both builds and the
+  # Decides the version, the kind of release and the exact commit once, so all the builds and the
   # release itself use the same ones.
   prepare:
     runs-on: ubuntu-latest
@@ -227,10 +228,68 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  linux:
+    # Ubuntu 22.04 (not 24.04): its older glibc (2.35) lets the program run on more systems, and it has
+    # WebKitGTK 4.1, which the build needs (tag webkit2_41). x86-64 only for now.
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The build tools and libraries come from Ubuntu's own packages; xvfb and desktop-file-utils are
+      # for the package check.
+      - name: Build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb desktop-file-utils
+
+      - name: Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      # Tests that only make sense on Windows carry build tags or runtime checks, so they are
+      # skipped here.
+      - name: Go vet and tests
+        run: |
+          go vet ./...
+          go test ./...
+          go test -tags store ./internal/update/...
+          cd tools
+          go vet ./...
+          go test ./...
+
+      - name: Build the packages
+        run: bash ./scripts/package-linux.sh ${{ needs.prepare.outputs.version }}
+
+      - name: Check the .deb
+        run: bash ./scripts/check-linux.sh "build/bin/Glossa-${{ needs.prepare.outputs.version }}-linux-amd64.deb" "${{ needs.prepare.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-files
+          path: |
+            build/bin/Glossa-${{ needs.prepare.outputs.version }}-linux-amd64.deb
+            build/bin/Glossa-${{ needs.prepare.outputs.version }}-linux-amd64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
   release:
-    # Both builds passed: checksums, signature and latest.json cover all three files, then the tag
+    # All builds passed: checksums, signature and latest.json cover all the files, then the tag
     # (button runs) and the GitHub Release are made.
-    needs: [prepare, windows, macos]
+    needs: [prepare, windows, macos, linux]
     runs-on: windows-latest
     timeout-minutes: 30
     env:
@@ -252,6 +311,10 @@ jobs:
         with:
           name: macos-files
           path: dl/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-files
+          path: dl/linux
 
       - name: Checksums, signature and latest.json
         shell: pwsh
@@ -262,6 +325,8 @@ jobs:
           -Setup "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe"
           -Msix "dl/windows/Glossa-${{ needs.prepare.outputs.version }}-windows-x64.msix"
           -Mac "dl/macos/Glossa-${{ needs.prepare.outputs.version }}-macos-universal.dmg"
+          -LinuxDeb "dl/linux/Glossa-${{ needs.prepare.outputs.version }}-linux-amd64.deb"
+          -LinuxTar "dl/linux/Glossa-${{ needs.prepare.outputs.version }}-linux-amd64.tar.gz"
 
       - name: Check latest.json is there (every kind of release, so the Preview channel can find it)
         shell: pwsh

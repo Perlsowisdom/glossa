@@ -86,3 +86,29 @@ jobs:
       - name: MSIX manifest
         shell: pwsh
         run: ./scripts/package-msix.ps1 -ManifestOnly -Version 0.0.1
+
+  linux-package:
+    # The Linux packages the release ships, built and checked on every change: the .deb (its fields and
+    # files, that it installs with its dependencies, that the launcher file is valid, that the app opens
+    # on a virtual screen and reports its version, and that it removes cleanly) and the .tar.gz. Same
+    # scripts and the same runner as the release workflow; the frontend is the committed build in
+    # frontend/dist.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb desktop-file-utils
+      - name: Build the packages
+        run: bash ./scripts/package-linux.sh 0.0.0-ci
+      - name: Check the .deb
+        run: bash ./scripts/check-linux.sh build/bin/Glossa-0.0.0-ci-linux-amd64.deb 0.0.0-ci
+      - name: Check the .tar.gz
+        run: |
+          tar -tzf build/bin/Glossa-0.0.0-ci-linux-amd64.tar.gz | sort > files.txt
+          cat files.txt
+          for f in glossa glossa.png README-linux.txt LICENSE-MIT LICENSE-APACHE io.github.perlsowisdom.glossa.desktop; do
+            grep -qx "Glossa-0.0.0-ci-linux-amd64/$f" files.txt
+          done

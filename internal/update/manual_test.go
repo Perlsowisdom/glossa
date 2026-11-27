@@ -3,6 +3,7 @@
 package update
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -148,5 +149,12 @@ func TestParseManifestKeepsGoodLinuxEntryDropsBadOne(t *testing.T) {
 	m, err = ParseManifest([]byte(base+`{"url":"http://a/c.deb","sha256":"zz","signature":""}}`), false)
 	if err != nil || m.Linux != nil || m.URL == "" {
 		t.Fatalf("%+v %v", m, err)
+	}
+}
+
+func TestManualWhereTheAppCannotReplaceItself(t *testing.T) {
+	want := runtime.GOOS == "darwin" || runtime.GOOS == "linux"
+	if got := DefaultConfig().Manual; got != want {
+		t.Fatalf("Manual = %v on %s, want %v", got, runtime.GOOS, want)
 	}
 }
