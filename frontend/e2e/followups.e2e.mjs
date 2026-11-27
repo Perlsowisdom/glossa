@@ -25,7 +25,8 @@ async function scan(page, theme) {
       const cs = getComputedStyle(el);
       if (cs.visibility === "hidden" || Number(cs.opacity) < 0.3) continue;
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1);
-      if (own) {
+      const painted = (() => { for (let e = el; e; e = e.parentElement) if (getComputedStyle(e).backgroundImage !== "none") return true; return false; })();
+      if (own && !painted) {
         const fg = parse(cs.color);
         if (fg) {
           const a = lum(fg.c), b = lum(back(el));
@@ -35,7 +36,7 @@ async function scan(page, theme) {
       }
       if (theme === "dark" && r.width > 60 && r.height > 20 && !["IMG", "CANVAS", "SVG", "VIDEO"].includes(el.tagName.toUpperCase())) {
         const b = parse(cs.backgroundColor);
-        if (b && b.a > 0.8 && lum(b.c) > 0.8) out.push(`white box ${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.x)},${Math.round(r.y)} ${el.outerHTML.slice(0, 120)} in ${el.parentElement?.className}`);
+        if (b && b.a > 0.8 && lum(b.c) > 0.8) out.push(`white box ${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.x)},${Math.round(r.y)} ${el.outerHTML.slice(0, 120)} bg=${cs.backgroundColor} tr=${cs.transitionDuration} theme=${document.documentElement.dataset.theme} open=${!!el.closest("details[open]")}`);
       }
     }
     return [...new Set(out)].slice(0, 12);
