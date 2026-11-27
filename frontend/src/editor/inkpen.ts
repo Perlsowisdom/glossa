@@ -2,14 +2,43 @@
 // capabilities the end-to-end test reads, the delegated ink trail, and the SVG shape of a stroke.
 // Used by the ink block in notes (inknode.ts) and the ink layer on PDF pages (document/pdfink.ts).
 
-import { InkColour, InkStroke, InkTool, inkOpacity, outlinePath } from "./ink";
+import { INK_COLOURS, InkColour, InkStroke, InkTool, inkOpacity, outlinePath } from "./ink";
 
 // The pen, shared by every ink surface on the screen.
 export type Pen = { tool: InkTool | "erase"; colour: InkColour; width: 1 | 2 | 3 };
-export const pen: Pen = { tool: "pen", colour: "ink", width: 2 };
+const PEN_KEY = "glossa.ink.pen";
+
+// restorePen reads the pen saved on this device; anything missing or odd falls back to the default. The eraser is
+// a moment's choice, not a pen, so a restart begins with the pen.
+export function restorePen(raw: unknown): Pen {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    tool: o.tool === "hl" ? "hl" : "pen",
+    colour: INK_COLOURS.includes(o.colour as InkColour) ? (o.colour as InkColour) : "ink",
+    width: o.width === 1 || o.width === 3 ? o.width : 2,
+  };
+}
+
+function savedPen(): Pen {
+  try {
+    return restorePen(JSON.parse(localStorage.getItem(PEN_KEY) ?? "null"));
+  } catch {
+    return restorePen(null);
+  }
+}
+
+// The pen is remembered per device: it is saved whenever a tool strip changes it.
+export const pen: Pen = typeof localStorage === "undefined" ? restorePen(null) : savedPen();
 // Tool strips redraw their pressed state from here after any of them changes the pen.
 export const bars = new Set<() => void>();
-export const refreshBars = () => bars.forEach((f) => f());
+export const refreshBars = () => {
+  try {
+    localStorage.setItem(PEN_KEY, JSON.stringify(pen));
+  } catch {
+    // only a convenience
+  }
+  bars.forEach((f) => f());
+};
 
 // Once a pen has touched the screen, touches count as a resting palm for a while.
 const PEN_PRESENCE_MS = 120_000;
