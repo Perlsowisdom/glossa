@@ -279,3 +279,41 @@ been altered. A lost password cannot be recovered: the synced copy cannot be rea
 device is fine. The password is kept in memory while Glossa runs, and saved in your computer's credential store
 only if you choose "remember". It is never written to `library.db`, a file or a log. Deleting a note for good
 also removes its text from the folder's files when Glossa next tidies them. See ADR 0013.
+
+## Problem reports (T32)
+
+**Nothing is sent by Glossa.** There is no crash-reporting service, no analytics and no automatic upload (ADR 0009).
+A report is text the app builds for you to read; it goes nowhere unless you open it as a GitHub issue yourself and
+press Submit there, and GitHub issues are public.
+
+**What is logged on this computer.** Unless you turn it off, Glossa keeps a small problem log in its data folder
+(`logs`, 1 MB, with one older file kept): its own messages (start-up, a command's name and the kind of error it
+failed with, never what you typed or the command's parameters), any error Glossa caught in its Go code (with a stack),
+errors the window caught (at most ten a minute), and, after a crash that ended the program, the crash's output. A
+marker file in the data folder tells the next start that the last run did not end normally. Everything written to
+the log has paths, e-mail addresses, URL query strings, keys and long hex or base64 runs removed first. Settings →
+Privacy has the switch "Keep a problem log on this computer" (turning it off stops the log and deletes it) and
+"Open the log folder". The log is never synced.
+
+**What a report contains.** The text you see in Help → Report a problem (or after "Glossa ran into a problem. Review a
+report?"): the Glossa version and channel, the operating system and architecture, the WebView2 version, the error and
+its stack if there is a recent one, the last 200 log lines, and what you typed under "What were you doing?". The rules
+that strip private content run again when the report is built, in one place (`internal/problems/strip.go`):
+
+| Removed | Replaced by |
+| --- | --- |
+| Your home folder, Glossa's data folder, the library file (also `\?\` paths and `/`-style Windows paths) | `<home>`, `<data>`, `<library>` (everything under them goes too, so file names such as book titles never appear) |
+| Any other absolute path (Windows, UNC, macOS, Linux, `file://`, `~/`) | `<path>` |
+| E-mail addresses | `<email>` |
+| URL query strings and fragments, and a user name or password in a URL | `?<removed>` |
+| `key=`, `token=`, `password=`, `secret=` values, `Bearer` tokens, hex or base64 runs of 32 or more characters (and UUIDs) | `<secret>` |
+
+Glossa also never writes note or document text, book titles, verse lists or search terms to the log. Quoted text in
+an error message is shortened to `"…"`. You can still edit or delete anything in the text before it goes out.
+
+**Where it goes.** Three ways out, all started by you: **Open as GitHub issue (public)** opens a pre-filled "new
+issue" page on `https://github.com/Perlsowisdom/glossa/issues/new` in your browser (through the system, like any
+link; the address holds the text, cut to about 7,000 characters if it is longer, oldest log lines first); **Copy**; and
+**Save to file…** (a `.txt` file you choose). The text sent, copied or saved is exactly what the box shows. Glossa makes
+no network request for any of this: your browser does, when you open the page, and GitHub sees what any web page
+visit shows it.

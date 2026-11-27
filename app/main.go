@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -24,6 +25,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/assistant"
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/command/all"
+	"github.com/Perlsowisdom/glossa/internal/command/core"
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
 	"github.com/Perlsowisdom/glossa/internal/library"
 	"github.com/Perlsowisdom/glossa/internal/problems"
@@ -213,6 +215,7 @@ func main() {
 		log.Printf("problem log: %v", err)
 	}
 	pl.Install()
+	slog.Info("Glossa started", "version", core.Version)
 	defer pl.Stop()
 	app := &App{reg: reg, env: &command.Env{Store: s}, shot: screenshotArg(os.Args[1:]), problems: pl}
 

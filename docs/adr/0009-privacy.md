@@ -24,3 +24,17 @@
 
 - No analytics libraries or SDKs, including inside dependencies; dependency reviews check for them.
 - Integrations show what they send before first use.
+
+## Addendum, 26 November 2026: where reports go (Proposed)
+
+This settles the open question above (T32).
+
+- **A report goes to a GitHub issue that the person submits.** "Open as GitHub issue (public)" opens a
+  pre-filled new-issue page on `github.com/Perlsowisdom/glossa` in the person's browser. Glossa makes no
+  network call for it and holds no endpoint, key or collector; the person reads the page and presses Submit.
+  Copy and Save to file are the other ways out.
+- **Issues are public,** so the dialog says so, and the stripping rules (paths, text, titles, keys, e-mail
+  addresses, URL query strings, long secrets) live in one tested place.
+- **No crash-reporting SDK.** The local log, the crash marker and the report builder are Glossa's own code.
+- **Consequence:** "crash reports" are no longer a network feature in the list above: nothing is sent unless the
+  person opens the issue page themselves.

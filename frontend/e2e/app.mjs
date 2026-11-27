@@ -241,6 +241,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   const styles = await startFakeStyles();
   // Updates come from this fake GitHub, never from the real one.
   const releases = await startFakeReleases();
+  const opened = join(run, "opened.txt");
   const profile = join(run, "webview");
   mkdirSync(profile, { recursive: true });
 
@@ -271,6 +272,9 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_UPDATE_ENDPOINT: releases.endpointUrl,
         GLOSSA_UPDATE_RELEASES_URL: releases.releasesUrl,
         ...(noKey ? { GLOSSA_UPDATE_NO_KEY: "1" } : {}),
+        // "Open as GitHub issue" and "Open the log folder" write what they would open to this file instead
+        // of starting a browser or a file manager (app/problems.go).
+        GLOSSA_BROWSER_LOG: opened,
         // A net the app should never reach (GitHub, anything else) goes to a proxy that is not there, so
         // a check that forgot its fake fails at once instead of going out. This computer's own fakes are exempt.
         HTTPS_PROXY: "http://127.0.0.1:9", HTTP_PROXY: "http://127.0.0.1:9", NO_PROXY: "127.0.0.1,localhost",
@@ -354,6 +358,9 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     styles,
     releases,
     log: () => log,
+    // opened lists what the app was asked to open ("url <address>" or "folder <path>") since the last clearOpened.
+    opened: () => (existsSync(opened) ? readFileSync(opened, "utf8").split("\n").map((l) => l.trim()).filter(Boolean) : []),
+    clearOpened: () => rmSync(opened, { force: true }),
     forget: () => { seen.length = 0; },
     // resize pins the page to w x h (the harness default is 1480 x 950).
     resize: (w, h) => cur.cdp.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false }),
@@ -437,8 +444,9 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     // new window's page. updates: null starts it as a fresh install (no update answer at all), a string
     // is the update.settings row an older version left (see setUpdateSettings). noKey: true starts it as a
     // build without its update key, false as the build it is; left out, it stays as it was.
-    async restart({ updates, noKey: nk } = {}) {
+    async restart({ updates, noKey: nk, between } = {}) {
       await quit(cur);
+      await between?.(); // runs while the app is closed, for a check that prepares files it reads at start
       if (nk !== undefined) noKey = nk;
       if (updates !== undefined) setUpdateSettings(join(lib, "library.db"), updates);
       await start(await freePort());

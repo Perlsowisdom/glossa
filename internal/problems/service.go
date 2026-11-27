@@ -279,7 +279,11 @@ func (s *Service) writeProblem(p Problem) {
 		return
 	}
 	_ = os.MkdirAll(s.logDir, 0o755)
-	_ = os.WriteFile(filepath.Join(s.logDir, problemName), b, 0o644)
+	// Written to a new file and renamed, so a reader never sees half a problem.
+	tmp := filepath.Join(s.logDir, problemName+".tmp")
+	if os.WriteFile(tmp, b, 0o644) == nil {
+		_ = os.Rename(tmp, filepath.Join(s.logDir, problemName))
+	}
 }
 
 // Latest is the last problem recorded, if there is one.
@@ -298,11 +302,12 @@ func (s *Service) Pending() (Problem, bool) {
 	return p, ok && !p.Reviewed
 }
 
-// Dismiss marks a problem as seen, so its notice is not shown again.
+// Dismiss marks the latest problem as seen, so its notice is not shown again. The notice covers every
+// problem up to now, so it does not matter which one it was shown for (id is the one it named).
 func (s *Service) Dismiss(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if p, ok := s.Latest(); ok && p.ID == id {
+	if p, ok := s.Latest(); ok {
 		p.Reviewed = true
 		s.writeProblem(p)
 	}
