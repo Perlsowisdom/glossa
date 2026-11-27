@@ -29,6 +29,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/lists"
 	"github.com/Perlsowisdom/glossa/internal/logosimport"
 	"github.com/Perlsowisdom/glossa/internal/plan"
+	"github.com/Perlsowisdom/glossa/internal/problems"
 	"github.com/Perlsowisdom/glossa/internal/reader"
 	"github.com/Perlsowisdom/glossa/internal/report"
 	"github.com/Perlsowisdom/glossa/internal/search"
@@ -71,5 +72,6 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	csl.Register(r, filepath.Join(dataDir, "styles"))
 	cite.Register(r, filepath.Join(dataDir, "styles"))
 	update.Register(r) // nothing in the Store build
+	problems.Register(r, dataDir)
 	return r
 }

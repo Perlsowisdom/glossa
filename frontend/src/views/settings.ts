@@ -12,6 +12,7 @@ import { segmented, settingRow, tick, toggleSwitch } from "../controls";
 import { ConnectionInfo } from "../connectwords";
 import { badge, button, clear, field, h } from "../dom";
 import { icon } from "../icons";
+import { openLogFolder, reportProblem } from "../problems";
 import { railControls } from "../shell/rail";
 import { APP_THEMES, ToolId, moveTool, showTool, toolLabel } from "../shellwords";
 import { prefs, setPrefs } from "../state";
@@ -243,13 +244,14 @@ function privacyPage(): PageView {
 
   // Both status commands read local settings only; neither uses the network.
   async function show() {
-    const [key, cat, ai, ccel, conns, styles] = await Promise.all([
+    const [key, cat, ai, ccel, conns, styles, problemLog] = await Promise.all([
       run<KeyStatus>("apibible.status").catch(() => null),
       run<{ enabled: boolean }>("bible.sources").catch(() => null),
       run<AssistantConfig>("assistant.config.get").catch(() => null),
       run<{ enabled: boolean; works: number }>("ccel.settings").catch(() => null),
       run<ConnectionInfo[]>("connect.list").catch(() => [] as ConnectionInfo[]),
       run<{ enabled: boolean; sends: string }>("cite.styles_online").catch(() => null),
+      run<{ enabled: boolean }>("problems.status").catch(() => null),
     ]);
     const aiOn = !!ai && ai.provider !== "off";
     const on = (yes: boolean | undefined) => (yes ? badge("On", "ok") : badge("Off"));
@@ -282,7 +284,19 @@ function privacyPage(): PageView {
         !aiOn ? " Nothing is sent. Choose a provider in Assistant → Model."
           : ` ${providerLine(ai!)}. Before the first message, the chat shows exactly what is sent and where.`),
       h("dt", {}, "Problem reports"),
-      h("dd", {}, badge("Off"), " Nothing is sent. When this arrives, you will see each report and choose whether to send it."));
+      h("dd", {}, badge(problemLog?.enabled ? "On this computer" : "Off", problemLog?.enabled ? "ok" : ""), " Nothing is sent by itself. Glossa keeps a small problem log on this computer. A report is only ever opened in your browser as a public GitHub issue, and you press Submit yourself.",
+        h("div", { class: "problem-settings" },
+          toggleSwitch({
+            label: "Keep a problem log on this computer", checked: !!problemLog?.enabled,
+            hint: "Turning it off stops the log and deletes it.",
+            onChange: async (on) => {
+              await msg.attempt(() => run("problems.settings", { enabled: on }));
+              void show();
+            },
+          }),
+          h("div", { class: "row wrap" },
+            button("Open the log folder", () => void openLogFolder(msg)),
+            button("Report a problem…", () => void reportProblem())))));
   }
   return { el, show };
 }

@@ -55,3 +55,15 @@ kept check goes through the same path; **minor** = a detail of a control another
 `cite.e2e.mjs` (2 checks): cite a library book and a Zotero item (fake Zotero), chips, bibliography, export
 footnotes, switching the style; Settings → Citations with the download switch (fake styles server). The rest
 (rendering per style, ibid., Markdown round trip, downloads) is Go and vitest.
+
+## Added: problem reports (T32)
+
+`problems.e2e.mjs` (5 checks): Help → Report a problem (version, system, log lines, no path from the scratch
+library; editing the text changes what Copy gives and what the issue address holds; a long report is cut under
+7,000 characters and says so), an error thrown in the window shows the notice once and Not now hides it (and it
+sits beside an update notice without overlapping it), a crash marker left by an earlier run shows the notice
+at start with its stack stripped, and Settings → Privacy (the log switch deletes the log, the log folder).
+The app is started with `GLOSSA_BROWSER_LOG`, so "open" writes the address to a file and no browser starts; no
+network is used. The rest is Go (`internal/problems`: the stripping table, log rotation, panic recovery, the crash
+marker, the issue address and its cut, the rate limit, `app/problems_test.go`) and vitest (`problemwords.test.ts`).
+Not in the real app: a Go panic that kills the process, and the Save dialog (a native window); both are Go tests.
