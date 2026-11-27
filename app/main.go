@@ -26,6 +26,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command/all"
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
 	"github.com/Perlsowisdom/glossa/internal/library"
+	"github.com/Perlsowisdom/glossa/internal/problems"
 	"github.com/Perlsowisdom/glossa/internal/store"
 	foldersync "github.com/Perlsowisdom/glossa/internal/sync"
 )
@@ -40,6 +41,8 @@ type App struct {
 	wg    sync.WaitGroup
 	typed sync.Once // fills in missing book types once per run
 	shot  string    // --screenshot: save the window's picture here, then quit
+	// problems is the local problem log (T32); nil in tests.
+	problems *problems.Service
 }
 
 // rescanEvery is how often library folders are rescanned. Unchanged files are skipped, so it is cheap.
@@ -49,6 +52,9 @@ func (a *App) startup(ctx context.Context) {
 	// The assistant streams its replies to the interface as events.
 	emit := func(name string, data any) { runtime.EventsEmit(ctx, name, data) }
 	a.ctx = foldersync.WithEmitter(assistant.WithEmitter(ctx, emit), emit)
+	if a.problems != nil {
+		a.problems.OnProblem = func(p problems.Problem) { emit("problem:new", p) }
+	}
 	bg, stop := context.WithCancel(foldersync.WithEmitter(context.Background(), emit))
 	a.bg, a.stop = bg, stop
 	a.every(bg, time.Hour, "backup.auto", nil)
@@ -87,6 +93,9 @@ const quitSyncLimit = 8 * time.Second
 func (a *App) shutdown(context.Context) {
 	a.stop()
 	a.wg.Wait()
+	if a.problems != nil {
+		defer a.problems.Stop() // a normal quit: the next start must not see a crash
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), quitSyncLimit)
 	if _, err := a.reg.Run(ctx, a.env, "sync.auto", nil); err != nil {
 		log.Printf("sync.auto: %v", err)
@@ -124,10 +133,7 @@ func (a *App) every(ctx context.Context, interval time.Duration, id string, done
 		tick := time.NewTicker(interval)
 		defer tick.Stop()
 		for {
-			res, err := a.reg.Run(ctx, a.env, id, nil)
-			if err != nil && ctx.Err() == nil {
-				log.Printf("%s: %v", id, err)
-			}
+			res, err := a.runCommand(ctx, id, nil)
 			if err == nil && done != nil {
 				done(res)
 			}
@@ -145,7 +151,7 @@ func (a *App) Commands() []command.Description { return a.reg.List() }
 
 // Run runs a command with JSON parameters and returns its JSON result.
 func (a *App) Run(id, params string) (string, error) {
-	res, err := a.reg.Run(a.ctx, a.env, id, json.RawMessage(params))
+	res, err := a.runCommand(a.ctx, id, json.RawMessage(params))
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +204,17 @@ func main() {
 	}
 	defer s.Close()
 	reg := all.Registry(filepath.Dir(lib), secrets.OS())
-	app := &App{reg: reg, env: &command.Env{Store: s}, shot: screenshotArg(os.Args[1:])}
+	// The problem log (T32): Glossa's own messages go there, a panic becomes a plain error, and a crash that
+	// ends the process leaves a marker the next start finds. It never leaves the computer by itself.
+	pl := problems.ForDir(filepath.Dir(lib))
+	pl.SetLibrary(lib)
+	pl.SetWebView(problems.WebView2Version())
+	if err := pl.Start(); err != nil {
+		log.Printf("problem log: %v", err)
+	}
+	pl.Install()
+	defer pl.Stop()
+	app := &App{reg: reg, env: &command.Env{Store: s}, shot: screenshotArg(os.Args[1:]), problems: pl}
 
 	err = wails.Run(&options.App{
 		Title:       "Glossa",
