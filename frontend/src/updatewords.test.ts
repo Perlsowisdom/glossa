@@ -53,6 +53,9 @@ describe("the notice", () => {
     expect(noticeTitle("0.5.0-alpha.2", true)).toBe("Glossa 0.5.0-alpha.2 is out.");
     expect(noticeHelp(false)).toContain("opens again");
     expect(noticeHelp(true)).toContain("disk image");
+    expect(noticeHelp(true, false, "mac")).toContain("disk image");
+    expect(noticeHelp(true, false, "linux")).toContain("package");
+    expect(noticeHelp(true, false, "linux")).not.toContain("disk image");
     expect(noticeHelp(false)).toContain("library is not touched");
   });
   it("shortens release notes to a few plain lines", () => {

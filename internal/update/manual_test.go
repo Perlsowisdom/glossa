@@ -32,6 +32,7 @@ func TestManualUpdatesOpenADownloadAndInstallNothing(t *testing.T) {
 			var launched []string
 			cfg := testConfig(t, r, pubB64, &launched)
 			cfg.Manual = true
+			cfg.OS = "darwin"
 			reg := command.NewRegistry()
 			RegisterWith(reg, cfg)
 			env := openEnv(t)
@@ -86,6 +87,66 @@ func TestParseManifestDropsBadMacEntryKeepsRest(t *testing.T) {
 	}
 	m, err = ParseManifest([]byte(`{"version":"1.2.3","url":"https://a/b","sha256":"`+h+`","signature":"c2ln","mac":{"url":"https://a/c.dmg","sha256":"`+strings.ToUpper(h)+`","signature":"c2ln"}}`), false)
 	if err != nil || m.Mac == nil || m.Mac.SHA256 != h {
+		t.Fatalf("%+v %v", m, err)
+	}
+}
+
+func TestLinuxManualURLOffersTheDebOnlyToAPackageInstall(t *testing.T) {
+	pubB64, priv, _ := updatesig.GenerateKey()
+	pub, _ := updatesig.ParsePublicKey(pubB64)
+	deb := strings.Repeat("ef", 32)
+	s, _ := updatesig.Sign(priv, "1.1.0", deb)
+	const good = "https://github.com/Perlsowisdom/glossa/releases/download/v1.1.0/Glossa-1.1.0-linux-amd64.deb"
+	page := "https://github.com/Perlsowisdom/glossa/releases/tag/v1.1.0"
+	m := Manifest{Version: "1.1.0", Linux: &Asset{URL: good, SHA256: deb, Signature: s}, Mac: &Asset{URL: "https://github.com/Perlsowisdom/glossa/releases/download/v1.1.0/x.dmg", SHA256: deb, Signature: s}}
+	for name, c := range map[string]struct {
+		cfg  Config
+		want string
+	}{
+		"installed from the package":     {Config{OS: "linux", Packaged: true, Manual: true}, good},
+		"unpacked from the tar.gz":       {Config{OS: "linux", Manual: true}, page},
+		"linux entry is not for the mac": {Config{OS: "darwin", Manual: true}, m.Mac.URL},
+		"no linux entry":                 {Config{OS: "linux", Packaged: true, Manual: true}, page},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c.cfg.PubKey = pub
+			mm := m
+			switch name {
+			case "no linux entry":
+				mm.Linux = nil
+			}
+			if got := c.cfg.ManualURL(mm); got != c.want {
+				t.Fatalf("ManualURL = %s, want %s", got, c.want)
+			}
+		})
+	}
+}
+
+func TestPlatformNamesManualSystems(t *testing.T) {
+	for _, c := range []struct {
+		cfg  Config
+		want string
+	}{
+		{Config{OS: "darwin", Manual: true}, "mac"},
+		{Config{OS: "linux", Manual: true}, "linux"},
+		{Config{OS: "windows"}, ""},
+		{Config{OS: "linux"}, ""},
+	} {
+		if got := c.cfg.Platform(); got != c.want {
+			t.Errorf("%+v: Platform = %q, want %q", c.cfg, got, c.want)
+		}
+	}
+}
+
+func TestParseManifestKeepsGoodLinuxEntryDropsBadOne(t *testing.T) {
+	h := strings.Repeat("ab", 32)
+	base := `{"version":"1.2.3","url":"https://a/b","sha256":"` + h + `","signature":"c2ln","linux":`
+	m, err := ParseManifest([]byte(base+`{"url":"https://a/c.deb","sha256":"`+strings.ToUpper(h)+`","signature":"c2ln"}}`), false)
+	if err != nil || m.Linux == nil || m.Linux.SHA256 != h {
+		t.Fatalf("%+v %v", m, err)
+	}
+	m, err = ParseManifest([]byte(base+`{"url":"http://a/c.deb","sha256":"zz","signature":""}}`), false)
+	if err != nil || m.Linux != nil || m.URL == "" {
 		t.Fatalf("%+v %v", m, err)
 	}
 }

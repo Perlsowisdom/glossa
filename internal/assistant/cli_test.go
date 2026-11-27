@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -320,5 +321,25 @@ func TestFindToolUsesExtraFolders(t *testing.T) {
 	}
 	if !strings.Contains(path, dir) || !strings.HasPrefix(path, empty) {
 		t.Fatalf("PATH = %q", path)
+	}
+}
+
+// A desktop app started from a launcher has a short PATH: Claude Code and Codex are also looked for
+// in the usual user and npm folders (Linux and macOS).
+func TestDefaultToolDirsCoverUsualLinuxPlaces(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no extra folders")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	nvm := filepath.Join(home, ".nvm", "versions", "node", "v22.1.0", "bin")
+	if err := os.MkdirAll(nvm, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := defaultToolDirs()
+	for _, want := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, ".npm-global", "bin"), nvm, "/usr/local/bin"} {
+		if !slices.Contains(got, want) {
+			t.Errorf("%s is not searched: %v", want, got)
+		}
 	}
 }

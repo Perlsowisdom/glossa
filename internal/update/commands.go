@@ -76,7 +76,8 @@ type SettingsInfo struct {
 	Current       string `json:"current" desc:"This version"`
 	Newer         bool   `json:"newer" desc:"The newest version found is newer than this one"`
 	Key           bool   `json:"key_set" desc:"The build has a real update key; false means updates cannot verify yet"`
-	Manual        bool   `json:"manual,omitempty" desc:"Updates are downloaded and installed by hand (macOS)"`
+	Manual        bool   `json:"manual,omitempty" desc:"Updates are downloaded and installed by hand (macOS, Linux)"`
+	Platform      string `json:"platform,omitempty" desc:"With manual: mac or linux, for the wording"`
 }
 
 type SetParams struct {
@@ -85,13 +86,14 @@ type SetParams struct {
 }
 
 type CheckResult struct {
-	Ran     bool   `json:"ran" desc:"A check was made"`
-	Current string `json:"current"`
-	Latest  string `json:"latest,omitempty" desc:"The newest published version on the channel"`
-	Newer   bool   `json:"newer" desc:"The newest version is newer than this one"`
-	Notes   string `json:"notes,omitempty"`
-	Manual  bool   `json:"manual,omitempty" desc:"This system cannot install updates itself: install downloads the new version in the browser instead"`
-	Message string `json:"message,omitempty" desc:"Why no check was made, in plain words"`
+	Ran      bool   `json:"ran" desc:"A check was made"`
+	Current  string `json:"current"`
+	Latest   string `json:"latest,omitempty" desc:"The newest published version on the channel"`
+	Newer    bool   `json:"newer" desc:"The newest version is newer than this one"`
+	Notes    string `json:"notes,omitempty"`
+	Manual   bool   `json:"manual,omitempty" desc:"This system cannot install updates itself: install downloads the new version in the browser instead"`
+	Platform string `json:"platform,omitempty" desc:"With manual: mac or linux, for the wording"`
+	Message  string `json:"message,omitempty" desc:"Why no check was made, in plain words"`
 }
 
 type InstallResult struct {
@@ -156,7 +158,7 @@ func settingsInfo(ctx context.Context, env *command.Env, cfg Config) (SettingsIn
 	st, err := load(ctx, env.Store)
 	return SettingsInfo{
 		Settings: st, Channel: channelOf(st, cfg.Current), ChannelChosen: st.Channel != "", Current: cfg.Current,
-		Newer: Newer(st.Latest, cfg.Current), Key: len(cfg.PubKey) > 0 && !cfg.Placeholder, Manual: cfg.Manual,
+		Newer: Newer(st.Latest, cfg.Current), Key: len(cfg.PubKey) > 0 && !cfg.Placeholder, Manual: cfg.Manual, Platform: cfg.Platform(),
 	}, err
 }
 
@@ -219,7 +221,7 @@ func runCheck(ctx context.Context, env *command.Env, cfg Config) (CheckResult, e
 }
 
 func cachedResult(st Settings, cfg Config) CheckResult {
-	return CheckResult{Current: cfg.Current, Latest: st.Latest, Newer: Newer(st.Latest, cfg.Current), Notes: st.Notes, Manual: cfg.Manual}
+	return CheckResult{Current: cfg.Current, Latest: st.Latest, Newer: Newer(st.Latest, cfg.Current), Notes: st.Notes, Manual: cfg.Manual, Platform: cfg.Platform()}
 }
 
 // waiting says whether GitHub asked for a pause that is not over, and when the next try is.
@@ -302,7 +304,7 @@ func runInstall(ctx context.Context, env *command.Env, cfg Config) (InstallResul
 		return InstallResult{}, command.Errorf("not_found", "Glossa %s is the newest version", cfg.Current)
 	}
 	if cfg.Manual || cfg.Placeholder {
-		// No installer is run (the Mac cannot replace itself; a placeholder key cannot verify one): the
+		// No installer is run (the Mac and Linux builds cannot replace themselves; a placeholder key cannot verify one): the
 		// person gets the download or the release page and installs it themselves.
 		return InstallResult{Version: m.Version, OpenURL: cfg.ManualURL(m)}, nil
 	}

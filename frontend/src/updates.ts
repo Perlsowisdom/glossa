@@ -13,6 +13,7 @@ export interface Available {
   version: string;
   notes?: string;
   manual?: boolean;
+  platform?: string;
   noKey?: boolean; // this build has no update key: it can only open the download page
 }
 
@@ -72,7 +73,7 @@ export async function restartToUpdate(msg: Message): Promise<void> {
   }
 }
 
-// openDownload opens the new version's download in the browser (macOS).
+// openDownload opens the new version's download in the browser (macOS and Linux).
 function openDownload(url: string) {
   const rt = (window as unknown as { runtime?: { BrowserOpenURL?: (u: string) => void } }).runtime;
   if (rt?.BrowserOpenURL) rt.BrowserOpenURL(url);
@@ -84,7 +85,7 @@ function notice(a: Available): HTMLElement {
   const msg = new Message();
   const notes = shortNotes(a.notes);
   const el = h("div", { class: "update-banner update-notice", role: "region", "aria-label": "Update ready", id: "update-banner" },
-    h("p", {}, h("strong", {}, noticeTitle(a.version, a.noKey)), " ", noticeHelp(a.manual, a.noKey)),
+    h("p", {}, h("strong", {}, noticeTitle(a.version, a.noKey)), " ", noticeHelp(a.manual, a.noKey, a.platform)),
     notes ? h("p", { class: "update-notes" }, h("strong", {}, "What’s new:"), h("br"), notes) : null,
     a.noKey && !a.manual ? h("p", { class: "hint" }, NO_KEY_LINE) : null,
     h("div", { class: "row" },
@@ -103,7 +104,7 @@ function notice(a: Available): HTMLElement {
 export async function refreshUpdates(): Promise<UpdateInfo | undefined> {
   try {
     const info = await run<UpdateInfo>("update.settings.get");
-    setAvailable(info.enabled && info.newer && info.latest ? { version: info.latest, notes: info.notes, manual: info.manual, noKey: !info.key_set && !info.manual } : null);
+    setAvailable(info.enabled && info.newer && info.latest ? { version: info.latest, notes: info.notes, manual: info.manual, platform: info.platform, noKey: !info.key_set && !info.manual } : null);
     return info;
   } catch {
     return undefined; // no update commands: the Store build, or no library open
