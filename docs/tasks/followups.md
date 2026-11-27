@@ -8,9 +8,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 
 ### Editor (notes and sermons)
 
-- Sermons have no "date preached" or "theme" fields in the editor yet (the user named passage, date
-  preached and theme as the three most important things). `document.update` takes `preached_on` and
-  `theme` now; the page does not show them. [3 Nov]
 - The note and sermon editors have been judged to "keep missing the mark" more than once. Before
   more editor work: study the user's examples hands-on, write behaviour-level acceptance tests, and
   test typing in the real app before calling it done. [4 Nov]
@@ -25,7 +22,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 ### Books and the reader
 
 - EPUB sections loaded while scrolling are never unloaded. [4 Nov]
-- Highlights tool for a book: notes are listed beside highlights but have no colour filter or search. [4 Nov]
 - The cause of "EPUBs won't open" is not confirmed. A stuck selection toolbar covering the Library was
   fixed, which is the likely cause. Ask the user to retry. [4 Nov]
 - Narrow panes (under 440px) are meant to wrap their tabs; not confirmed on screen. [3 Nov]
@@ -36,7 +32,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
   browser with stand-in data. [3 Nov]
 - Study grid: at most 3 siblings per split and 9 panes; a drop that would break either is refused (use
   Move to… from the tab menu). "Equal sizes" evens every split. [after T38b]
-- Tagged words cannot be reached with the keyboard. [29 Oct]
 
 ### Bibles and Bible-type books
 
@@ -55,15 +50,10 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - `highlight.list` and `note.list` `on: "verses"` mean made on Bible verses (no book anchor). A linked
   book highlight reports as "Title · Psalms 84:3". Quotations from a book give plain words (no bold
   verse numbers), a link to the passage and the book's credit. [T38c]
-- Search: with every Bible chip checked, a listed but unsearchable module (after the e2e SWORD install,
-  "sworde2e") makes `bible.search` fail with not_found and hides the book hits too. Seen only in the e2e
-  library; worth a look. [T38c]
 - Abbott-Smith's Strong's index should install its companion lexicon automatically. [29 Oct]
 - A SWORD `.zip` installed with `bible.install` takes its licence from the module's `.conf`: public
   domain, Creative Commons and freely distributable stay as they say; anything unclear is a personal
   copy that keeps the credit line. (Worth a note in the user guide.) [T38a]
-- Plans: the green "Started … finishing …" message keeps the original finish date after days are marked;
-  refresh or clear it. [29 Oct]
 
 ### Highlights
 
@@ -117,7 +107,6 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 - Not done: lasso select and move. Pen tilt is read by the browser but not used. [T37]
 - A finger on an ink block never scrolls the page (`touch-action: none`); on a phone, scroll by touching
   text above or below the block. A "scroll with finger" switch in the strip would fix it. [T37]
-- Pen, colour and width are shared by every block on screen and are not remembered after a restart. [T37]
 - "New handwritten note" is in My work's New menu only; the right-sidebar notes panel and the Sermons
   list's New menu do not offer it yet (a sermon takes ink through /handwriting). [T37]
 - Ink blocks do not move by dragging; cut and paste of the surrounding text moves them like a divider. [T37]
@@ -168,16 +157,29 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 
 ### Other
 
-- Migrations are tracked by one version number, so an out-of-order merge could skip one; record each
-  applied migration instead. [29 Oct]
-- Some secondary forms (export options, plan weekdays, licence choices, Move to…) still use native selects
-  or tick-box lists rather than the new controls. [3 Nov]
-- Content must never be overlapped: "the sidebar cuts off part of the text UI" and the auto-hide "show
-  rail" button covering page headers were reported; check both are gone everywhere. [3 Nov]
-- Light, Dark and "Match the system" in Settings → Appearance: check the colour tokens cover every screen. [3 Nov]
 
 ## Fixed
 
+- Sermons (T41): the editor shows Preached (a calendar) and Theme under Details; both are saved through `document.update`
+  and kept after a reload (real-app check in `followups.e2e.mjs`, screenshot `followups-sermon-fields.png`).
+- Highlights tool for a book (T41): the panel has the same search as My work's Highlights, and it also matches the notes
+  listed with the highlights (their title and words). Notes have no colour, so picking a colour shows highlights only.
+- Tagged words in Bibles (T41): with "Show tagged words" on, Tab enters them, the arrow keys, Home and End move between
+  them, Enter or Space looks one up, and the focused word has a ring.
+- Search (T41): `bible.search` over several Bibles skips one that is missing or cannot be searched (noted in the log) and
+  still returns the rest; it fails only when none can be searched.
+- Plans (T41): marking or unmarking a day clears the green "Started … finishing …" line.
+- Ink (T41): pen, colour and width are saved on this device (`glossa.ink.pen`); a restart starts on the pen, never the eraser.
+- Migrations (T41): `schema_migrations` records each applied migration with its time. A library made before the table counts
+  every migration up to its `user_version` as applied; a missing middle migration is applied; `user_version` follows the
+  highest number applied, for older builds.
+- Audit item 32 (T41): the Look again button keeps the whole-library answer and asks `library.items` again only after the books change.
+- Secondary forms (T41): the export's text size and Move to's pane choice are pills now (plan weekdays and licence choices
+  already were). The long lists in filters and rule forms (types, traditions, folders, languages, Bibles catalogue licence) stay
+  native selects, since they can be long.
+- Content overlap and colour tokens (T41): Light and Dark screenshots of Read, Study, Library, My work, a note, a sermon,
+  Settings and the right sidebar at 1536 x 816 are scanned for unreadable text and white boxes in dark
+  (`followups-*-1536x816-*.png`); the right rail and auto-hide checks of `qol.e2e.mjs` cover overlap.
 - Notes (checked in T41): Recently deleted is now the Bin view (it lists everything deleted and Restore stays there, with
   the notice offering Undo); the notes list's filters are one Filter button (a popup) with a count; "Notes on this passage"
   is the sidebar's own Notes tool with a compact page that saves as you type (no Save button to fall below the window).

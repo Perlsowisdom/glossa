@@ -212,8 +212,8 @@ One full run (layout-sanity included): 105 checks, 103 passed on the first pass;
 
 | # | Severity | Steps | What happens | What should happen |
 | --- | --- | --- | --- | --- |
-| 31 | cosmetic | A device crashes between writing `joined.new` and renaming it, and never syncs again | The temporary file stays (it is ignored and harmless, but counts for nothing) until that device next joins. | Nothing planned; another device could clean it up when it forgets the device (Forget already removes the whole folder). |
-| 32 | cosmetic | Library, a folder or collection selected, many books | The button's visibility asks `library.items` for one book each time the list refreshes (a cheap extra call). | Keep the whole-library count from the facet vocabulary or the folders list instead. |
+| 31 | cosmetic | A device crashes between writing `joined.new` and renaming it, and never syncs again | The temporary file stays (it is ignored and harmless, but counts for nothing) until that device next joins. | Fixed in T41 (already the case: every sync runs `join`, which removes the leftover; `TestSyncRemovesAStaleJoinedNew`). |
+| 32 | cosmetic | Library, a folder or collection selected, many books | The button's visibility asks `library.items` for one book each time the list refreshes (a cheap extra call). | Fixed in T41: the whole-library answer is kept and asked again only after the books change. |
 
 Found by the coordinator while reviewing pass 7, and fixed in it:
 
