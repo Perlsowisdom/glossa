@@ -39,6 +39,12 @@ export function plansView() {
     await refresh();
   }
 
+  // Marking or unmarking a day changes the finish date, so the green "Started … finishing …" line is cleared.
+  function dayChanged() {
+    if (msg.el.classList.contains("ok")) msg.clear();
+    void refresh();
+  }
+
   async function refresh() {
     const [plans, today] = await Promise.all([
       msg.attempt(() => run<PlanInfo[]>("plan.list")),
@@ -60,7 +66,7 @@ export function plansView() {
       h("progress", { max: p.days, value: p.days_done, "aria-label": `${p.name}: ${progressText(p)}` }),
       h("p", { class: "hint" }, progressText(p), p.finish || p.finished ? " · " : "", finishText(p),
         p.weekdays.length < 7 ? ` · reads ${p.weekdays.join(", ")}` : ""),
-      t ? todayBlock(t, { msg, changed: refresh, headline: false }) : null,
+      t ? todayBlock(t, { msg, changed: dayChanged, headline: false }) : null,
       h("div", { class: "row wrap" },
         button(open === p.id ? "Hide days" : "Show all days", () => toggleDays(p), { "aria-expanded": String(open === p.id) }),
         p.behind === 0 && !p.finished ? button("Reschedule from today", () => reschedule(p), { title: "Spread the days not yet read over the coming days, starting today" }) : null,
@@ -91,7 +97,7 @@ export function plansView() {
           onchange: async (e: Event) => {
             const on = (e.target as HTMLInputElement).checked;
             const ok = await msg.attempt(() => on ? run("plan.mark", { plan_id: p.id, days: [d.day] }) : run("plan.unmark", { plan_id: p.id, day: d.day }));
-            if (ok !== undefined) refresh();
+            if (ok !== undefined) dayChanged();
           },
         })))))));
   }

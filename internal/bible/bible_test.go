@@ -376,3 +376,20 @@ func TestOddMarkup(t *testing.T) {
 		t.Errorf("odd verse = %+v", v)
 	}
 }
+
+// A listed Bible that cannot be searched is left out; the others still answer.
+func TestSearchSkipsAModuleThatCannotBeSearched(t *testing.T) {
+	e := setup(t)
+	e.installBoth()
+	var hits []Hit
+	e.must("bible.search", map[string]any{"query": "world", "modules": []string{"kjv", "ghost", "web"}}, &hits)
+	if len(hits) != 3 {
+		t.Fatalf("hits = %+v", hits)
+	}
+	if err := e.run("bible.search", map[string]any{"query": "world", "modules": []string{"ghost"}}, nil); code(err) != "not_found" {
+		t.Errorf("only the missing module: %v", err)
+	}
+	if err := e.run("bible.search", map[string]any{"query": "world", "modules": []string{"ghost", "nope"}}, nil); err == nil {
+		t.Error("nothing searchable should fail")
+	}
+}

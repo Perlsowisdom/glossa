@@ -6,7 +6,7 @@
 // Read mode draws the selected pane alone.
 
 import { Ref, run } from "../api";
-import { segmented } from "../controls";
+import { segmented, segmentedValue } from "../controls";
 import { button, clear, h } from "../dom";
 import { icon } from "../icons";
 import { closePopover, openPopover, togglePopover } from "../popover";
@@ -426,15 +426,18 @@ export function studyGrid(o: StudyGridOptions) {
     const tab = p && activeTab(p);
     if (!p || !tab) return;
     const all = panes(g);
-    const target = h("select", { "aria-label": "Pane" }, all.map((q, i) =>
-      h("option", { value: q.id, selected: q.id === paneId }, `Pane ${i + 1}${q.id === paneId ? " (this one)" : ""}: ${tabLabel(activeTab(q)!)}`)));
+    // The panes are pills ("Pane 2"); the line under them says what the chosen one shows.
+    const paneNote = h("p", { class: "hint", "aria-live": "polite" });
+    const target = segmented<string>({ label: "Pane", options: all.map((q, i): [string, string] => [q.id, `Pane ${i + 1}${q.id === paneId ? " (this one)" : ""}`]), value: paneId,
+      onChange: () => refresh() });
+    const targetId = () => segmentedValue(target) || paneId;
     const wheres: [MoveTarget, string][] = [["into", "Into it, as a tab"], ["left", "To its left"], ["right", "To its right"], ["above", "Above it"], ["below", "Below it"]];
     const radios = h("fieldset", {}, h("legend", {}, "Where"));
     let where: MoveTarget = "into";
     const go = h("button", { type: "submit", class: "primary" }, "Move");
     const note = h("p", { class: "hint", role: "status" });
     function refresh() {
-      const okFor = (w: MoveTarget) => moveTab(g, tab!.id, target.value, w) !== null;
+      const okFor = (w: MoveTarget) => moveTab(g, tab!.id, targetId(), w) !== null;
       const first = wheres.find(([w]) => okFor(w))?.[0] ?? null;
       where = first ?? "into";
       const pills = segmented<MoveTarget>({ label: "Where", options: wheres, value: where, onChange: (w) => { where = w; } });
@@ -442,15 +445,16 @@ export function studyGrid(o: StudyGridOptions) {
       if (!first) for (const r of pills.querySelectorAll<HTMLInputElement>("input")) r.checked = false;
       clear(radios, h("legend", {}, "Where"), pills);
       go.disabled = !first;
+      const shown = all.find((q) => q.id === targetId());
+      paneNote.textContent = shown ? `Shows ${tabLabel(activeTab(shown)!)}.` : "";
       note.textContent = first ? "" : `There is no room there: the grid holds at most ${MAX_PANES} panes, and ${MAX_SIBLINGS} in one row or column.`;
     }
-    target.addEventListener("change", refresh);
     refresh();
-    const form = h("form", { class: "pop-body move-to" }, h("h2", { class: "pop-title" }, `Move “${tabLabel(tab)}”`), target, radios, note, h("div", { class: "row" }, go));
+    const form = h("form", { class: "pop-body move-to" }, h("h2", { class: "pop-title" }, `Move “${tabLabel(tab)}”`), target, paneNote, radios, note, h("div", { class: "row" }, go));
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       const w = where;
-      const n = moveTab(g, tab.id, target.value, w);
+      const n = moveTab(g, tab.id, targetId(), w);
       closePopover();
       setGrid(n);
       focusSelected();

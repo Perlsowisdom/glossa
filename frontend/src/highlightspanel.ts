@@ -38,6 +38,12 @@ interface BookNoteRow {
   locator?: HighlightRow["locator"];
 }
 
+// noteMatches is the search for a note: every word typed is in its title or words (no words matches all).
+export function noteMatches(n: { title?: string; body?: string }, typed: string): boolean {
+  const have = `${n.title ?? ""} ${n.body ?? ""}`.toLowerCase();
+  return typed.toLowerCase().split(/\s+/).filter(Boolean).every((w) => have.includes(w));
+}
+
 // scopeUnit names a book section or page for a caption.
 let unit = "section";
 const scopeUnit = (n: number) => `${unit} ${n}`;
@@ -61,7 +67,9 @@ export function highlightsPanel(o: HighlightsOptions) {
   let timer = 0;
   const caption = h("p", { class: "side-caption" });
   const scopeBtn = button("", () => { whole = !whole; void refresh(); }, { class: "link side-scope", hidden: true });
-  const query = o.page ? h("input", { type: "search", class: "work-search", placeholder: "Search the highlighted words and places", "aria-label": "Search highlights" }) : null;
+  // The search is the same for highlights and for the notes listed with them (a book's notes are matched on their title and words).
+  const query = h("input", { type: "search", class: "work-search", placeholder: o.page ? "Search the highlighted words and places" : "Search these highlights and notes",
+    "aria-label": o.page ? "Search highlights" : "Search highlights and notes" });
   const chips = h("div", { class: "hl-filters", role: "group", "aria-label": "Colour" });
   const list = h("ul", { class: "hl-list", "aria-live": "polite" });
   const el = h("div", { class: `hl-panel${o.page ? " page" : ""}` },
@@ -101,16 +109,16 @@ export function highlightsPanel(o: HighlightsOptions) {
     if (scope?.kind === "item") params.item_id = scope.itemId;
     if (inSection) params.section = scope.section;
     if (colour) params.colour = colour;
-    if (query?.value.trim()) params.query = query.value.trim();
+    if (query.value.trim()) params.query = query.value.trim();
     if (o.page) params.newest = true;
     const noteParams = { item_id: scope?.kind === "item" ? scope.itemId : "", ...(inSection ? { section: scope.section } : {}), limit: 200 };
     const [got, ns] = await Promise.all([
       msg.attempt(() => run<HighlightRow[]>("highlight.list", params)),
-      scope?.kind === "item" && !colour && !query?.value.trim() ? msg.attempt(() => run<BookNoteRow[]>("note.list", noteParams)) : Promise.resolve([]),
+      scope?.kind === "item" && !colour ? msg.attempt(() => run<BookNoteRow[]>("note.list", noteParams)) : Promise.resolve([]),
     ]);
     if (n !== seq || !got) return;
     rows = got;
-    notes = ns ?? [];
+    notes = (ns ?? []).filter((x) => noteMatches(x, query.value));
     draw();
   }
 
@@ -140,8 +148,8 @@ export function highlightsPanel(o: HighlightsOptions) {
 
   function draw() {
     if (rows.length === 0 && notes.length === 0) {
-      const filtered = !!colour || !!query?.value.trim();
-      clear(list, h("li", { class: "side-empty" }, filtered ? "No highlights match."
+      const filtered = !!colour || !!query.value.trim();
+      clear(list, h("li", { class: "side-empty" }, filtered ? o.page ? "No highlights match." : "No highlights or notes match."
         : "No highlights here yet. Select words in the text and pick a colour."));
       return;
     }
@@ -228,15 +236,15 @@ export function highlightsPanel(o: HighlightsOptions) {
     document.dispatchEvent(new Event("glossa:marks-changed"));
   }
 
-  query?.addEventListener("input", () => {
+  query.addEventListener("input", () => {
     clearTimeout(timer);
     timer = window.setTimeout(() => void refresh(), 220);
   });
-  query?.addEventListener("keydown", (e) => {
+  query.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && query.value) { e.preventDefault(); query.value = ""; void refresh(); }
   });
   drawChips();
-  return { el, refresh, focus: () => (query ?? chips.querySelector("button"))?.focus() };
+  return { el, refresh, focus: () => query.focus() };
 }
 
 // highlightsView is My work → Highlights.

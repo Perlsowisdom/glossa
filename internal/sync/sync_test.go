@@ -1027,3 +1027,24 @@ func TestLeftoverMarkerTempFilesAreIgnoredAndCleanedUp(t *testing.T) {
 		t.Fatalf("marker names %q, want Study PC", n)
 	}
 }
+
+// A device that crashed between writing joined.new and renaming it clears the file the next time it syncs.
+func TestSyncRemovesAStaleJoinedNew(t *testing.T) {
+	ctx := context.Background()
+	folderDir := folderOf(t)
+	b := newDev(t, "Desktop")
+	eb := b.connect(folderDir)
+	if err := eb.Join(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(folderDir, RootName, b.st.Device())
+	if err := os.WriteFile(filepath.Join(dir, joinedTmpName), []byte("junk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eb.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, joinedTmpName)); !os.IsNotExist(err) {
+		t.Fatalf("joined.new still there after a sync: %v", err)
+	}
+}

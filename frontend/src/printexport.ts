@@ -5,7 +5,7 @@
 // saving writes a file through export.make.
 
 import { Message, RunError, openFile, run, saveFile } from "./api";
-import { button, clear, field, h, select } from "./dom";
+import { button, clear, h } from "./dom";
 import { segmented, segmentedValue, switchInput } from "./controls";
 import { flash } from "./listpicker";
 import {
@@ -56,7 +56,7 @@ export function openExport(req: ExportRequest) {
 
   // More options -------------------------------------------------------------------------------
   const size = segmented<"a4" | "letter">({ label: "Paper", options: [["a4", "A4"], ["letter", "Letter"]], value: opts.page_size ?? "a4", onChange: () => {} });
-  const font = select(["10", "11", "12", "14", "16"], String(opts.font_size ?? 11));
+  const font = segmented<string>({ label: "Text size", options: ["10", "11", "12", "14", "16"].map((n): [string, string] => [n, n]), value: String(opts.font_size ?? 11), onChange: () => {} });
   const check = (on: boolean | undefined, def: boolean) => switchInput(on ?? def, () => {});
   const numbers = check(opts.verse_numbers, true);
   const notes = check(opts.notes, false);
@@ -68,7 +68,7 @@ export function openExport(req: ExportRequest) {
   const credits = segmented<"each" | "end">({ label: "Credits", options: [["each", "Under each piece"], ["end", "Together at the end"]], value: opts.credits ?? "each", onChange: () => {} });
   const more = h("details", { class: "more" }, h("summary", {}, "More options"),
     h("div", { class: "row wrap" },
-      h("div", { class: "field" }, h("span", { class: "field-label" }, "Paper"), size), field("Text size", font),
+      h("div", { class: "field" }, h("span", { class: "field-label" }, "Paper"), size), h("div", { class: "field" }, h("span", { class: "field-label" }, "Text size"), font),
       parallel ? h("div", { class: "field" }, h("span", { class: "field-label" }, "Bibles"), layout) : null,
       h("div", { class: "field" }, h("span", { class: "field-label" }, "Credits"), credits)),
     h("div", { class: "row wrap" },
@@ -80,7 +80,7 @@ export function openExport(req: ExportRequest) {
 
   function options(): ExportOptions {
     const o: ExportOptions = {
-      page_size: segmentedValue(size) as ExportOptions["page_size"], font_size: Number(font.value),
+      page_size: segmentedValue(size) as ExportOptions["page_size"], font_size: Number(segmentedValue(font)),
       verse_numbers: numbers.checked, notes: notes.checked, header: header.checked, footer: footer.checked,
       credits: segmentedValue(credits) as ExportOptions["credits"],
     };

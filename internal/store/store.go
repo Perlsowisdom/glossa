@@ -8,6 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -92,39 +93,80 @@ func (s *Store) QueryRow(ctx context.Context, q string, args ...any) *sql.Row {
 	return s.db.QueryRowContext(ctx, q, args...)
 }
 
-func (s *Store) migrate() error {
-	var version int
-	if err := s.db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+func (s *Store) migrate() error { return applyMigrations(s.db, migrations, "migrations") }
+
+// applyMigrations runs each migration in dir that is not yet recorded in schema_migrations, in number order,
+// and records it with the time it ran. PRAGMA user_version is kept at the highest number applied, for older
+// builds that read only that. A library made before the table existed counts every migration up to its
+// user_version as applied. A migration missing from the middle (an out-of-order merge) is still applied.
+func applyMigrations(db *sql.DB, fsys fs.FS, dir string) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)`); err != nil {
 		return err
 	}
-	entries, err := migrations.ReadDir("migrations")
+	var version, recorded int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&recorded); err != nil {
+		return err
+	}
+	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
 		return err
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	type file struct {
+		n    int
+		name string
+	}
+	var files []file
 	for _, e := range entries {
 		n, err := strconv.Atoi(strings.SplitN(e.Name(), "_", 2)[0])
 		if err != nil {
 			return fmt.Errorf("migration %s: name must start with a number", e.Name())
 		}
-		if n <= version {
+		files = append(files, file{n, e.Name()})
+	}
+	if recorded == 0 && version > 0 {
+		for _, f := range files {
+			if f.n <= version {
+				if _, err := db.Exec(`INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)`, f.n, nowMS()); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, f := range files {
+		var one int
+		err := db.QueryRow(`SELECT 1 FROM schema_migrations WHERE version = ?`, f.n).Scan(&one)
+		if err == nil {
 			continue
 		}
-		body, err := migrations.ReadFile("migrations/" + e.Name())
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		body, err := fs.ReadFile(fsys, dir+"/"+f.name)
 		if err != nil {
 			return err
 		}
-		tx, err := s.db.Begin()
+		tx, err := db.Begin()
 		if err != nil {
 			return err
 		}
 		if _, err := tx.Exec(string(body)); err != nil {
 			tx.Rollback()
-			return fmt.Errorf("migration %s: %w", e.Name(), err)
+			return fmt.Errorf("migration %s: %w", f.name, err)
 		}
-		if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
+		if _, err := tx.Exec(`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`, f.n, nowMS()); err != nil {
 			tx.Rollback()
 			return err
+		}
+		if f.n > version {
+			version = f.n
+			if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", f.n)); err != nil {
+				tx.Rollback()
+				return err
+			}
 		}
 		if err := tx.Commit(); err != nil {
 			return err

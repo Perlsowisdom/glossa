@@ -12,7 +12,7 @@ import {
   INK_COLOURS, INK_COLOUR_LABEL, INK_W, InkDoc, InkStroke, emptyInk, growTo, hits, strokeSize,
 } from "./ink";
 import { strokeOutline } from "./inkengine";
-import { ERASE_REACH, InkPresenter, MIN_STEP, NS, bars, caps, inkApi, notePen, palm, pen, strokeEl } from "./inkpen";
+import { ERASE_REACH, InkPresenter, MIN_STEP, NS, bars, caps, inkApi, notePen, palm, pen, refreshBars, strokeEl } from "./inkpen";
 import { $caretAfterBlock } from "./nodes";
 
 type SerializedInk = Spread<{ ink: InkDoc }, SerializedLexicalNode>;
@@ -403,7 +403,7 @@ class InkBlock {
       b.addEventListener("mousedown", (e) => e.preventDefault());
       b.addEventListener("click", () => {
         run();
-        bars.forEach((f) => f());
+        refreshBars();
       });
       if (on) {
         refresh.push(() => {

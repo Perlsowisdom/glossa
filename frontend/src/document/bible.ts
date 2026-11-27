@@ -21,7 +21,7 @@ import { openExport } from "../printexport";
 import { lookUpCard } from "../lookup";
 import { attachMarking } from "../marking";
 import { hlClasses, replaced, styleOf } from "../markingwords";
-import { prefs, setModules, state } from "../state";
+import { onPrefs, prefs, setModules, state } from "../state";
 import { searchFor } from "../views/search";
 import { sidebar } from "../views/sidebar";
 import { attachContextMenu, selectedIn } from "./contextmenu";
@@ -217,6 +217,38 @@ export function bibleDoc(host: DocHost): DocView {
     lookUp(w.textContent ?? "", w, w.getBoundingClientRect());
   });
 
+  // With "Show tagged words" on, the words can be reached from the keyboard: Tab enters them, the arrow keys
+  // (Home and End too) move between them, and Enter or Space looks the word up. One word is in the Tab order.
+  const taggedWords = () => [...text.querySelectorAll<HTMLElement>(".w")];
+  function reachWords() {
+    const on = prefs.reading.taggedWords;
+    const all = taggedWords();
+    const keep = all.find((w) => w.tabIndex === 0) ?? all[0];
+    for (const w of all) {
+      if (on) { w.setAttribute("role", "button"); w.tabIndex = w === keep ? 0 : -1; }
+      else { w.removeAttribute("role"); w.removeAttribute("tabindex"); }
+    }
+  }
+  onPrefs(() => { if (alive) reachWords(); });
+  text.addEventListener("keydown", (e) => {
+    const w = (e.target as Element).closest<HTMLElement>(".w");
+    if (!w || !prefs.reading.taggedWords || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      lookUp(w.textContent ?? "", w, w.getBoundingClientRect());
+      return;
+    }
+    const all = taggedWords();
+    const i = all.indexOf(w);
+    const to = e.key === "ArrowRight" || e.key === "ArrowDown" ? all[i + 1] : e.key === "ArrowLeft" || e.key === "ArrowUp" ? all[i - 1]
+      : e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : undefined;
+    if (!to) return;
+    e.preventDefault();
+    for (const x of all) x.tabIndex = x === to ? 0 : -1;
+    to.focus();
+    to.scrollIntoView({ block: "nearest" });
+  });
+
   function verseEl(v: Verse, module: string) {
     const n = verseParts(v.id).verse;
     const end = v.end && v.end !== v.id ? `–${verseParts(v.end).verse}` : "";
@@ -317,6 +349,7 @@ export function bibleDoc(host: DocHost): DocView {
       }
       for (const s of p.segments) wrapWords(vt, s.start, s.end, hlClasses(s.hl.style), s.hl.id);
     }
+    reachWords();
   }
 
   // wrapWords draws characters start..end of a verse's text as a highlight.
