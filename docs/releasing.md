@@ -21,6 +21,9 @@ No terminal needed. In the repository on github.com:
    *commit*), then fill in:
    - **version**: `0.4.0-alpha`, or `1.2.3`, without the `v`. It must be `MAJOR.MINOR.PATCH` with an
      optional `-suffix`. The run stops at once if it is not, or if the tag `v<version>` already exists.
+     **Which number to raise** (the user's rule, 27 November 2026): a release with any new feature raises
+     MINOR and resets PATCH (`0.6.0` → `0.7.0`); PATCH (`0.7.0` → `0.7.1`) is only for a bug-fix hot
+     release with no new features.
    - **kind**: `auto` (default: a pre-release when the version has a `-` suffix, otherwise a draft),
      `draft`, `prerelease` or `release` (published at once; refused for a version with a `-` suffix).
 3. **Run workflow.** It builds, tests and packages exactly as the tag-triggered run does (Windows, macOS and Linux in parallel; if any fails there is no tag and no release), then creates the
