@@ -4,6 +4,7 @@
 //	go run ./versionmap nsis <version>       four-part number for the setup's file properties: 0.4.0.0
 //	go run ./versionmap msix <version>       four-part number for the Store package: 0.4.0.0
 //	go run ./versionmap mac <version>        three-part number for the macOS app bundle: 0.4.0
+//	go run ./versionmap deb <version>        Debian package version: 0.4.0~alpha (sorts before 0.4.0)
 package relver
 
 import (
@@ -75,4 +76,25 @@ func Mac(v string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%d.%d.%d", n[0], n[1], n[2]), nil
+}
+
+// Deb is the version for a Debian package's control file. A suffix sorts before the release it leads
+// to, so 0.6.1-alpha becomes 0.6.1~alpha (the tilde sorts before everything, even the empty string):
+// dpkg and apt treat 0.6.1~alpha as older than 0.6.1. Hyphens inside the suffix would read as the
+// start of a Debian revision, so they become dots; "+build" metadata is kept, as Debian allows it.
+func Deb(v string) (string, error) {
+	n, err := parts(v)
+	if err != nil {
+		return "", err
+	}
+	rest := v[len(fmt.Sprintf("%d.%d.%d", n[0], n[1], n[2])):]
+	pre, build, _ := strings.Cut(rest, "+")
+	out := fmt.Sprintf("%d.%d.%d", n[0], n[1], n[2])
+	if pre != "" {
+		out += "~" + strings.ReplaceAll(strings.TrimPrefix(pre, "-"), "-", ".")
+	}
+	if build != "" {
+		out += "+" + strings.ReplaceAll(build, "-", ".")
+	}
+	return out, nil
 }
