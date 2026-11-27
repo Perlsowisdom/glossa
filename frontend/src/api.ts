@@ -21,6 +21,8 @@ interface Bound {
   PickFolder?(title: string): Promise<string>;
   SaveFile?(title: string, name: string, format: string): Promise<string>;
   OpenFile?(path: string): Promise<void>;
+  OpenReportURL?(url: string): Promise<void>;
+  OpenLogFolder?(): Promise<void>;
 }
 
 export function bound(): Bound | null {

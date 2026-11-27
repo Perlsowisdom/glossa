@@ -14,6 +14,7 @@ import {
 } from "../shellwords";
 import { loadPref, onPrefs, prefs, savePref, setPrefs } from "../state";
 import { onSync, syncNow } from "../syncstate";
+import { reportProblem } from "../problems";
 import { onUpdateReady, updateReady } from "../updates";
 import { indicator } from "../syncwords";
 
@@ -244,5 +245,6 @@ function helpContent(hooks: RailHooks): HTMLElement {
     h("dl", { class: "keys" }, keys.map(([k, what]) => [h("dt", {}, h("kbd", {}, k)), h("dd", {}, what)])),
     h("div", { class: "pop-links" },
       button("Every command Glossa has…", () => { closePopover(); hooks.settings("commands"); }, { class: "link" }),
+      button("Report a problem…", () => void reportProblem(), { class: "link" }),
       button("About Glossa", () => { closePopover(); hooks.settings("about"); }, { class: "link" })));
 }

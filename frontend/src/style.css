@@ -1736,6 +1736,15 @@ button.danger-link { color: var(--bad); margin-top: 8px; display: block; }
 .update-error { color: var(--bad); }
 .update-banner .row { gap: 8px; flex-wrap: wrap; }
 
+/* Problem reports (problems.ts): the notice sits above the update notice; the dialog is wide enough to edit a report. */
+.problem-notice { z-index: 41; }
+dialog.problem-dialog { width: min(760px, 94vw); max-height: 92vh; overflow: auto; }
+dialog.problem-dialog p { margin: 0 0 10px; }
+.problem-public { color: var(--fg); }
+.problem-text { width: 100%; min-height: 16rem; font: 0.82rem/1.45 ui-monospace, Consolas, monospace; resize: vertical; box-sizing: border-box; }
+dialog.problem-dialog .field { margin: 0 0 10px; }
+dialog.problem-dialog .confirm-actions { flex-wrap: wrap; }
+
 /* Library → From Logos: sortable column headers are buttons that look like the header text. */
 table.list th .th-sort { font: inherit; color: inherit; padding: 0; text-decoration: none; }
 table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descending"] .th-sort { color: var(--text, inherit); }
