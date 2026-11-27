@@ -1,6 +1,6 @@
 # 0015: Deletion batches
 
-Status: **Proposed** (quality pass 5, audit item 24). Builds on 0004 (change history), 0010 (deleting for
+Status: Accepted (approved by the user, 26 November 2026) (quality pass 5, audit item 24). Builds on 0004 (change history), 0010 (deleting for
 good) and 0013 (folder sync). Schema migration 0017.
 
 ## Context

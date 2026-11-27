@@ -17,6 +17,6 @@ Each decision is final until a later record replaces it.
 | [0011](0011-ai-assistant.md) | AI assistant: providers, read-only tools, licence gate, what is sent | Accepted |
 | [0012](0012-ccel-source.md) | CCEL as an opt-in source of free public-domain books | Accepted |
 | [0013](0013-folder-sync.md) | Folder sync: encrypted per-device change files in a folder you already sync | Accepted |
-| [0014](0014-connections.md) | Connections: opt-in links to other programs (Zotero first), with a privacy switch and keychain keys | Proposed |
-| [0015](0015-deletion-batches.md) | Deletion batches: a stored id says what was deleted with a folder or collection | Proposed |
-| [0016](0016-updates-on-by-default.md) | Updates are on by default (direct download), with a switch, a Stable/Preview channel and a plain list of what is sent | Proposed |
+| [0014](0014-connections.md) | Connections: opt-in links to other programs (Zotero first), with a privacy switch and keychain keys | Accepted |
+| [0015](0015-deletion-batches.md) | Deletion batches: a stored id says what was deleted with a folder or collection | Accepted |
+| [0016](0016-updates-on-by-default.md) | Updates are on by default (direct download), with a switch, a Stable/Preview channel and a plain list of what is sent | Accepted |

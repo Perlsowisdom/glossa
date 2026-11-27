@@ -1,6 +1,6 @@
 # 0014: Connections
 
-Status: **Proposed** (T40a). Builds on 0005, 0009 and 0011; **adds Zotero (the app on this computer, and
+Status: Accepted (approved by the user, 26 November 2026); T40a–T40d. Builds on 0005, 0009 and 0011; **adds Zotero (the app on this computer, and
 zotero.org) to the list of network features in ADR 0009.** Addenda add Any (T40c) and Readwise (T40d).
 
 ## Context
@@ -101,7 +101,7 @@ setting rows are per-device (above). No other table changes.
 - Open question for T40b: whether the engine should read `zotero.cached` directly or be handed items by the
   editor. This record only guarantees that the cached CSL-JSON is complete enough to render a citation.
 
-## Amendment: citation styles download (T40b part 2; still Proposed)
+## Amendment: citation styles download (T40b part 2)
 
 ADR 0009's list of network features gains **downloading citation styles** from the Citation Style Language
 project's repository (`github.com/citation-style-language/styles`). It is not a connection (no sign-in, no key)
@@ -115,7 +115,7 @@ parent. `GLOSSA_CSL_LIST_URL` and `GLOSSA_CSL_RAW_URL` point the feature at test
 the section. No schema change: manual sources and kept Zotero items share `cite_items`; the default style is the
 setting `cite.style` and a document's own choice `cite.doc_style.<id>`.
 
-## Addendum: Any, two-way (T40c; still Proposed)
+## Addendum: Any, two-way (T40c)
 
 ADR 0009's list of network features gains **Any** (the Any app, formerly Anytype), reached **only on this
 computer**. Nothing leaves the computer: Glossa talks to the app's local API on the loopback address, and
@@ -166,7 +166,7 @@ text is saved as a new note, then Glossa's goes to Any). A page deleted in Any i
 **Not done.** Sermon outlines are not sent separately (the text is); a page imported becomes a note, never a
 sermon; pictures, files and links inside pages are not carried; no automatic or background syncing.
 
-## Addendum: Readwise, import (T40d part 1; still Proposed)
+## Addendum: Readwise, import (T40d part 1)
 
 ADR 0009's list of network features gains **Readwise** (`https://readwise.io` only), off until the switch is
 turned on, with its own section in `docs/privacy.md`. Glossa only reads. The token is the connection's key
@@ -221,7 +221,7 @@ note. A note the person deleted is not made again.
 **Not done.** A source that only later matches a library book is not moved onto it; sources deleted whole in
 Readwise leave their notes; no automatic or background import; no sending to Readwise.
 
-## Addendum: Obsidian, export and import (T40d part 2; still Proposed)
+## Addendum: Obsidian, export and import (T40d part 2)
 
 Obsidian is a connection with sign-in kind `folder` and the capabilities import and export. It has no network code:
 `Sends()` says it only reads and writes Markdown files in the chosen vault folder. The vault folder and the

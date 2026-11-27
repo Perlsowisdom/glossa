@@ -1,6 +1,6 @@
 # 0016: Updates are on by default
 
-Status: **Proposed** (the user decided on 26 November 2026; this records it). Changes how 0009's rule "each
+Status: Accepted (approved by the user, 26 November 2026). Changes how 0009's rule "each
 off until the user turns it on" applies to one feature, the direct download's update check (T23). 0009's
 text is unchanged and stays accepted; every other network feature stays off until turned on.
 
