@@ -279,6 +279,9 @@ export default [
       await until(t, async () => (await app.run("problems.status")).enabled === true, "the log to turn on");
       await app.run("problems.log", { message: "E2E back on", where: "e2e" });
       t.assert.ok(existsSync(join(logDir(t), "glossa.log")), "the log is written again");
+      // Leave nothing pending: a notice would sit over the checks of the files after this one.
+      await app.run("problems.dismiss", { id: "" });
+      await quiet(t);
       await normal(t);
     },
   },
