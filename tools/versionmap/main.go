@@ -4,6 +4,7 @@
 //	go run ./versionmap nsis 0.4.0-alpha     0.4.0.0
 //	go run ./versionmap msix 0.4.0-alpha     0.4.0.0
 //	go run ./versionmap mac 0.4.0-alpha      0.4.0
+//	go run ./versionmap deb 0.4.0-alpha      0.4.0~alpha
 package main
 
 import (
@@ -15,7 +16,7 @@ import (
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, "usage: versionmap validate|nsis|msix|mac <version>")
+		fmt.Fprintln(os.Stderr, "usage: versionmap validate|nsis|msix|mac|deb <version>")
 		os.Exit(2)
 	}
 	var out string
@@ -28,6 +29,8 @@ func main() {
 		out, err = relver.FileVersion(os.Args[2])
 	case "mac":
 		out, err = relver.Mac(os.Args[2])
+	case "deb":
+		out, err = relver.Deb(os.Args[2])
 	case "msix":
 		out, err = relver.MSIX(os.Args[2])
 	default:

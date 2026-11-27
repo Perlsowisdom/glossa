@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -105,5 +106,35 @@ func TestGetenvFallsBackToOldName(t *testing.T) {
 	}
 	if Getenv("GOMEMLIMIT") != os.Getenv("GOMEMLIMIT") {
 		t.Fatal("other names pass through")
+	}
+}
+
+// On Linux the library lives in the XDG config folder: $XDG_CONFIG_HOME/Glossa, or ~/.config/Glossa
+// when that is unset (os.UserConfigDir; the app and the CLI both use it with DataDir).
+func TestLinuxLibraryFolderFollowsXDGConfigHome(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("XDG folders are Linux only")
+	}
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	dir, err := os.UserConfigDir()
+	if err != nil || dir != cfg {
+		t.Fatalf("UserConfigDir = %q, %v; want %q", dir, err, cfg)
+	}
+	if got := DataDir(dir, t.Logf); got != filepath.Join(cfg, "Glossa") {
+		t.Fatalf("DataDir = %s", got)
+	}
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", home)
+	dir, err = os.UserConfigDir()
+	if err != nil || dir != filepath.Join(home, ".config") {
+		t.Fatalf("UserConfigDir = %q, %v; want ~/.config", dir, err)
+	}
+	// A folder made under the old name is carried over here too.
+	mk(t, filepath.Join(dir, "Xegesis"), "library.db", "x")
+	got := DataDir(dir, t.Logf)
+	if got != filepath.Join(home, ".config", "Glossa") || read(t, filepath.Join(got, "library.db")) != "x" {
+		t.Fatalf("DataDir = %s", got)
 	}
 }

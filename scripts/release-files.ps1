@@ -1,8 +1,10 @@
-# Makes the files of a release in build\release: the setup, the MSIX, the macOS disk image, SHA256SUMS
+# Makes the files of a release in build\release: the setup, the MSIX, the macOS disk image, the Linux .deb and .tar.gz, SHA256SUMS
 # and latest.json.
-#   scripts\release-files.ps1 -Version 1.2.3 -Setup <setup.exe> -Msix <x.msix> -Mac <x.dmg>
+#   scripts\release-files.ps1 -Version 1.2.3 -Setup <setup.exe> -Msix <x.msix> -Mac <x.dmg> -LinuxDeb <x.deb> -LinuxTar <x.tar.gz>
 # latest.json (what the app's updater reads) carries the setup's SHA-256 and our Ed25519 signature,
 # and a "mac" entry with the disk image's (offered as a download on macOS; the Mac app cannot replace itself).
+# A "linux" entry carries the .deb's (opened for a copy installed from the package; the .tar.gz is
+# only in SHA256SUMS and on the release page, and Linux cannot replace itself either).
 # The private key is read from the GLOSSA_UPDATE_KEY environment variable (a GitHub secret in CI).
 # Without it, signing is skipped with a warning and NO latest.json is written, so no update is
 # offered. The signature is checked against the public key committed in the app before it is used,
@@ -12,6 +14,8 @@ param(
   [Parameter(Mandatory)][string]$Setup,
   [string]$Msix = '',
   [string]$Mac = '',
+  [string]$LinuxDeb = '',
+  [string]$LinuxTar = '',
   [string]$OutDir = '',
   [string]$Repo = $(if ($env:GITHUB_REPOSITORY) { $env:GITHUB_REPOSITORY } else { 'Perlsowisdom/glossa' }),
   [string]$PubKeyFile = '',
@@ -25,6 +29,8 @@ New-Item -ItemType Directory -Force $OutDir | Out-Null
 $files = @(Copy-Item $Setup $OutDir -PassThru)
 if ($Msix) { $files += Copy-Item $Msix $OutDir -PassThru }
 if ($Mac) { $files += Copy-Item $Mac $OutDir -PassThru }
+if ($LinuxDeb) { $files += Copy-Item $LinuxDeb $OutDir -PassThru }
+if ($LinuxTar) { $files += Copy-Item $LinuxTar $OutDir -PassThru }
 
 $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower(), $f.Name }
 [IO.File]::WriteAllText("$OutDir\SHA256SUMS", (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
@@ -65,6 +71,17 @@ if ($Mac) {
   $macEntry = [ordered]@{ url = "https://github.com/$Repo/releases/download/v$Version/$($macFile.Name)"; sha256 = $macSha; signature = $macSig }
 }
 
+$linuxEntry = $null
+if ($LinuxDeb) {
+  $debFile = $files | Where-Object { $_.Name -eq (Split-Path $LinuxDeb -Leaf) } | Select-Object -First 1
+  $debSha = (& $tool hash $debFile.FullName).Trim()
+  $debSig = (& $tool sign -version $Version $debFile.FullName).Trim()
+  if ($LASTEXITCODE) { throw 'signing the .deb failed' }
+  & $tool verify -version $Version -pub $PubKeyFile $debFile.FullName $debSig
+  if ($LASTEXITCODE) { throw "The .deb's signature does not verify against $PubKeyFile." }
+  $linuxEntry = [ordered]@{ url = "https://github.com/$Repo/releases/download/v$Version/$($debFile.Name)"; sha256 = $debSha; signature = $debSig }
+}
+
 $manifest = [ordered]@{
   version   = $Version
   url       = "https://github.com/$Repo/releases/download/v$Version/$($setupFile.Name)"
@@ -73,5 +90,6 @@ $manifest = [ordered]@{
   notes     = if ($Notes) { $Notes } else { '' }
 }
 if ($macEntry) { $manifest['mac'] = $macEntry }
+if ($linuxEntry) { $manifest['linux'] = $linuxEntry }
 [IO.File]::WriteAllText("$OutDir\latest.json", (($manifest | ConvertTo-Json) + "`n"), (New-Object Text.UTF8Encoding $false))
 Write-Host "Wrote $OutDir\latest.json for $Version"

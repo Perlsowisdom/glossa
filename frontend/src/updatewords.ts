@@ -15,10 +15,11 @@ export interface UpdateInfo {
   newer?: boolean; // the newest version found is newer than this one
   current: string;
   key_set: boolean;
-  manual?: boolean; // macOS: the update is downloaded and installed by hand
+  manual?: boolean; // macOS and Linux: the update is downloaded and installed by hand
+  platform?: string; // with manual: "mac" or "linux", for the wording
 }
 
-// updateAction is the button for a newer version: Windows installs it, macOS opens the download.
+// updateAction is the button for a newer version: Windows installs it, macOS and Linux open the download.
 // While the build has no update key (noKey) nothing can be installed, so the button opens the download page.
 export function updateAction(manual?: boolean, noKey?: boolean): string {
   if (manual) return "Download";
@@ -40,7 +41,8 @@ export function noticeTitle(version: string, noKey?: boolean): string {
 }
 
 // noticeHelp says what the button will do.
-export function noticeHelp(manual?: boolean, noKey?: boolean): string {
+export function noticeHelp(manual?: boolean, noKey?: boolean, platform?: string): string {
+  if (manual && platform === "linux") return "Download it and install the new package (or unpack the new archive over the old one). Your library is not touched.";
   if (manual) return "Download it, open the disk image and drag Glossa to Applications. Your library is not touched.";
   if (noKey) return "Open the download page to get it. Your library is not touched.";
   return "It installs in a moment and Glossa opens again. Your library is not touched.";

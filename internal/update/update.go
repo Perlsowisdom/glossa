@@ -49,6 +49,7 @@ type Manifest struct {
 	Signature string `json:"signature" desc:"Ed25519 signature (base64) over the version and SHA-256"`
 	Notes     string `json:"notes,omitempty" desc:"What changed"`
 	Mac       *Asset `json:"mac,omitempty" desc:"The macOS disk image (offered for download; macOS builds cannot replace themselves)"`
+	Linux     *Asset `json:"linux,omitempty" desc:"The Linux .deb package (offered for download; Linux builds cannot replace themselves)"`
 }
 
 // ParseManifest reads and checks the shape of latest.json. allowHTTP is for tests.
@@ -71,7 +72,8 @@ func ParseManifest(data []byte, allowHTTP bool) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("the update manifest has no usable SHA-256 (%q)", m.SHA256)
 	}
 	m.SHA256 = strings.ToLower(m.SHA256)
-	cleanMac(&m, allowHTTP)
+	m.Mac = cleanAsset(m.Mac, allowHTTP)
+	m.Linux = cleanAsset(m.Linux, allowHTTP)
 	return m, nil
 }
 
@@ -87,9 +89,13 @@ type Config struct {
 	AllowHTTP   bool // tests only: serve from http://127.0.0.1
 	TempDir     string
 	Launch      func(installer string) error
-	// Manual is true where the app cannot replace itself (macOS, unsigned): a newer version is offered
+	// Manual is true where the app cannot replace itself (macOS, unsigned; Linux): a newer version is offered
 	// as a download that opens in the browser instead of being installed.
 	Manual bool
+	// Packaged is true on Linux when this copy was installed from the .deb (it lives under /usr).
+	Packaged bool
+	// OS replaces runtime.GOOS in tests.
+	OS string
 	// Placeholder is true while the embedded key is the placeholder: nothing can verify, so an install
 	// only offers the release page (set by DefaultConfig).
 	Placeholder bool
@@ -101,7 +107,7 @@ type Config struct {
 // DefaultConfig is the real updater: the public endpoint, the embedded key, this build's version.
 func DefaultConfig() Config {
 	key, _ := updatesig.ParsePublicKey(pubkeyText)
-	c := Config{Endpoint: DefaultEndpoint, ReleasesURL: DefaultReleasesURL, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin", Placeholder: PlaceholderKey()}
+	c := Config{Endpoint: DefaultEndpoint, ReleasesURL: DefaultReleasesURL, PubKey: key, Current: core.Version, Launch: launchInstaller, Manual: runtime.GOOS == "darwin" || runtime.GOOS == "linux", Packaged: installedFromPackage(), Placeholder: PlaceholderKey()}
 	return c.withTestServer()
 }
 

@@ -44,3 +44,22 @@ func TestMac(t *testing.T) {
 		t.Error("Mac accepted 1.2")
 	}
 }
+
+func TestDeb(t *testing.T) {
+	for in, want := range map[string]string{
+		"0.6.1":                   "0.6.1",
+		"0.6.1-alpha":             "0.6.1~alpha",
+		"0.4.0-rc.1":              "0.4.0~rc.1",
+		"1.0.0-beta-2":            "1.0.0~beta.2",
+		"0.0.0-dev+abc1234":       "0.0.0~dev+abc1234",
+		"10.20.30-beta.2+build.5": "10.20.30~beta.2+build.5",
+		"0.0.0+abc-def":           "0.0.0+abc.def",
+	} {
+		if got, err := Deb(in); err != nil || got != want {
+			t.Errorf("Deb(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	if _, err := Deb("1.2"); err == nil {
+		t.Error("Deb accepted 1.2")
+	}
+}
