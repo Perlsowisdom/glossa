@@ -244,11 +244,12 @@ function privacyPage(): PageView {
 
   // Both status commands read local settings only; neither uses the network.
   async function show() {
-    const [key, cat, ai, ccel, conns, styles, problemLog] = await Promise.all([
+    const [key, cat, ai, ccel, gut, conns, styles, problemLog] = await Promise.all([
       run<KeyStatus>("apibible.status").catch(() => null),
       run<{ enabled: boolean }>("bible.sources").catch(() => null),
       run<AssistantConfig>("assistant.config.get").catch(() => null),
       run<{ enabled: boolean; works: number }>("ccel.settings").catch(() => null),
+      run<{ enabled: boolean; works: number }>("gutenberg.settings").catch(() => null),
       run<ConnectionInfo[]>("connect.list").catch(() => [] as ConnectionInfo[]),
       run<{ enabled: boolean; sends: string }>("cite.styles_online").catch(() => null),
       run<{ enabled: boolean }>("problems.status").catch(() => null),
@@ -271,6 +272,16 @@ function privacyPage(): PageView {
             if ((await msg.attempt(() => run("ccel.settings", { enable: on }))) === undefined) return;
             // Turning it on fetches CCEL's list of books once; the cache is kept for a week.
             if (on) await msg.attempt(() => run("ccel.refresh"));
+            void show();
+          },
+        }),
+        toggleSwitch({
+          label: "Project Gutenberg (gutenberg.org)", checked: !!gut?.enabled,
+          hint: "Free public-domain books. When on, Glossa asks gutenberg.org for its catalogue file (once a week at most) and, for a book you choose, its file. " +
+            "Nothing else is sent: no account, no information about your library. Off until you turn it on.",
+          onChange: async (on) => {
+            if ((await msg.attempt(() => run("gutenberg.settings", { enable: on }))) === undefined) return;
+            if (on) await msg.attempt(() => run("gutenberg.refresh"));
             void show();
           },
         })),

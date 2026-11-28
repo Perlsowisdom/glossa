@@ -33,7 +33,8 @@ type FreeItem struct {
 	Installed    bool
 	// PD is true when the source's own record says the text is public domain (a Gutenberg book, a
 	// module with a public-domain licence). CCEL's list does not say; its rights are checked at download.
-	PD bool
+	PD   bool
+	Size int64
 }
 
 // Book is the part of a Logos book that matching uses.

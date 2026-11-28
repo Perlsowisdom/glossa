@@ -1752,6 +1752,8 @@ table.list th[aria-sort="ascending"] .th-sort, table.list th[aria-sort="descendi
 .fromlogos-table .free-cell { min-width: 14rem; }
 .fromlogos-view .row select { width: auto; min-width: 12rem; }
 .fromlogos-view .row .grow { min-width: 16rem; }
+.fromlogos-view .bulk-list { max-height: 14rem; overflow: auto; margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.fromlogos-table .other-copies { display: block; margin-top: 0.2rem; }
 
 /* Sync (Settings → Sync, the rail's sync status, the unlock prompt) */
 .sync-page { max-width: 46rem; }

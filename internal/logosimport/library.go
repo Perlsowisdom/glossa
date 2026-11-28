@@ -64,6 +64,7 @@ type FreeMatch struct {
 	Kind       string `json:"kind" desc:"bible, commentary, dictionary or book"`
 	Confidence string `json:"confidence" enum:"certain,likely" desc:"Certain when the titles are the same; likely when they are close or only the short name agrees"`
 	Installed  bool   `json:"installed" desc:"Already in Glossa"`
+	Size       int64  `json:"size,omitempty" desc:"Bytes to download, when the source says (Bible modules do; CCEL and Project Gutenberg do not until the book is chosen)"`
 }
 
 var typeLabels = []struct{ prefix, label string }{
@@ -374,6 +375,7 @@ func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 				Installed    bool   `json:"installed"`
 				Locked       bool   `json:"locked"`
 				Supported    bool   `json:"supported"`
+				Size         int64  `json:"size"`
 				Licence      struct {
 					Type string `json:"type"`
 				} `json:"licence"`
@@ -387,7 +389,7 @@ func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 				continue
 			}
 			out = append(out, FreeItem{Source: it.Source, ID: it.ID, Name: it.Name, Abbreviation: it.Abbreviation,
-				About: it.About, Language: it.Language, Kind: it.Kind, Installed: it.Installed, PD: it.Licence.Type == "public_domain"})
+				About: it.About, Language: it.Language, Kind: it.Kind, Installed: it.Installed, PD: it.Licence.Type == "public_domain", Size: it.Size})
 		}
 	}
 	out = append(out, s.ccelItems(ctx, env)...)
@@ -505,7 +507,7 @@ func (b LibraryBook) sameAs(o LibraryBook) bool {
 }
 
 func freeMatch(m Match) *FreeMatch {
-	return &FreeMatch{Source: m.Item.Source, Item: m.Item.ID, Name: m.Item.Name, Kind: m.Item.Kind, Confidence: m.Confidence, Installed: m.Item.Installed}
+	return &FreeMatch{Source: m.Item.Source, Item: m.Item.ID, Name: m.Item.Name, Kind: m.Item.Kind, Confidence: m.Confidence, Installed: m.Item.Installed, Size: m.Item.Size}
 }
 
 func (s *service) library(ctx context.Context, env *command.Env, p LibraryParams) (LibraryResult, error) {
