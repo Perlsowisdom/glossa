@@ -97,6 +97,8 @@ func Explain(err error) string {
 		return "Any did not accept that code. Check the 4 digits Any is showing, or start again."
 	case errors.Is(err, ErrNotFound):
 		return "Any has no such page or space. It may have been deleted."
+	case errors.Is(err, ErrConflict):
+		return "That page changed in Any since Glossa read it. Try again."
 	case errors.Is(err, ErrRateLimited):
 		return "Any asked Glossa to slow down. Try again in a minute."
 	case errors.Is(err, ErrBadAddress):

@@ -6,13 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"reflect"
-	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"go.uber.org/goleak"
@@ -33,240 +29,6 @@ const (
 	spaceA    = "space-a"
 	spaceB    = "space-b"
 )
-
-type obj struct {
-	ID, Space, Name, Markdown string
-	Props                     map[string]string
-	Rev                       int
-	Archived                  bool
-}
-
-// fakeAny serves the part of Any's local API Glossa uses, and records what it was asked.
-type fakeAny struct {
-	t    *testing.T
-	srv  *httptest.Server
-	mu   sync.Mutex
-	reqs []string
-	hdrs []http.Header
-
-	objs    map[string]*obj
-	props   map[string]bool // "space/key"
-	nextID  int
-	rev     int
-	pageCap int // the most items a listing returns, whatever limit is asked
-	badKey  bool
-	noKey   bool // Any asks for no key at all
-	noProps bool // refuses to create properties
-	// the heading Any puts at the top of the text, as some versions might
-	titleHeading bool
-}
-
-func newFake(t *testing.T) *fakeAny {
-	f := &fakeAny{t: t, objs: map[string]*obj{}, props: map[string]bool{}, pageCap: 100}
-	f.srv = httptest.NewServer(http.HandlerFunc(f.handle))
-	t.Cleanup(f.srv.Close)
-	return f
-}
-
-func (f *fakeAny) seen() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return append([]string(nil), f.reqs...)
-}
-
-func (f *fakeAny) tick() string {
-	f.rev++
-	return fmt.Sprintf("2026-01-01T00:%02d:%02dZ", f.rev/60, f.rev%60)
-}
-
-func (f *fakeAny) wire(o *obj, body bool) map[string]any {
-	m := map[string]any{"id": o.ID, "space_id": o.Space, "name": o.Name, "archived": o.Archived, "type": map[string]any{"key": "page"},
-		"snippet": o.Markdown}
-	props := []map[string]any{{"key": "last_modified_date", "date": fmt.Sprintf("2026-01-01T00:%02d:%02dZ", o.Rev/60, o.Rev%60)}}
-	for k, v := range o.Props {
-		props = append(props, map[string]any{"key": k, "text": v})
-	}
-	m["properties"] = props
-	if body {
-		md := o.Markdown
-		if f.titleHeading {
-			md = "# " + o.Name + "\n\n" + md
-		}
-		m["markdown"] = md
-	}
-	return m
-}
-
-func (f *fakeAny) page(w http.ResponseWriter, r *http.Request, items []any) {
-	off, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	lim, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if lim <= 0 || lim > f.pageCap {
-		lim = f.pageCap
-	}
-	end := min(off+lim, len(items))
-	if off > end {
-		off = end
-	}
-	json.NewEncoder(w).Encode(map[string]any{"data": items[off:end],
-		"pagination": map[string]any{"total": len(items), "offset": off, "limit": lim, "has_more": end < len(items)}})
-}
-
-func (f *fakeAny) handle(w http.ResponseWriter, r *http.Request) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.reqs = append(f.reqs, r.Method+" "+r.URL.Path)
-	f.hdrs = append(f.hdrs, r.Header.Clone())
-	w.Header().Set("Content-Type", "application/json")
-	fail := func(code int, msg string) {
-		w.WriteHeader(code)
-		json.NewEncoder(w).Encode(map[string]any{"object": "error", "status": code, "message": msg})
-	}
-	if r.Header.Get("Anytype-Version") != APIVersion {
-		{
-			fail(400, "missing or wrong Anytype-Version")
-			return
-		}
-	}
-	p := r.URL.Path
-	var in map[string]any
-	if r.Body != nil {
-		json.NewDecoder(r.Body).Decode(&in)
-	}
-	switch {
-	case p == "/v1/auth/challenges" && r.Method == "POST":
-		if in["app_name"] == "" {
-			{
-				fail(400, "app_name")
-				return
-			}
-		}
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"challenge_id": "chal-1"})
-		return
-	case p == "/v1/auth/api_keys" && r.Method == "POST":
-		if in["challenge_id"] != "chal-1" || in["code"] != goodCode {
-			{
-				fail(400, "wrong code")
-				return
-			}
-		}
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"api_key": secretKey})
-		return
-	}
-	if !f.noKey && (f.badKey || r.Header.Get("Authorization") != "Bearer "+secretKey) {
-		{
-			fail(401, "unauthorized")
-			return
-		}
-	}
-	switch {
-	case p == "/v1/spaces" && r.Method == "GET":
-		f.page(w, r, []any{map[string]any{"id": spaceA, "name": "Study"}, map[string]any{"id": spaceB, "name": "Church"}})
-	case strings.HasSuffix(p, "/properties") && r.Method == "GET":
-		space := strings.Split(p, "/")[3]
-		var items []any
-		for k := range f.props {
-			if s, key, _ := strings.Cut(k, "/"); s == space {
-				items = append(items, map[string]any{"key": key})
-			}
-		}
-		f.page(w, r, items)
-	case strings.HasSuffix(p, "/properties") && r.Method == "POST":
-		if f.noProps {
-			{
-				fail(500, "no")
-				return
-			}
-		}
-		f.props[strings.Split(p, "/")[3]+"/"+in["key"].(string)] = true
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"property": map[string]any{"key": in["key"]}})
-	case strings.HasSuffix(p, "/search") && r.Method == "POST":
-		space := strings.Split(p, "/")[3]
-		q, _ := in["query"].(string)
-		var list []*obj
-		for _, o := range f.objs {
-			if o.Space == space && (q == "" || strings.Contains(strings.ToLower(o.Name+" "+o.Markdown), strings.ToLower(q))) {
-				list = append(list, o)
-			}
-		}
-		sort.Slice(list, func(i, j int) bool { return list[i].Rev > list[j].Rev })
-		items := make([]any, len(list))
-		for i, o := range list {
-			items[i] = f.wire(o, false)
-		}
-		f.page(w, r, items)
-	case strings.HasSuffix(p, "/objects") && r.Method == "POST":
-		space := strings.Split(p, "/")[3]
-		f.nextID++
-		o := &obj{ID: "obj-" + strconv.Itoa(f.nextID), Space: space, Props: map[string]string{}}
-		f.apply(o, in, "body")
-		f.objs[o.ID] = o
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"object": f.wire(o, true)})
-	case strings.Contains(p, "/objects/"):
-		parts := strings.Split(p, "/")
-		o := f.objs[parts[5]]
-		if o == nil || o.Space != parts[3] {
-			{
-				fail(404, "not found")
-				return
-			}
-		}
-		if r.Method == "GET" {
-			json.NewEncoder(w).Encode(map[string]any{"object": f.wire(o, true)})
-		} else if r.Method == "PATCH" {
-			f.apply(o, in, "markdown")
-			json.NewEncoder(w).Encode(map[string]any{"object": f.wire(o, true)})
-		} else {
-			fail(405, "method")
-		}
-	default:
-		fail(404, "no route "+p)
-	}
-}
-
-func (f *fakeAny) apply(o *obj, in map[string]any, bodyField string) {
-	if n, ok := in["name"].(string); ok {
-		o.Name = n
-	}
-	if b, ok := in[bodyField].(string); ok {
-		o.Markdown = b
-	}
-	if ps, ok := in["properties"].([]any); ok {
-		for _, p := range ps {
-			m := p.(map[string]any)
-			if !f.props[o.Space+"/"+m["key"].(string)] {
-				f.t.Errorf("property %v set before it was made", m["key"])
-			}
-			o.Props[m["key"].(string)] = m["text"].(string)
-		}
-	}
-	f.tick()
-	o.Rev = f.rev
-}
-
-// edit changes a page the way the person would in Any.
-func (f *fakeAny) edit(id, name, markdown string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	o := f.objs[id]
-	o.Name, o.Markdown = name, markdown
-	f.tick()
-	o.Rev = f.rev
-}
-
-func (f *fakeAny) add(space, name, markdown string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.nextID++
-	o := &obj{ID: "obj-" + strconv.Itoa(f.nextID), Space: space, Name: name, Markdown: markdown, Props: map[string]string{}}
-	f.tick()
-	o.Rev = f.rev
-	f.objs[o.ID] = o
-	return o.ID
-}
 
 // rig ---------------------------------------------------------------------------------------------
 
@@ -450,17 +212,12 @@ func TestPairingWrongCodeAndKeyHandling(t *testing.T) {
 	}
 }
 
-func TestEveryRequestCarriesTheVersionAndKey(t *testing.T) {
+func TestEveryRequestCarriesTheKeyOnlyWhenSaved(t *testing.T) {
 	g := newRig(t)
 	g.paired()
 	g.must("any.spaces", struct{}{}, nil)
 	g.fake.mu.Lock()
 	defer g.fake.mu.Unlock()
-	for i, h := range g.fake.hdrs {
-		if h.Get("Anytype-Version") != "2025-11-08" {
-			t.Errorf("request %d: version %q", i, h.Get("Anytype-Version"))
-		}
-	}
 	if last := g.fake.hdrs[len(g.fake.hdrs)-1]; last.Get("Authorization") != "Bearer "+secretKey {
 		t.Errorf("authorization = %q", last.Get("Authorization"))
 	}
@@ -482,10 +239,9 @@ func TestOnlyThisComputer(t *testing.T) {
 	}
 }
 
-func TestSpacesDefaultAndPaging(t *testing.T) {
+func TestSpacesAndDefault(t *testing.T) {
 	g := newRig(t)
 	g.paired()
-	g.fake.pageCap = 1 // Any hands out one space at a time
 	var sp SpacesResult
 	g.must("any.spaces", struct{}{}, &sp)
 	if len(sp.Spaces) != 2 || sp.Default != "" {
@@ -564,11 +320,11 @@ func TestSendNoteThenUpdateWithoutDuplicate(t *testing.T) {
 	}
 	var r SyncResult
 	g.must("any.send", SendParams{Kind: "note", ID: id}, &r)
-	if r.State != "created" || r.ObjectID == "" || !r.Passages {
+	if r.State != "created" || r.ObjectID == "" {
 		t.Fatalf("first send: %+v", r)
 	}
 	o := g.fake.objs[r.ObjectID]
-	if o.Name != "Romans 8" || o.Markdown != "# Hope\n\nNo condemnation." || !strings.Contains(o.Props[passagesKey], "Romans 8:1") {
+	if o.Name != "Romans 8" || o.Markdown != "# Hope\n\nNo condemnation." {
 		t.Fatalf("page = %+v", o)
 	}
 	// Nothing changed: nothing is sent.
@@ -578,7 +334,7 @@ func TestSendNoteThenUpdateWithoutDuplicate(t *testing.T) {
 		t.Fatalf("resend unchanged: %+v", r)
 	}
 	for _, q := range g.fake.seen()[before:] {
-		if strings.HasPrefix(q, "PATCH") || strings.HasPrefix(q, "POST") {
+		if strings.HasPrefix(q, "PUT") || strings.HasPrefix(q, "POST") {
 			t.Fatalf("an unchanged note was written: %s", q)
 		}
 	}
@@ -614,24 +370,9 @@ func TestSendSermonWithPassages(t *testing.T) {
 	if r.State != "created" || o.Space != spaceB || o.Name != "Grace alone" || o.Markdown != "Saved by grace." {
 		t.Fatalf("%+v %+v", r, o)
 	}
-	if p := o.Props[passagesKey]; !strings.Contains(p, "Ephesians 2:8-10") || !strings.Contains(p, "; ") || !strings.Contains(p, "Romans 3:24") {
-		t.Fatalf("passages = %q", p)
-	}
 	g.must("document.update", map[string]any{"id": d.ID, "body": "Saved by grace, through faith."}, nil)
 	g.must("any.send", SendParams{Kind: "sermon", ID: d.ID}, &r)
 	if r.State != "updated" || len(g.fake.objs) != 1 {
-		t.Fatalf("%+v", r)
-	}
-}
-
-func TestPassagesPropertyRefusedStillSends(t *testing.T) {
-	g := newRig(t)
-	g.paired()
-	g.fake.noProps = true
-	id := g.note("N", "text", "John 3:16")
-	var r SyncResult
-	g.must("any.send", SendParams{Kind: "note", ID: id, SpaceID: spaceA}, &r)
-	if r.State != "created" || r.Passages || g.fake.objs[r.ObjectID].Markdown != "text" {
 		t.Fatalf("%+v", r)
 	}
 }
@@ -699,7 +440,7 @@ func TestBothChangedAsksAndChangesNothing(t *testing.T) {
 		t.Fatal("something was overwritten")
 	}
 	for _, q := range g.fake.seen()[before:] {
-		if strings.HasPrefix(q, "PATCH") {
+		if strings.HasPrefix(q, "PUT") {
 			t.Fatalf("wrote while asking: %s", q)
 		}
 	}
@@ -849,3 +590,21 @@ func TestUnknownKindAndResolve(t *testing.T) {
 }
 
 var _ = store.ByID
+
+func TestSendUpdateConflictAsksToTryAgain(t *testing.T) {
+	g := newRig(t)
+	g.paired()
+	id := g.note("T", "one", "")
+	var r SyncResult
+	g.must("any.send", SendParams{Kind: "note", ID: id, SpaceID: spaceA}, &r)
+	g.setNote(id, "T", "two")
+	g.fake.conflictNext = true
+	err := g.run("any.send", SendParams{Kind: "note", ID: id}, &r)
+	if code(err) != "conflict" || !strings.Contains(err.Error(), "changed in Any") || !strings.Contains(err.Error(), "Try again") {
+		t.Fatalf("%v", err)
+	}
+	g.must("any.send", SendParams{Kind: "note", ID: id}, &r)
+	if r.State != "updated" || g.fake.objs[r.ObjectID].Markdown != "two" {
+		t.Fatalf("%+v", r)
+	}
+}

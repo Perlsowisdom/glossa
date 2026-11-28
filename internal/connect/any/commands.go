@@ -27,7 +27,7 @@ func (c *Conn) Register(r *command.Registry, svc *connect.Service) {
 		command.Define("any.set_space", "Choose the space Glossa sends to and imports from by default.", true, s.setSpace),
 		command.Define("any.pages", "List the pages in an Any space, newest change first, a page of results at a time. Marks the pages already linked to a note or sermon.", false, s.pages),
 		command.Define("any.search", "Search the pages in an Any space by words in their title or text.", false, s.search),
-		command.Define("any.send", "Send a note or sermon to Any as a page, with its text as Markdown and its passages as a property. Sending again updates the same page. When both sides changed, nothing is changed: the result says both_changed, and you call again with resolve.", true, s.send),
+		command.Define("any.send", "Send a note or sermon to Any as a page, with its text as Markdown. Sending again updates the same page. When both sides changed, nothing is changed: the result says both_changed, and you call again with resolve.", true, s.send),
 		command.Define("any.import", "Bring a page from Any in as a new note, or update the note it was imported to before. When both sides changed, nothing is changed: the result says both_changed, and you call again with resolve.", true, s.importPage),
 		command.Define("any.sync_status", "Say whether a note or sermon is linked to a page in Any, and whether either side has changed since. Without check it never uses the network.", false, s.syncStatus),
 	)
@@ -46,6 +46,8 @@ func fail(err error) error {
 		return err
 	case errors.Is(err, ErrNotFound):
 		return command.Errorf("not_found", "%s", Explain(err))
+	case errors.Is(err, ErrConflict):
+		return command.Errorf("conflict", "%s", Explain(err))
 	case errors.Is(err, ErrNotPaired), errors.Is(err, ErrKeyRejected):
 		return command.Errorf("not_paired", "%s", Explain(err))
 	case errors.Is(err, ErrNotLocal):

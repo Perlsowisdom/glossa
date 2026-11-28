@@ -1,10 +1,9 @@
-// Package anyapp connects Glossa to Any (the Any app, formerly Anytype) through the app's local API
-// on this computer: send a note or sermon to a space as a page, and bring a page in as a note. It
-// never talks to anything but the Any app on this computer, and only after the person turns it on.
+// Package anyapp connects Glossa to Any (the Any app) through the app's local API on this computer:
+// send a note or sermon to a space as a page, and bring a page in as a note. It never talks to
+// anything but the Any app on this computer, and only after the person turns it on.
 //
-// Written from Any's public developer documentation and its OpenAPI description
-// (https://developers.anytype.io, https://github.com/anyproto/anytype-api, API version 2025-11-08).
-// No code from the Any apps themselves was read or used.
+// Written from the OpenAPI description the Any app publishes about itself ("Any API 1.0", served at
+// /v1/openapi.json); see docs/sources/any-api.md. No code from the Any apps was read or used.
 package anyapp
 
 import (
@@ -17,24 +16,25 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 )
 
 const (
 	// DefaultURL is where the Any app listens for other programs on this computer.
 	DefaultURL = "http://127.0.0.1:31310"
-	// FallbackURL is the port Anytype's own API uses; Glossa tries it after DefaultURL.
+	// FallbackURL is the other port Glossa tries after DefaultURL.
 	FallbackURL = "http://127.0.0.1:31009"
-	// APIVersion is the dated version of Any's API this code was written against. Any wants it in
-	// the Anytype-Version header of every request.
-	APIVersion = "2025-11-08"
 
 	appName  = "Glossa"
 	maxBody  = 32 << 20
 	pageSize = 100
-	maxPages = 50 // a guard: 5,000 spaces or pages in one listing is far more than anyone has
+
+	// bodyCollection is the editor collection that holds a page's text.
+	bodyCollection = "editor_blocks"
 )
 
 // Errors a caller can act on.
@@ -44,6 +44,7 @@ var (
 	ErrKeyRejected = errors.New("any: Any no longer accepts Glossa's key")
 	ErrBadCode     = errors.New("any: Any did not accept that code")
 	ErrNotFound    = errors.New("any: no such page or space")
+	ErrConflict    = errors.New("any: the page changed in Any since Glossa read it")
 	ErrRateLimited = errors.New("any: Any asked to slow down")
 	ErrNotLocal    = errors.New("any: the address is not on this computer")
 )
@@ -51,6 +52,7 @@ var (
 // APIError is any other failure Any reported.
 type APIError struct {
 	Status  int
+	Code    string
 	Message string
 }
 
@@ -62,6 +64,9 @@ func (e *APIError) Error() string {
 type Client struct {
 	Root string
 	HTTP *http.Client
+
+	mu    sync.Mutex
+	types map[string]string // space id -> id of its page type, for this session
 }
 
 // NewClient makes a client. root must be an address on this computer: Glossa never sends anything
@@ -92,44 +97,68 @@ type Page struct {
 	Snippet  string `json:"snippet,omitempty"`
 	Markdown string `json:"markdown,omitempty"`
 	Type     string `json:"type,omitempty"`
-	Modified string `json:"modified,omitempty"` // the last-modified time as Any gave it
+	Modified string `json:"modified,omitempty"` // the last-change time as Any gave it
 	Archived bool   `json:"archived,omitempty"`
+	Version  string `json:"-"` // the text's version, for the next write
 }
 
-// wire shapes -------------------------------------------------------------------------------------
+// record helpers ----------------------------------------------------------------------------------
 
-type wireProp struct {
-	Key  string `json:"key"`
-	Date string `json:"date,omitempty"`
-	Text string `json:"text,omitempty"`
-}
+// A record is an object's row. The built-in values sit under the owner "any" (any.name, any.type,
+// any.collections). Both the nested form and the dotted key are read.
+type record map[string]any
 
-type wireObject struct {
-	ID         string     `json:"id"`
-	SpaceID    string     `json:"space_id"`
-	Name       string     `json:"name"`
-	Snippet    string     `json:"snippet"`
-	Markdown   string     `json:"markdown"`
-	Archived   bool       `json:"archived"`
-	Properties []wireProp `json:"properties"`
-	Type       struct {
-		Key string `json:"key"`
-	} `json:"type"`
-}
-
-func (w wireObject) page() Page {
-	p := Page{ID: w.ID, SpaceID: w.SpaceID, Name: w.Name, Snippet: w.Snippet, Markdown: w.Markdown, Type: w.Type.Key, Archived: w.Archived}
-	for _, pr := range w.Properties {
-		if pr.Key == "last_modified_date" {
-			p.Modified = pr.Date
+func (r record) get(owner, name string) any {
+	if m, ok := r[owner].(map[string]any); ok {
+		if v, ok := m[name]; ok {
+			return v
 		}
 	}
-	return p
+	return r[owner+"."+name]
 }
 
-type pageMeta struct {
-	Total   int  `json:"total"`
-	HasMore bool `json:"has_more"`
+func text(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case float64:
+		return strconv.FormatInt(int64(x), 10)
+	}
+	return ""
+}
+
+func (r record) name() string { return strings.TrimSpace(text(r.get("any", "name"))) }
+func (r record) typ() string  { return text(r.get("any", "type")) }
+
+// modified is the last change: the first of the usual time fields the row has.
+func (r record) modified() string {
+	for _, k := range []string{"modifiedAt", "updatedAt"} {
+		if s := text(r[k]); s != "" {
+			return s
+		}
+		if s := text(r.get("any", k)); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// gone is true for a page in the bin or one marked deleted: Glossa treats both as not there.
+func (r record) gone() bool {
+	if _, ok := r["_deletedAt"]; ok {
+		return true
+	}
+	cols, _ := r.get("any", "collections").([]any)
+	for _, c := range cols {
+		if c == "bin" {
+			return true
+		}
+	}
+	return false
+}
+
+func (r record) page(space, id string) Page {
+	return Page{ID: id, SpaceID: space, Name: r.name(), Type: r.typ(), Modified: r.modified(), Archived: r.gone()}
 }
 
 // request -----------------------------------------------------------------------------------------
@@ -147,7 +176,6 @@ func (c *Client) do(ctx context.Context, method, path, key string, in, out any) 
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Anytype-Version", APIVersion)
 	req.Header.Set("Accept", "application/json")
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -195,11 +223,20 @@ func notRunning(err error) bool {
 	return errors.Is(err, syscall.ECONNREFUSED) || (errors.As(err, &op) && op.Op == "dial")
 }
 
+// statusError reads Any's error envelope, {"error": {"code", "message"}}.
 func statusError(status int, raw []byte, hadKey bool) error {
 	var e struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 		Message string `json:"message"`
 	}
 	json.Unmarshal(raw, &e)
+	msg := e.Error.Message
+	if msg == "" {
+		msg = e.Message
+	}
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
 		if hadKey {
@@ -210,28 +247,39 @@ func statusError(status int, raw []byte, hadKey bool) error {
 		return ErrNotFound
 	case http.StatusTooManyRequests:
 		return ErrRateLimited
+	case http.StatusConflict:
+		if strings.HasPrefix(e.Error.Code, "markdown.conflict") {
+			return ErrConflict
+		}
 	}
-	return &APIError{Status: status, Message: e.Message}
+	return &APIError{Status: status, Code: e.Error.Code, Message: msg}
 }
 
 // Probe asks Any a cheap question with no side effects and no key, and returns the status it
-// answered with, or ErrNotRunning when nothing there answers like Any (200, or 401 or 403 when Any
-// wants a key). It is how Glossa finds out where Any is and whether it asks for a key.
+// answered with, or ErrNotRunning when nothing there answers like Any: 200 with a list of spaces, or
+// 401 or 403 when Any refuses Glossa. It is how Glossa finds out where Any is.
 func (c *Client) Probe(ctx context.Context) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.Root+"/v1/spaces?limit=1", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", c.Root+"/v1/spaces", nil)
 	if err != nil {
 		return 0, err
 	}
-	req.Header.Set("Anytype-Version", APIVersion)
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
 		return 0, ErrNotRunning
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	switch resp.StatusCode {
-	case http.StatusOK, http.StatusUnauthorized, http.StatusForbidden:
+	case http.StatusOK:
+		var r struct {
+			Spaces *[]json.RawMessage `json:"spaces"`
+		}
+		if json.Unmarshal(raw, &r) != nil || r.Spaces == nil {
+			return 0, ErrNotRunning // some other program answered
+		}
+		return resp.StatusCode, nil
+	case http.StatusUnauthorized, http.StatusForbidden:
 		return resp.StatusCode, nil
 	}
 	return 0, ErrNotRunning
@@ -274,28 +322,63 @@ func (c *Client) FinishPairing(ctx context.Context, challenge, code string) (str
 
 // reading -----------------------------------------------------------------------------------------
 
-func paged(offset int) string {
-	return "offset=" + strconv.Itoa(offset) + "&limit=" + strconv.Itoa(pageSize)
+// Spaces lists the spaces in use (Any leaves out deleted ones unless asked).
+func (c *Client) Spaces(ctx context.Context, key string) ([]Space, error) {
+	var r struct {
+		Spaces []Space `json:"spaces"`
+	}
+	if err := c.do(ctx, "GET", "/v1/spaces", key, nil, &r); err != nil {
+		return nil, err
+	}
+	if r.Spaces == nil {
+		r.Spaces = []Space{}
+	}
+	return r.Spaces, nil
 }
 
-// Spaces lists every space, following the paging.
-func (c *Client) Spaces(ctx context.Context, key string) ([]Space, error) {
-	out := []Space{}
-	for i, offset := 0, 0; i < maxPages; i++ {
-		var r struct {
-			Data       []Space  `json:"data"`
-			Pagination pageMeta `json:"pagination"`
-		}
-		if err := c.do(ctx, "GET", "/v1/spaces?"+paged(offset), key, nil, &r); err != nil {
-			return nil, err
-		}
-		out = append(out, r.Data...)
-		if !r.Pagination.HasMore || len(r.Data) == 0 {
+func spacePath(space string) string { return "/v1/spaces/" + url.PathEscape(space) }
+
+// pageType finds the id of the page type in a space: the type whose xKey is "page", else the one
+// named Page. It is remembered per space for this session. Any calls a plain document "page", so that
+// is the answer when the list has neither.
+func (c *Client) pageType(ctx context.Context, key, space string) (string, error) {
+	c.mu.Lock()
+	id, ok := c.types[space]
+	c.mu.Unlock()
+	if ok {
+		return id, nil
+	}
+	var r struct {
+		Types []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			XKey string `json:"xKey"`
+		} `json:"types"`
+	}
+	if err := c.do(ctx, "GET", spacePath(space)+"/types", key, nil, &r); err != nil {
+		return "", err
+	}
+	id = "page"
+	byName, found := "", false
+	for _, t := range r.Types {
+		if t.XKey == "page" {
+			id, found = t.ID, true
 			break
 		}
-		offset += len(r.Data)
+		if byName == "" && strings.EqualFold(t.Name, "page") {
+			byName = t.ID
+		}
 	}
-	return out, nil
+	if !found && byName != "" {
+		id = byName
+	}
+	c.mu.Lock()
+	if c.types == nil {
+		c.types = map[string]string{}
+	}
+	c.types[space] = id
+	c.mu.Unlock()
+	return id, nil
 }
 
 // PagesResult is one page of a listing.
@@ -305,116 +388,180 @@ type PagesResult struct {
 	NextOffset int // 0 on the last page
 }
 
-// Pages lists or searches the pages of one space, newest change first.
+// Pages lists or searches the pages of one space. A listing is newest change first. A search gives the
+// best matches Any returns, up to 100, in its own order.
 func (c *Client) Pages(ctx context.Context, key, space, query string, offset, limit int) (PagesResult, error) {
 	if limit <= 0 || limit > pageSize {
 		limit = pageSize
 	}
-	body := map[string]any{"query": query, "types": []string{"page"},
-		"sort": map[string]string{"property_key": "last_modified_date", "direction": "desc"}}
-	var r struct {
-		Data       []wireObject `json:"data"`
-		Pagination pageMeta     `json:"pagination"`
-	}
-	path := fmt.Sprintf("/v1/spaces/%s/search?offset=%d&limit=%d", url.PathEscape(space), offset, limit)
-	if err := c.do(ctx, "POST", path, key, body, &r); err != nil {
+	typ, err := c.pageType(ctx, key, space)
+	if err != nil {
 		return PagesResult{}, err
 	}
-	res := PagesResult{Total: r.Pagination.Total}
-	for _, w := range r.Data {
-		if !w.Archived {
-			res.Pages = append(res.Pages, w.page())
-		}
+	if strings.TrimSpace(query) != "" {
+		return c.searchPages(ctx, key, space, typ, query, offset, limit)
 	}
-	if r.Pagination.HasMore && len(r.Data) > 0 {
-		res.NextOffset = offset + len(r.Data)
+	body := map[string]any{"filter": map[string]any{"any.type": typ}, "sort": []string{"-modifiedAt"},
+		"limit": limit, "offset": offset, "includeTotal": true}
+	var r struct {
+		Records []record `json:"records"`
+		Total   int      `json:"total"`
+		HasNext bool     `json:"hasNext"`
+	}
+	path := spacePath(space) + "/objects/query"
+	err = c.do(ctx, "POST", path, key, body, &r)
+	var ae *APIError
+	if errors.As(err, &ae) && ae.Status == http.StatusBadRequest {
+		// The app did not take the sort: ask again without it and sort here.
+		delete(body, "sort")
+		err = c.do(ctx, "POST", path, key, body, &r)
+	}
+	if err != nil {
+		return PagesResult{}, err
+	}
+	res := PagesResult{Total: r.Total}
+	for _, rec := range r.Records {
+		id := text(rec["id"])
+		if id == "" || rec.gone() {
+			continue
+		}
+		res.Pages = append(res.Pages, rec.page(space, id))
+	}
+	sort.SliceStable(res.Pages, func(i, j int) bool { return res.Pages[i].Modified > res.Pages[j].Modified })
+	if r.HasNext && len(r.Records) > 0 {
+		res.NextOffset = offset + len(r.Records)
 	}
 	return res, nil
 }
 
-func objectPath(space, id string) string {
-	return "/v1/spaces/" + url.PathEscape(space) + "/objects/" + url.PathEscape(id)
+func (c *Client) searchPages(ctx context.Context, key, space, typ, query string, offset, limit int) (PagesResult, error) {
+	body := map[string]any{"query": query, "limit": min(offset+limit, pageSize), "filter": map[string]any{"any.type": typ}}
+	var r struct {
+		Hits []struct {
+			ObjectID string `json:"objectId"`
+			Data     string `json:"data"`
+		} `json:"hits"`
+	}
+	if err := c.do(ctx, "POST", spacePath(space)+"/search", key, body, &r); err != nil {
+		return PagesResult{}, err
+	}
+	var pages []Page
+	seen := map[string]bool{}
+	for _, h := range r.Hits {
+		if h.ObjectID == "" || seen[h.ObjectID] {
+			continue
+		}
+		seen[h.ObjectID] = true
+		rec, err := c.record(ctx, key, space, h.ObjectID)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return PagesResult{}, err
+		}
+		if rec.gone() {
+			continue
+		}
+		p := rec.page(space, h.ObjectID)
+		p.Snippet = strings.TrimSpace(h.Data)
+		pages = append(pages, p)
+	}
+	res := PagesResult{Total: len(pages)}
+	if offset >= len(pages) {
+		return res, nil
+	}
+	pages = pages[offset:]
+	if len(pages) > limit {
+		pages, res.NextOffset = pages[:limit], offset+limit
+	}
+	res.Pages = pages
+	return res, nil
+}
+
+func objectPath(space, id string) string { return spacePath(space) + "/objects/" + url.PathEscape(id) }
+
+func (c *Client) record(ctx context.Context, key, space, id string) (record, error) {
+	var r struct {
+		Record record `json:"record"`
+	}
+	if err := c.do(ctx, "GET", objectPath(space, id), key, nil, &r); err != nil {
+		return nil, err
+	}
+	if r.Record == nil {
+		r.Record = record{}
+	}
+	return r.Record, nil
+}
+
+func (c *Client) markdown(ctx context.Context, key, space, id string) (content, version string, err error) {
+	var r struct {
+		Content string `json:"content"`
+		Version string `json:"version"`
+	}
+	err = c.do(ctx, "GET", objectPath(space, id)+"/editor/"+bodyCollection+"/markdown", key, nil, &r)
+	if errors.Is(err, ErrNotFound) {
+		return "", "", nil // an object that has no text yet
+	}
+	return r.Content, r.Version, err
 }
 
 // Get fetches one page with its text as Markdown.
 func (c *Client) Get(ctx context.Context, key, space, id string) (Page, error) {
-	var r struct {
-		Object wireObject `json:"object"`
-	}
-	if err := c.do(ctx, "GET", objectPath(space, id)+"?format=md", key, nil, &r); err != nil {
+	rec, err := c.record(ctx, key, space, id)
+	if err != nil {
 		return Page{}, err
 	}
-	p := r.Object.page()
+	p := rec.page(space, id)
 	if p.Archived {
 		return Page{}, ErrNotFound
 	}
-	if p.SpaceID == "" {
-		p.SpaceID = space
-	}
-	return p, nil
+	p.Markdown, p.Version, err = c.markdown(ctx, key, space, id)
+	return p, err
 }
 
 // writing -----------------------------------------------------------------------------------------
 
-// Prop is a text property to set on a page.
-type Prop struct{ Key, Text string }
-
-func wireProps(ps []Prop) []map[string]string {
-	out := make([]map[string]string, 0, len(ps))
-	for _, p := range ps {
-		out = append(out, map[string]string{"key": p.Key, "text": p.Text})
+func (c *Client) putMarkdown(ctx context.Context, key, space, id, markdown, version string) error {
+	body := map[string]any{"content": markdown}
+	if version != "" {
+		body["ifVersion"] = version
 	}
-	return out
+	return c.do(ctx, "PUT", objectPath(space, id)+"/editor/"+bodyCollection+"/markdown", key, body, nil)
 }
 
-// Create makes a new page and returns it.
-func (c *Client) Create(ctx context.Context, key, space, name, markdown string, props []Prop) (Page, error) {
-	body := map[string]any{"type_key": "page", "name": name, "body": markdown}
-	if len(props) > 0 {
-		body["properties"] = wireProps(props)
-	}
-	var r struct {
-		Object wireObject `json:"object"`
-	}
-	if err := c.do(ctx, "POST", "/v1/spaces/"+url.PathEscape(space)+"/objects", key, body, &r); err != nil {
+// Create makes a new page with a name and a Markdown body and returns it.
+func (c *Client) Create(ctx context.Context, key, space, name, markdown string) (Page, error) {
+	typ, err := c.pageType(ctx, key, space)
+	if err != nil {
 		return Page{}, err
 	}
-	return r.Object.page(), nil
+	body := map[string]any{"type": typ, "initialProperties": map[string]any{"any": map[string]any{"name": name}}}
+	var r struct {
+		ObjectID string `json:"objectId"`
+	}
+	if err := c.do(ctx, "POST", spacePath(space)+"/objects", key, body, &r); err != nil {
+		return Page{}, err
+	}
+	if r.ObjectID == "" {
+		return Page{}, errors.New("any: the app did not say which page it made")
+	}
+	if strings.TrimSpace(markdown) != "" {
+		if err := c.putMarkdown(ctx, key, space, r.ObjectID, markdown, ""); err != nil {
+			return Page{}, err
+		}
+	}
+	return Page{ID: r.ObjectID, SpaceID: space, Name: name, Markdown: markdown, Type: typ}, nil
 }
 
-// Update changes a page's name, text and properties.
-func (c *Client) Update(ctx context.Context, key, space, id, name, markdown string, props []Prop) error {
-	body := map[string]any{"name": name, "markdown": markdown}
-	if len(props) > 0 {
-		body["properties"] = wireProps(props)
+// Update replaces a page's text. It reads the text's version first and sends it back, so a change
+// made in Any in between is not overwritten: that is ErrConflict.
+//
+// The description gives no address that renames a page, so the name is set when the page is made and
+// not changed here.
+func (c *Client) Update(ctx context.Context, key, space, id, markdown string) error {
+	_, version, err := c.markdown(ctx, key, space, id)
+	if err != nil {
+		return err
 	}
-	return c.do(ctx, "PATCH", objectPath(space, id), key, body, nil)
-}
-
-// EnsureProperty finds a text property by key in a space, making it when it is not there, and
-// returns whether it is usable.
-func (c *Client) EnsureProperty(ctx context.Context, key, space, propKey, name string) (bool, error) {
-	base := "/v1/spaces/" + url.PathEscape(space) + "/properties"
-	for i, offset := 0, 0; i < maxPages; i++ {
-		var r struct {
-			Data []struct {
-				Key string `json:"key"`
-			} `json:"data"`
-			Pagination pageMeta `json:"pagination"`
-		}
-		if err := c.do(ctx, "GET", base+"?"+paged(offset), key, nil, &r); err != nil {
-			return false, err
-		}
-		for _, p := range r.Data {
-			if p.Key == propKey {
-				return true, nil
-			}
-		}
-		if !r.Pagination.HasMore || len(r.Data) == 0 {
-			break
-		}
-		offset += len(r.Data)
-	}
-	err := c.do(ctx, "POST", base, key, map[string]string{"key": propKey, "name": name, "format": "text"}, nil)
-	return err == nil, err
+	return c.putMarkdown(ctx, key, space, id, markdown, version)
 }
