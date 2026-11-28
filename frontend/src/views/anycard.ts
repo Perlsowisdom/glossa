@@ -113,7 +113,7 @@ function addressBox(notFound: boolean, changed: () => Promise<void>, say: (t: st
     const form = h("form", { class: "any-address-form", "aria-label": "Address of Any" },
       h("p", { class: "hint" }, r.manual
         ? "Glossa looks for Any only at the address below."
-        : `Glossa looks for Any at ${usual}${r.address ? `, and found it at ${r.address.replace(/^http:\/\//, "")} last time` : ""}. If your Any app uses another address on this computer, enter it here.`),
+        : `Glossa looks for Any at ${usual}${r.address && !notFound ? `, and found it at ${r.address.replace(/^http:\/\//, "")} last time` : ""}. If your Any app uses another address on this computer, enter it here.`),
       h("div", { class: "row wrap end" }, field("Address of the Any app", input),
         h("button", { type: "submit", class: "primary" }, "Use this address"),
         r.manual ? button("Find it by itself", async () => {

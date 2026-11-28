@@ -99,6 +99,8 @@ func Explain(err error) string {
 		return "Any has no such page or space. It may have been deleted."
 	case errors.Is(err, ErrRateLimited):
 		return "Any asked Glossa to slow down. Try again in a minute."
+	case errors.Is(err, ErrBadAddress):
+		return "That is not an address. Enter it like 127.0.0.1:31310."
 	case errors.Is(err, ErrNotLocal):
 		return "Glossa only talks to the Any app on this computer, and the address given is not on this computer."
 	}
