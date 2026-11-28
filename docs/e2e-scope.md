@@ -73,7 +73,7 @@ Not in the real app: a Go panic that kills the process, and the Save dialog (a n
 One check in the real app, with fake servers only (a fake Project Gutenberg, a fake CCEL and a fake SWORD
 repository, all on this machine): From Logos starts with the internet sources off and sends nothing; turning
 Project Gutenberg on asks first and fetches the catalogue once, as `Glossa`; the CCEL copy is preferred and the
-Gutenberg one is listed as another; the summary line, the four filters and the "Not free" state; the Internet
+Gutenberg one is listed as another; the summary line, the four filters and the "No free copy found" state; the Internet
 Archive link is caught (nothing is opened, nothing is sent); Get free copy from Gutenberg shows size and licence,
 downloads only after the confirmation and adds a "Public domain (US)" book credited to Project Gutenberg; Install
 for a module match; Get all free copies lists, asks once and adds; and with Gutenberg off no request reaches the

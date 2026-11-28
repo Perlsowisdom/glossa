@@ -122,7 +122,7 @@ before reuse.
 Library → From Logos lists the books in your Logos library (catalogue metadata only: title, author, type, ID
 and rights note; no book is ever opened) and, for each, the best free copy Glossa knows of. Each book is in one
 state: **Already in Glossa** (a library book or an installed module matches), **Free copy found** (on CCEL, on
-Project Gutenberg, or as a Bible module from the Get Bibles catalogues) or **Not free** (with a link that opens an
+Project Gutenberg, or as a Bible module from the Get Bibles catalogues) or **No free copy found** (with a link that opens an
 archive.org search in the browser; Glossa itself sends nothing there). A summary line gives the coverage, "312 of
 your 1,840 Logos books have a free copy".
 

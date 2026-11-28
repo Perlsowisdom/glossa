@@ -109,7 +109,7 @@ export default [
         const status = page.locator("#fromlogos-status");
         await page.waitForFunction(() => /1 of your 4 Logos books have a free copy/.test(document.querySelector("#fromlogos-status")?.innerText ?? ""), null, { timeout: 30000 });
         t.assert.match(await row("LLS:KJV").innerText(), /Free as a Bible module[\s\S]*King James Version[\s\S]*Install/);
-        t.assert.match(await row("LLS:PILGRIM").innerText(), /Not free[\s\S]*Search Internet Archive/);
+        t.assert.match(await row("LLS:PILGRIM").innerText(), /No free copy found[\s\S]*Search Internet Archive/);
         t.assert.equal(await page.locator("#fromlogos-source-gutenberg").isChecked(), false);
         t.assert.equal(await page.locator("#fromlogos-source-ccel").isChecked(), false);
         t.assert.equal(gHits.length + cHits.length, 0, `nothing sent while the switches are off: ${gHits} ${cHits}`);
@@ -136,14 +136,14 @@ export default [
         await page.waitForFunction(() => /Free copy on CCEL/.test(document.querySelector('tr[data-id="LLS:INST"]')?.innerText ?? ""), null, { timeout: 30000 });
         t.assert.match(await row("LLS:INST").innerText(), /Free copy on CCEL[\s\S]*Other free copies: Project Gutenberg/);
         t.assert.match(await status.innerText(), /3 of your 4 Logos books have a free copy/);
-        t.assert.match(await row("LLS:MERE").innerText(), /Not free/, "a modern copyrighted book gets no free copy");
+        t.assert.match(await row("LLS:MERE").innerText(), /No free copy found/, "a modern copyrighted book gets no free copy");
         t.assert.equal(gHits.length, 1);
         await t.shot("t43-sources.png");
 
         // Filters.
         const state = page.locator("#fromlogos-state");
         const rows = (n) => page.waitForFunction((n) => document.querySelectorAll("table.fromlogos-table tbody tr").length === n, n);
-        await state.getByText("Not free", { exact: true }).click();
+        await state.getByText("No free copy", { exact: true }).click();
         await rows(1);
         t.assert.match(await page.locator("table.fromlogos-table").innerText(), /The Weight of Glory Revisited/);
         await state.getByText("Already in Glossa", { exact: true }).click();

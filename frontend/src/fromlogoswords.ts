@@ -114,7 +114,7 @@ export function otherCopies(o: FreeCopy[] | undefined): string {
 }
 
 export type StateFilter = "" | "free" | "already" | "none";
-export const STATE_FILTERS: [StateFilter, string][] = [["", "All"], ["free", "Free copy found"], ["already", "Already in Glossa"], ["none", "Not free"]];
+export const STATE_FILTERS: [StateFilter, string][] = [["", "All"], ["free", "Free copy found"], ["already", "Already in Glossa"], ["none", "No free copy"]];
 
 // bulkPlan picks the books "Get all free copies" would download: a free copy that is certain, not in
 // Glossa yet, from a source that can be fetched one at a time.

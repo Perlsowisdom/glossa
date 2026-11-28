@@ -143,7 +143,7 @@ export default [
         t.assert.match(await page.locator("#fromlogos-status").innerText(), /1 of your 8 Logos books have a free copy/);
         // A public-domain book with no free copy known says so and offers nothing to download.
         const easton = await page.locator('tr[data-id="LLS:EASTON"]').innerText();
-        t.assert.match(easton, /Not free[\s\S]*Search Internet Archive/);
+        t.assert.match(easton, /No free copy found[\s\S]*Search Internet Archive/);
         t.assert.ok(!/Get free copy/.test(easton));
         await t.shot("t22c-match.png");
 

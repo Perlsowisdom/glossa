@@ -197,9 +197,12 @@ export function fromLogosView() {
       cell.append(h("small", { class: "hint free-name" }, f.name), h("br"),
         button(hosted ? "Get free copy" : "Install", () => void getFree(b, cell), { class: "primary", "aria-label": `${hosted ? "Get free copy of" : "Install"} ${b.title}: ${freeText(f)}` }));
     } else {
-      cell.append(badge("Not free", ""), " ");
+      cell.append(badge("No free copy found", ""), " ");
       if (b.archive_link) cell.append(button("Search Internet Archive", () => openOutside(b.archive_link!), { class: "link", "aria-label": `Search Internet Archive for ${b.title}`, title: "Opens archive.org in your browser" }));
-      if (b.public_domain) cell.append(h("br"), h("small", { class: "hint" }, publicDomainText(b)));
+      if (b.public_domain) {
+        const off = (Object.keys(on) as Hosted[]).filter((k) => !on[k]).map((k) => HOSTED[k].name);
+        cell.append(h("br"), h("small", { class: "hint" }, publicDomainText(b) + (off.length ? `. Turn on ${off.join(" or ")} above to look for a copy.` : "")));
+      }
     }
     const others = otherCopies(b.others);
     if (others) cell.append(h("br"), h("small", { class: "hint other-copies" }, others));
