@@ -30,10 +30,15 @@ never contacts the real Any app in tests or while developing: tests use fakes on
 ## Records
 
 A record is keyed by owner, then property: the built-in values are under `any` (`any.name`, `any.type`,
-`any.collections`). Glossa reads both the nested form and the dotted key. A page in the bin has `bin` among its
-collections; deleted objects are purged (a get answers 410). Glossa treats both as not there. The last change is read
-from `modifiedAt` (or `updatedAt`), at the top of the row or under `any`. The description does not spell these
-row fields out, so this is the part most worth checking against a real answer.
+`any.collections`). Glossa reads both the nested form and the dotted key.
+
+Checked against the real Any app on 28 November 2026 (field names only, with the user's permission):
+- Plain documents have `any.type` = `"page"`. That id is not in the `GET …/types` list, which holds `any`,
+  `spaceIndex`, `type`, `collection` and the space's own types, so Glossa falls back to `"page"`.
+- A page in the bin carries a top-level `bin` value (`{movedAt, movedBy}`). Deleted objects are purged (a get
+  answers 410). Glossa treats both as not there, and still accepts `bin` among `any.collections`.
+- Times are written as `{"$date": "…"}`. The last change is the top-level `modifiedAt`.
+- The query takes the sort `-modifiedAt`, and `GET /v1/health` has `account`.
 
 ## Not used, on purpose
 

@@ -25,7 +25,8 @@ export async function startFakeAny() {
     state.objs.set(o.id, o);
     return o;
   };
-  const record = (o) => ({ id: o.id, any: { name: o.name, type: PAGE_TYPE, collections: o.binned ? ["bin"] : [] }, modifiedAt: 1700000000000 + o.rev });
+  // Shaped like the real Any app's rows: times are {"$date": …}; a binned page carries a top-level "bin".
+  const record = (o) => ({ id: o.id, any: { name: o.name, type: PAGE_TYPE, collections: [] }, modifiedAt: { $date: new Date(1700000000000 + o.rev).toISOString() }, ...(o.binned ? { bin: { movedAt: { $date: "2026-11-28T00:00:00Z" }, movedBy: "someone" } } : {}) });
 
   const handler = (req, res) => {
     const url = new URL(req.url, "http://x");

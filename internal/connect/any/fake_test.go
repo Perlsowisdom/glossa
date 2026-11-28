@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const pageTypeID = "bafy-page-type"
@@ -40,6 +41,7 @@ type fakeAny struct {
 	account    string // the account open in Any, as GET /v1/health says
 	rejectSort bool   // answers 400 when a query has a sort
 	noPageType bool   // the types list has no page type, only others
+	realTypes  bool   // the types list is like the real Any app's: no page entry at all
 	flatRecord bool   // rows come with dotted keys instead of nested ones
 	// the heading Any might put at the top of the text
 	titleHeading bool
@@ -83,7 +85,13 @@ func (f *fakeAny) record(o *obj) map[string]any {
 		m["any.name"], m["any.type"], m["any.collections"] = o.Name, typ, cols
 		return m
 	}
-	m["any"] = map[string]any{"name": o.Name, "type": typ, "collections": cols}
+	// The nested form is shaped like the real Any app's rows (checked 28 Nov 2026): times are
+	// {"$date": "…"} and a binned page carries a top-level "bin" value.
+	m["modifiedAt"] = map[string]any{"$date": time.UnixMilli(1700000000000 + int64(o.Rev)).UTC().Format(time.RFC3339Nano)}
+	m["any"] = map[string]any{"name": o.Name, "type": typ, "collections": []any{}}
+	if o.Archived {
+		m["bin"] = map[string]any{"movedAt": map[string]any{"$date": "2026-11-28T00:00:00Z"}, "movedBy": "someone"}
+	}
 	return m
 }
 
@@ -127,7 +135,16 @@ func (f *fakeAny) handle(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 4 && parts[3] == "types" && r.Method == "GET":
 		f.typeCalls++
 		types := []any{map[string]any{"id": "bafy-note-type", "name": "Note", "xKey": "note", "builtIn": true}}
-		if f.noPageType {
+		if f.realTypes {
+			// Like the real Any app (28 Nov 2026): plain documents are typed "page", which is not listed.
+			types = []any{
+				map[string]any{"id": "any", "name": "Any", "xKey": "any", "builtIn": true},
+				map[string]any{"id": "spaceIndex", "name": "Space Index", "xKey": "spaceIndex", "builtIn": true},
+				map[string]any{"id": "type", "name": "Type", "xKey": "type", "builtIn": true},
+				map[string]any{"id": "collection", "name": "Collection", "xKey": "collection", "builtIn": true},
+				map[string]any{"id": "bafy-task", "name": "Task", "xKey": "task"},
+			}
+		} else if f.noPageType {
 			types = append(types, map[string]any{"id": "bafy-by-name", "name": "page", "xKey": "other"})
 		} else {
 			types = append(types, map[string]any{"id": pageTypeID, "name": "Page", "xKey": "page", "builtIn": true})

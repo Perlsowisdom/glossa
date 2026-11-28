@@ -122,6 +122,11 @@ func text(v any) string {
 		return x
 	case float64:
 		return strconv.FormatInt(int64(x), 10)
+	case map[string]any:
+		// Any writes times as {"$date": "…"}.
+		if d, ok := x["$date"].(string); ok {
+			return d
+		}
 	}
 	return ""
 }
@@ -145,6 +150,10 @@ func (r record) modified() string {
 // gone is true for a page in the bin or one marked deleted: Glossa treats both as not there.
 func (r record) gone() bool {
 	if _, ok := r["_deletedAt"]; ok {
+		return true
+	}
+	// The real Any app marks a page in the bin with a "bin" value ({movedAt, movedBy}).
+	if b, ok := r["bin"]; ok && b != nil {
 		return true
 	}
 	cols, _ := r.get("any", "collections").([]any)

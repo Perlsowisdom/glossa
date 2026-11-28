@@ -169,6 +169,30 @@ func TestPageTypeFallsBackToTheName(t *testing.T) {
 	}
 }
 
+func TestPageTypeIsPlainPageWhenTheListHasNone(t *testing.T) {
+	c, f := clientFor(t)
+	f.realTypes = true
+	typ, err := c.pageType(bg, "", spaceA)
+	if err != nil || typ != "page" {
+		t.Fatalf("%q %v", typ, err)
+	}
+}
+
+func TestRealRowShapeDatesAndBin(t *testing.T) {
+	r := record{
+		"id":         "x",
+		"any":        map[string]any{"name": " Notes ", "type": "page", "collections": []any{}},
+		"modifiedAt": map[string]any{"$date": "2026-11-28T10:00:00.123Z"},
+	}
+	if r.name() != "Notes" || r.typ() != "page" || r.modified() != "2026-11-28T10:00:00.123Z" || r.gone() {
+		t.Fatalf("%q %q %q %v", r.name(), r.typ(), r.modified(), r.gone())
+	}
+	r["bin"] = map[string]any{"movedAt": map[string]any{"$date": "2026-11-28T11:00:00Z"}, "movedBy": "u"}
+	if !r.gone() {
+		t.Fatal("a row with a bin value is in the bin")
+	}
+}
+
 func TestUpdateSendsTheVersionAndTurnsAConflictIntoAPlainError(t *testing.T) {
 	c, f := clientFor(t)
 	id := f.add(spaceA, "Page", "one")
