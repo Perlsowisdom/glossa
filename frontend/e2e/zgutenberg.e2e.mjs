@@ -17,19 +17,19 @@ import { epub } from "./fixtures.mjs";
 import { makeLogosLibraryFolder } from "./logoslibrary-fixture.mjs";
 
 const INSTITUTES = "The Bruised Reed";
-const PILGRIM = "The Pilgrim’s Progress";
+const PILGRIM = "The Holy War";
 
 const logosBooks = [
   ["LLS:KJV", "text.monograph.bible", "King James Version", "KJV", "", "1900", "en", "Public Domain"],
   ["LLS:PILGRIM", "text.monograph", PILGRIM, "", "Bunyan, John", "1678", "en", "Public Domain"],
   ["LLS:INST", "text.monograph", INSTITUTES, "", "Sibbes, Richard", "1630", "en", "Public Domain"],
-  ["LLS:MERE", "text.monograph", "Mere Christianity", "", "Lewis, C. S.", "1952", "en", "Copyright 1952 Example Press"],
+  ["LLS:MERE", "text.monograph", "The Weight of Glory Revisited", "", "Example, Anna", "1999", "en", "Copyright 1999 Example Press"],
 ];
 
 const catalogue = `Text#,Type,Issued,Title,Language,Authors,Subjects,LoCC,Bookshelves
 45001,Text,2014-01-02,${INSTITUTES},en,"Sibbes, Richard, 1577-1635",Theology,BX,
-45002,Text,2010-05-06,The Pilgrim's Progress,en,"Bunyan, John, 1628-1688",Allegories,PR,
-45003,Sound,2012-03-03,Pilgrim audio,en,"Bunyan, John, 1628-1688",,,
+45002,Text,2010-05-06,The Holy War,en,"Bunyan, John, 1628-1688",Allegories,PR,
+45003,Sound,2012-03-03,Holy War audio,en,"Bunyan, John, 1628-1688",,,
 `;
 const ccelPage = `<html><body><ul class="nav-list">
 <p class="List2"><a href="/ccel/sibbes/bruised.html">${INSTITUTES}\n</a><span class="authorName">(<a href="/ccel/sibbes">Richard Sibbes</a>)</span><b>(classic)</b></p>
@@ -124,7 +124,7 @@ export default [
         t.assert.equal(gHits.length, 0, "nothing is sent before the user agrees");
         await t.shot("t43-ask.png");
         await ask.getByRole("button", { name: "Turn on" }).click();
-        await page.waitForFunction(() => /Pilgrim/.test(document.querySelector('tr[data-id="LLS:PILGRIM"]')?.innerText ?? "") && /Free copy on Project Gutenberg/.test(document.querySelector('tr[data-id="LLS:PILGRIM"]')?.innerText ?? ""), null, { timeout: 30000 });
+        await page.waitForFunction(() => /Holy War/.test(document.querySelector('tr[data-id="LLS:PILGRIM"]')?.innerText ?? "") && /Free copy on Project Gutenberg/.test(document.querySelector('tr[data-id="LLS:PILGRIM"]')?.innerText ?? ""), null, { timeout: 30000 });
         t.assert.deepEqual(gHits, ["GET /cache/epub/feeds/pg_catalog.csv.gz Glossa"], "the catalogue is fetched once, as Glossa");
         t.assert.match(await row("LLS:PILGRIM").innerText(), /Free copy on Project Gutenberg[\s\S]*Get free copy/);
         t.assert.equal(await page.locator("#fromlogos-source-gutenberg").isChecked(), true);
@@ -145,7 +145,7 @@ export default [
         const rows = (n) => page.waitForFunction((n) => document.querySelectorAll("table.fromlogos-table tbody tr").length === n, n);
         await state.getByText("Not free", { exact: true }).click();
         await rows(1);
-        t.assert.match(await page.locator("table.fromlogos-table").innerText(), /Mere Christianity/);
+        t.assert.match(await page.locator("table.fromlogos-table").innerText(), /The Weight of Glory Revisited/);
         await state.getByText("Already in Glossa", { exact: true }).click();
         await page.locator(".fromlogos-view .empty", { hasText: "No books match" }).waitFor();
         await state.getByText("Free copy found", { exact: true }).click();
@@ -157,13 +157,13 @@ export default [
         await page.evaluate(() => { window.__opened = []; window.runtime.BrowserOpenURL = (u) => { window.__opened.push(u); }; });
         const before = gHits.length + cHits.length + mHits.length;
         await row("LLS:MERE").getByRole("button", { name: /Search Internet Archive/ }).click();
-        t.assert.deepEqual(await page.evaluate(() => window.__opened), ["https://archive.org/search?query=Mere+Christianity+Lewis%2C+C.+S."]);
+        t.assert.deepEqual(await page.evaluate(() => window.__opened), ["https://archive.org/search?query=The+Weight+of+Glory+Revisited+Example%2C+Anna"]);
         t.assert.equal(gHits.length + cHits.length + mHits.length, before, "the link sends nothing from the app");
         await t.shot("t43-archive.png");
 
         // Get free copy from Gutenberg: size and licence first, the book only after the user agrees.
         await row("LLS:PILGRIM").getByRole("button", { name: /Get free copy/ }).click();
-        const box = page.locator('[role="dialog"]', { hasText: "Get The Pilgrim's Progress" });
+        const box = page.locator('[role="dialog"]', { hasText: "Get The Holy War" });
         await box.waitFor({ timeout: 30000 });
         const text = await box.innerText();
         t.assert.match(text, /Download: [\d.]+ KB \(EPUB\) from Project Gutenberg/);
@@ -175,7 +175,7 @@ export default [
         t.assert.ok(gHits.some((h) => h.startsWith("GET /cache/epub/45002/pg45002-images-3.epub")), "the EPUB was downloaded after the confirmation");
         t.assert.ok(gHits.every((h) => h.endsWith(" Glossa")), "every request says it is Glossa");
         await page.waitForFunction(() => /Already in Glossa/.test(document.querySelector('tr[data-id="LLS:PILGRIM"]')?.innerText ?? ""), null, { timeout: 30000 });
-        const found = await t.app.run("library.items", { text: "Pilgrim", limit: 5 });
+        const found = await t.app.run("library.items", { text: "Holy War", limit: 5 });
         t.assert.equal(found.items.length, 1);
         const item = await t.app.run("library.item", { id: found.items[0].id });
         t.assert.equal(item.licence.type, "public_domain");
