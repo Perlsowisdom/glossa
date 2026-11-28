@@ -24,7 +24,9 @@ import (
 
 const (
 	// DefaultURL is where the Any app listens for other programs on this computer.
-	DefaultURL = "http://127.0.0.1:31009"
+	DefaultURL = "http://127.0.0.1:31310"
+	// FallbackURL is the port Anytype's own API uses; Glossa tries it after DefaultURL.
+	FallbackURL = "http://127.0.0.1:31009"
 	// APIVersion is the dated version of Any's API this code was written against. Any wants it in
 	// the Anytype-Version header of every request.
 	APIVersion = "2025-11-08"
@@ -39,6 +41,7 @@ const (
 var (
 	ErrNotRunning  = errors.New("any: the Any app is not running")
 	ErrNotPaired   = errors.New("any: Glossa is not signed in to Any")
+	ErrKeyRejected = errors.New("any: Any no longer accepts Glossa's key")
 	ErrBadCode     = errors.New("any: Any did not accept that code")
 	ErrNotFound    = errors.New("any: no such page or space")
 	ErrRateLimited = errors.New("any: Any asked to slow down")
@@ -168,7 +171,7 @@ func (c *Client) do(ctx context.Context, method, path, key string, in, out any) 
 		return err
 	}
 	if resp.StatusCode >= 300 {
-		return statusError(resp.StatusCode, raw)
+		return statusError(resp.StatusCode, raw, key != "")
 	}
 	if out == nil || len(bytes.TrimSpace(raw)) == 0 {
 		return nil
@@ -192,13 +195,16 @@ func notRunning(err error) bool {
 	return errors.Is(err, syscall.ECONNREFUSED) || (errors.As(err, &op) && op.Op == "dial")
 }
 
-func statusError(status int, raw []byte) error {
+func statusError(status int, raw []byte, hadKey bool) error {
 	var e struct {
 		Message string `json:"message"`
 	}
 	json.Unmarshal(raw, &e)
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
+		if hadKey {
+			return ErrKeyRejected
+		}
 		return ErrNotPaired
 	case http.StatusNotFound, http.StatusGone:
 		return ErrNotFound
@@ -206,6 +212,29 @@ func statusError(status int, raw []byte) error {
 		return ErrRateLimited
 	}
 	return &APIError{Status: status, Message: e.Message}
+}
+
+// Probe asks Any a cheap question with no side effects and no key, and returns the status it
+// answered with, or ErrNotRunning when nothing there answers like Any (200, or 401 or 403 when Any
+// wants a key). It is how Glossa finds out where Any is and whether it asks for a key.
+func (c *Client) Probe(ctx context.Context) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.Root+"/v1/spaces?limit=1", nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Anytype-Version", APIVersion)
+	req.Header.Set("Accept", "application/json")
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return 0, ErrNotRunning
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusUnauthorized, http.StatusForbidden:
+		return resp.StatusCode, nil
+	}
+	return 0, ErrNotRunning
 }
 
 // pairing -----------------------------------------------------------------------------------------

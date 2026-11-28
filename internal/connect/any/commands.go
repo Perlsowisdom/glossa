@@ -3,6 +3,7 @@ package anyapp
 import (
 	"context"
 	"errors"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -17,6 +18,8 @@ func (c *Conn) Register(r *command.Registry, svc *connect.Service) {
 	s := &commands{c: c, svc: svc, reg: r}
 	r.OnClose(c.Close)
 	r.Add(
+		command.Define("any.address", "Say where Glossa looks for the Any app on this computer: the address it found Any at, or the one typed in Settings. Never uses the network.", false, s.address),
+		command.Define("any.set_address", "Set the address of the Any app on this computer, for when Glossa cannot find it. It must be on this computer. An empty address goes back to finding Any by itself.", true, s.setAddress),
 		command.Define("any.pair_start", "Start signing Glossa in to the Any app on this computer. Any shows a 4-digit code; give it to any.pair_finish. Needs Any turned on in Settings → Connections, and the Any app running.", false, s.pairStart),
 		command.Define("any.pair_finish", "Finish signing in with the 4-digit code the Any app is showing. The key Any returns goes to the system keychain and is never shown.", false, s.pairFinish),
 		command.Define("any.unpair", "Sign Glossa out of Any: the saved key is removed from the system keychain. Links to pages are kept.", false, s.unpair),
@@ -43,8 +46,12 @@ func fail(err error) error {
 		return err
 	case errors.Is(err, ErrNotFound):
 		return command.Errorf("not_found", "%s", Explain(err))
-	case errors.Is(err, ErrNotPaired):
+	case errors.Is(err, ErrNotPaired), errors.Is(err, ErrKeyRejected):
 		return command.Errorf("not_paired", "%s", Explain(err))
+	case errors.Is(err, ErrNotLocal):
+		return command.Errorf("not_local", "%s", Explain(err))
+	case errors.Is(err, ErrBadAddress):
+		return command.Errorf("bad_params", "%s", Explain(err))
 	case errors.Is(err, ErrBadCode):
 		return command.Errorf("bad_code", "%s", Explain(err))
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
@@ -70,12 +77,13 @@ func (s *commands) session(ctx context.Context, env *command.Env) (*Client, stri
 	if err := needStore(env); err != nil {
 		return nil, "", err
 	}
-	if cfg.Key == "" {
-		return nil, "", command.Errorf("not_paired", "%s", Explain(ErrNotPaired))
-	}
-	cl, err := s.c.client()
+	cl, status, err := s.c.find(ctx, env)
 	if err != nil {
 		return nil, "", fail(err)
+	}
+	// With no key saved, Any is used as it is when it asks for none, and signing in is offered when it does.
+	if cfg.Key == "" && status != http.StatusOK {
+		return nil, "", command.Errorf("not_paired", "%s", Explain(ErrNotPaired))
 	}
 	return cl, cfg.Key, nil
 }
@@ -92,7 +100,7 @@ func (s *commands) pairStart(ctx context.Context, env *command.Env, _ struct{}) 
 	if _, err := s.svc.Require(ctx, env, "any"); err != nil {
 		return PairStartResult{}, err
 	}
-	cl, err := s.c.client()
+	cl, _, err := s.c.find(ctx, env)
 	if err != nil {
 		return PairStartResult{}, fail(err)
 	}
@@ -123,7 +131,7 @@ func (s *commands) pairFinish(ctx context.Context, env *command.Env, p PairFinis
 	if !codeRE.MatchString(code) {
 		return PairResult{}, command.Errorf("bad_code", "The code is 4 digits.")
 	}
-	cl, err := s.c.client()
+	cl, _, err := s.c.find(ctx, env)
 	if err != nil {
 		return PairResult{}, fail(err)
 	}
@@ -142,6 +150,62 @@ func (s *commands) unpair(ctx context.Context, env *command.Env, _ struct{}) (Pa
 		return PairResult{}, command.Errorf("failed", "could not update the system keychain: %v", err)
 	}
 	return PairResult{Message: "Signed out of Any."}, nil
+}
+
+// Address ----------------------------------------------------------------------------------------
+
+// AddressResult says where Glossa looks for Any.
+type AddressResult struct {
+	Address string   `json:"address,omitempty" desc:"The address typed in Settings, or the one Glossa found Any at last time; empty before Any was found"`
+	Manual  bool     `json:"manual" desc:"True when the person typed the address; Glossa then tries only that one"`
+	Usual   []string `json:"usual" desc:"The addresses tried, in order, when none is typed"`
+	Message string   `json:"message,omitempty"`
+}
+
+func (s *commands) addressResult(ctx context.Context, env *command.Env) (AddressResult, error) {
+	a, err := loadAddress(ctx, env)
+	if err != nil {
+		return AddressResult{}, err
+	}
+	res := AddressResult{Address: a.Address, Manual: a.Manual, Usual: s.c.candidates}
+	if s.c.url != "" {
+		res.Address, res.Manual = s.c.url, true
+	}
+	return res, nil
+}
+
+func (s *commands) address(ctx context.Context, env *command.Env, _ struct{}) (AddressResult, error) {
+	if err := needStore(env); err != nil {
+		return AddressResult{}, err
+	}
+	return s.addressResult(ctx, env)
+}
+
+// SetAddressParams is the address to use.
+type SetAddressParams struct {
+	Address string `json:"address" desc:"Where the Any app listens on this computer, such as 127.0.0.1:31310. Empty: find it by itself again"`
+}
+
+func (s *commands) setAddress(ctx context.Context, env *command.Env, p SetAddressParams) (AddressResult, error) {
+	if err := needStore(env); err != nil {
+		return AddressResult{}, err
+	}
+	msg := "Glossa will look for Any by itself."
+	a := savedAddress{}
+	if strings.TrimSpace(p.Address) != "" {
+		root, err := CleanAddress(p.Address)
+		if err != nil {
+			return AddressResult{}, fail(err)
+		}
+		a = savedAddress{Address: root, Manual: true}
+		msg = "Glossa will look for Any at " + root + "."
+	}
+	if err := saveAddress(ctx, env, a); err != nil {
+		return AddressResult{}, err
+	}
+	res, err := s.addressResult(ctx, env)
+	res.Message = msg
+	return res, err
 }
 
 // Spaces -----------------------------------------------------------------------------------------

@@ -54,6 +54,7 @@ type Config struct {
 type TestResult struct {
 	OK      bool   `json:"ok"`
 	Via     string `json:"via,omitempty" desc:"How it connected, in plain words, e.g. \"the Zotero app on this computer\""`
+	Auth    string `json:"auth,omitempty" desc:"Sign-in state for connections that sign in (Any): none_needed, ok, needed or stale"`
 	Message string `json:"message" desc:"One plain sentence the person can read; says what to do when it failed"`
 }
 
