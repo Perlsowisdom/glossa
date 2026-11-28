@@ -138,6 +138,7 @@ open was dropped, duplicates were merged, and the dates of the original notes ar
 
 ### Tests
 
+- e2e: "Reading plans: Delete goes to the bin…" (`qol3.e2e.mjs`) failed once in a full run on 27 Nov ("the plan left the list", 1 !== 0) and passed alone twice; likely a wait on the list refresh after Delete. [T43 merge]
 - Real-app tests stand in for the system print dialog and the save dialog (a test cannot answer them);
   printing and choosing where to save are still checked by hand. [5 Nov]
 - Selecting a book's text by dragging in Read mode is unreliable as the first check of a full e2e run; the
