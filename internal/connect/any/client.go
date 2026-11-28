@@ -29,7 +29,6 @@ const (
 	// FallbackURL is the other port Glossa tries after DefaultURL.
 	FallbackURL = "http://127.0.0.1:31009"
 
-	appName  = "Glossa"
 	maxBody  = 32 << 20
 	pageSize = 100
 
@@ -40,9 +39,9 @@ const (
 // Errors a caller can act on.
 var (
 	ErrNotRunning  = errors.New("any: the Any app is not running")
-	ErrNotPaired   = errors.New("any: Glossa is not signed in to Any")
-	ErrKeyRejected = errors.New("any: Any no longer accepts Glossa's key")
-	ErrBadCode     = errors.New("any: Any did not accept that code")
+	ErrNotPaired   = errors.New("any: Glossa is not paired with Any")
+	ErrRefused     = errors.New("any: Any refused Glossa")
+	ErrDifferent   = errors.New("any: this is a different Any account")
 	ErrNotFound    = errors.New("any: no such page or space")
 	ErrConflict    = errors.New("any: the page changed in Any since Glossa read it")
 	ErrRateLimited = errors.New("any: Any asked to slow down")
@@ -199,7 +198,7 @@ func (c *Client) do(ctx context.Context, method, path, key string, in, out any) 
 		return err
 	}
 	if resp.StatusCode >= 300 {
-		return statusError(resp.StatusCode, raw, key != "")
+		return statusError(resp.StatusCode, raw)
 	}
 	if out == nil || len(bytes.TrimSpace(raw)) == 0 {
 		return nil
@@ -224,7 +223,7 @@ func notRunning(err error) bool {
 }
 
 // statusError reads Any's error envelope, {"error": {"code", "message"}}.
-func statusError(status int, raw []byte, hadKey bool) error {
+func statusError(status int, raw []byte) error {
 	var e struct {
 		Error struct {
 			Code    string `json:"code"`
@@ -239,10 +238,7 @@ func statusError(status int, raw []byte, hadKey bool) error {
 	}
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
-		if hadKey {
-			return ErrKeyRejected
-		}
-		return ErrNotPaired
+		return ErrRefused
 	case http.StatusNotFound, http.StatusGone:
 		return ErrNotFound
 	case http.StatusTooManyRequests:
@@ -285,39 +281,17 @@ func (c *Client) Probe(ctx context.Context) (int, error) {
 	return 0, ErrNotRunning
 }
 
-// pairing -----------------------------------------------------------------------------------------
+// health ------------------------------------------------------------------------------------------
 
-// StartPairing asks Any to show a 4-digit code and returns the challenge to finish with.
-func (c *Client) StartPairing(ctx context.Context) (string, error) {
+// Health returns the id of the account the Any app is signed in to (GET /v1/health, which has no side
+// effects). Glossa remembers it only to notice that a different account has been opened since pairing;
+// it reads nothing else from the answer. An answer with no account gives "".
+func (c *Client) Health(ctx context.Context, key string) (string, error) {
 	var r struct {
-		ChallengeID string `json:"challenge_id"`
+		Account string `json:"account"`
 	}
-	if err := c.do(ctx, "POST", "/v1/auth/challenges", "", map[string]string{"app_name": appName}, &r); err != nil {
-		return "", err
-	}
-	if r.ChallengeID == "" {
-		return "", errors.New("any: the app did not start a sign-in")
-	}
-	return r.ChallengeID, nil
-}
-
-// FinishPairing trades the code the person typed for a key.
-func (c *Client) FinishPairing(ctx context.Context, challenge, code string) (string, error) {
-	var r struct {
-		APIKey string `json:"api_key"`
-	}
-	err := c.do(ctx, "POST", "/v1/auth/api_keys", "", map[string]string{"challenge_id": challenge, "code": code}, &r)
-	var ae *APIError
-	if errors.As(err, &ae) && ae.Status >= 400 && ae.Status < 500 || errors.Is(err, ErrNotFound) {
-		return "", ErrBadCode
-	}
-	if err != nil {
-		return "", err
-	}
-	if r.APIKey == "" {
-		return "", ErrBadCode
-	}
-	return r.APIKey, nil
+	err := c.do(ctx, "GET", "/v1/health", key, nil, &r)
+	return r.Account, err
 }
 
 // reading -----------------------------------------------------------------------------------------

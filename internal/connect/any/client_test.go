@@ -14,7 +14,6 @@ import (
 func clientFor(t *testing.T) (*Client, *fakeAny) {
 	t.Helper()
 	f := newFake(t)
-	f.noKey = true
 	hc := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 	c, err := NewClient(f.srv.URL, hc)
 	if err != nil {
@@ -196,19 +195,16 @@ func TestUpdateSendsTheVersionAndTurnsAConflictIntoAPlainError(t *testing.T) {
 }
 
 func TestErrorEnvelopeAndStatusMapping(t *testing.T) {
-	for status, want := range map[int]error{401: ErrNotPaired, 403: ErrNotPaired, 404: ErrNotFound, 410: ErrNotFound, 429: ErrRateLimited} {
-		if err := statusError(status, []byte(`{"error":{"code":"x","message":"m"}}`), false); !errors.Is(err, want) {
+	for status, want := range map[int]error{401: ErrRefused, 403: ErrRefused, 404: ErrNotFound, 410: ErrNotFound, 429: ErrRateLimited} {
+		if err := statusError(status, []byte(`{"error":{"code":"x","message":"m"}}`)); !errors.Is(err, want) {
 			t.Errorf("%d: %v", status, err)
 		}
 	}
-	if err := statusError(401, nil, true); !errors.Is(err, ErrKeyRejected) {
-		t.Errorf("401 with a key: %v", err)
-	}
-	if err := statusError(409, []byte(`{"error":{"code":"markdown.conflict","message":"m"}}`), false); !errors.Is(err, ErrConflict) {
+	if err := statusError(409, []byte(`{"error":{"code":"markdown.conflict","message":"m"}}`)); !errors.Is(err, ErrConflict) {
 		t.Errorf("409: %v", err)
 	}
 	var ae *APIError
-	err := statusError(409, []byte(`{"error":{"code":"object.ambiguous_id","message":"two match"}}`), false)
+	err := statusError(409, []byte(`{"error":{"code":"object.ambiguous_id","message":"two match"}}`))
 	if !errors.As(err, &ae) || ae.Code != "object.ambiguous_id" || !strings.Contains(err.Error(), "two match") {
 		t.Errorf("other 409: %v", err)
 	}
@@ -283,18 +279,5 @@ func TestNeverCallsAuthShutdownOrDelete(t *testing.T) {
 		if strings.Contains(string(src), bad) {
 			t.Errorf("client.go mentions %s", bad)
 		}
-	}
-}
-
-// An old install may hold a key: it is left alone (the pairing decision is open), and sent only when
-// there is one.
-func TestASavedKeyStillGoesInTheHeader(t *testing.T) {
-	f := newFake(t)
-	c, _ := NewClient(f.srv.URL, &http.Client{Transport: &http.Transport{DisableKeepAlives: true}})
-	if _, err := c.Spaces(bg, secretKey); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.Spaces(bg, ""); !errors.Is(err, ErrNotPaired) {
-		t.Fatalf("%v", err)
 	}
 }

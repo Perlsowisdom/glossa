@@ -108,3 +108,32 @@ Read these first:
 - Commit after each step.
 - Use `scripts\build.ps1` for any app build.
 - Plain words in the interface.
+
+## Decision on pairing (the user, 28 November 2026): approve in Glossa
+
+Any's docs say its local API has no per-caller authentication yet ("planned"); its credentials and connectors are
+keys Any uses to call *out* to services. So Glossa does the pairing itself. This replaces step 2 above.
+
+- **Paired or not.** Glossa sends nothing to Any and reads nothing from it beyond the probe (`GET /v1/spaces`
+  with no side effects) until the person pairs. Pairing is per device, stored in Glossa's settings (not a secret,
+  so not in the credential store). Every Any command except status, the probe, pair and the address commands
+  refuses with a plain "Pair Glossa with Any first" error while unpaired; this is enforced in Go, not only in the
+  card.
+- **Pairing screen.** After Use Any is on and Any is found, the card shows what was found: the address, and the
+  number and names of the spaces (from the probe-style listing). Then a clear "Pair with Any" button, with one
+  sentence: Glossa will be able to read the pages you pick and send the notes and sermons you choose to the
+  space you choose, and Any does not yet check which apps connect, so other programs on this computer can
+  reach it too. Pairing is one press; no blocking question beyond it.
+- **Unpair.** An "Unpair" button. Unpairing clears the chosen space and the paired flag, keeps the
+  `any_links` rows (so re-pairing finds the same pages), and stops all calls. Turning Use Any off also unpairs.
+- **Changed Any.** Remember which Any was paired by something stable from the API without reading content,
+  for example the account id from `GET /v1/health` (`account`), if the description has it. If a later probe finds
+  a different account, treat Glossa as unpaired and say "This is a different Any account; pair again". Never
+  call `/v1/auth`.
+- **Old keys and the challenge-and-code flow.** Remove the Anytype-style challenge and code flow and its
+  commands. Delete any saved Any key from the credential store quietly on the next start.
+- **Later.** Write the pairing state so a future Any-issued credential can slot in: one place where the
+  "is Glossa allowed" check lives, and a field for a key that is empty today. Note this in the ADR addendum.
+- **Tests:** unpaired commands refuse; pair, then send and import work; unpair stops calls and keeps links; a
+  different account unpairs; old key deleted; no request to `/auth`. E2e: the pairing screen, pair, unpair, and
+  the different-account message.

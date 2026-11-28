@@ -24,10 +24,8 @@ import (
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 const (
-	secretKey = "any-key-do-not-leak"
-	goodCode  = "1234"
-	spaceA    = "space-a"
-	spaceB    = "space-b"
+	spaceA = "space-a"
+	spaceB = "space-b"
 )
 
 // rig ---------------------------------------------------------------------------------------------
@@ -41,13 +39,16 @@ type rig struct {
 	keys *secrets.Memory
 }
 
-func newRig(t *testing.T) *rig {
+func newRig(t *testing.T) *rig { return newRigOver(t, secrets.NewMemory()) }
+
+// newRigOver is a rig over a given keychain, as a restart of the app would have.
+func newRigOver(t *testing.T, keys *secrets.Memory) *rig {
 	st, err := store.Open(filepath.Join(t.TempDir(), "library.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	g := &rig{t: t, fake: newFake(t), env: &command.Env{Store: st}, keys: secrets.NewMemory(), reg: command.NewRegistry()}
+	g := &rig{t: t, fake: newFake(t), env: &command.Env{Store: st}, keys: keys, reg: command.NewRegistry()}
 	g.conn = New(WithURL(g.fake.srv.URL))
 	core.Register(g.reg)
 	document.Register(g.reg)
@@ -83,9 +84,7 @@ func (g *rig) must(id string, params any, out any) {
 func (g *rig) paired() {
 	g.t.Helper()
 	g.must("connect.enable", connect.IDParams{ID: "any"}, nil)
-	var st PairStartResult
-	g.must("any.pair_start", struct{}{}, &st)
-	g.must("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: goodCode}, nil)
+	g.must("any.pair", struct{}{}, nil)
 }
 
 func (g *rig) note(title, body, ref string) string {
@@ -126,7 +125,7 @@ func TestOffByDefaultAndNothingSent(t *testing.T) {
 	if len(infos) != 1 || infos[0].Enabled || infos[0].KeySet || !strings.Contains(infos[0].Sends, "nothing leaves this computer") {
 		t.Fatalf("info = %+v", infos)
 	}
-	for _, c := range []string{"any.pair_start", "any.spaces", "any.pages", "any.send"} {
+	for _, c := range []string{"any.status", "any.pair", "any.spaces", "any.pages", "any.send"} {
 		params := any(struct{}{})
 		if c == "any.send" {
 			params = SendParams{Kind: "note", ID: "x"}
@@ -140,89 +139,6 @@ func TestOffByDefaultAndNothingSent(t *testing.T) {
 	}
 	if n := len(g.fake.seen()); n != 0 {
 		t.Fatalf("%d requests were made while off: %v", n, g.fake.seen())
-	}
-}
-
-func TestStatusNotRunningNotPairedPaired(t *testing.T) {
-	g := newRig(t)
-	g.must("connect.enable", connect.IDParams{ID: "any"}, nil)
-	test := func() connect.TestOutput {
-		var out connect.TestOutput
-		g.must("connect.test", connect.IDParams{ID: "any"}, &out)
-		return out
-	}
-	// Any is running, Glossa is not signed in.
-	if out := test(); out.OK || !strings.Contains(out.Message, "not signed in") {
-		t.Fatalf("not paired: %+v", out)
-	}
-	g.paired()
-	if out := test(); !out.OK || !strings.Contains(out.Message, "2 spaces") {
-		t.Fatalf("paired: %+v", out)
-	}
-	// The key stops working (signed out inside Any).
-	g.fake.badKey = true
-	if out := test(); out.OK || out.Auth != AuthStale || !strings.Contains(out.Message, "no longer accepts") {
-		t.Fatalf("revoked: %+v", out)
-	}
-	// Any is not running.
-	g.fake.srv.Close()
-	if out := test(); out.OK || out.Message != notFound {
-		t.Fatalf("not running: %+v", out)
-	}
-	if err := g.run("any.spaces", struct{}{}, nil); code(err) != "unavailable" || !strings.Contains(err.Error(), notFound) {
-		t.Fatalf("spaces with Any closed: %v", err)
-	}
-}
-
-func TestPairingWrongCodeAndKeyHandling(t *testing.T) {
-	g := newRig(t)
-	g.must("connect.enable", connect.IDParams{ID: "any"}, nil)
-	var st PairStartResult
-	g.must("any.pair_start", struct{}{}, &st)
-	if err := g.run("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: "9999"}, nil); code(err) != "bad_code" {
-		t.Fatalf("wrong code: %v", err)
-	}
-	if err := g.run("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: "12"}, nil); code(err) != "bad_code" {
-		t.Fatalf("short code: %v", err)
-	}
-	if v, _ := g.keys.Get("connect.any.key"); v != "" {
-		t.Fatal("a key was saved after a wrong code")
-	}
-	var res PairResult
-	g.must("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: goodCode}, &res)
-	if !res.Paired {
-		t.Fatalf("%+v", res)
-	}
-	if v, _ := g.keys.Get("connect.any.key"); v != secretKey {
-		t.Fatalf("key in keychain = %q", v)
-	}
-	var infos []connect.Info
-	g.must("connect.list", struct{}{}, &infos)
-	raw, _ := json.Marshal(infos)
-	if !infos[0].KeySet || strings.Contains(string(raw), secretKey) || strings.Contains(fmt.Sprint(res), secretKey) {
-		t.Fatalf("key shown or not marked saved: %s", raw)
-	}
-	// Signing out removes the key.
-	g.must("any.unpair", struct{}{}, nil)
-	if v, _ := g.keys.Get("connect.any.key"); v != "" {
-		t.Fatal("key kept after sign out")
-	}
-	if err := g.run("any.spaces", struct{}{}, nil); code(err) != "not_paired" {
-		t.Fatalf("spaces after sign out: %v", err)
-	}
-}
-
-func TestEveryRequestCarriesTheKeyOnlyWhenSaved(t *testing.T) {
-	g := newRig(t)
-	g.paired()
-	g.must("any.spaces", struct{}{}, nil)
-	g.fake.mu.Lock()
-	defer g.fake.mu.Unlock()
-	if last := g.fake.hdrs[len(g.fake.hdrs)-1]; last.Get("Authorization") != "Bearer "+secretKey {
-		t.Errorf("authorization = %q", last.Get("Authorization"))
-	}
-	if g.fake.hdrs[0].Get("Authorization") != "" {
-		t.Error("the pairing call carried an Authorization header")
 	}
 }
 
@@ -564,16 +480,6 @@ func TestLinksArePerDevice(t *testing.T) {
 		if c.ObjectType == "any_links" || strings.HasPrefix(c.ObjectID, `["connect.`) {
 			t.Fatalf("a device-only change would be synced: %+v", c)
 		}
-	}
-}
-
-func TestKeyNeverInErrorsOrLogs(t *testing.T) {
-	g := newRig(t)
-	g.paired()
-	g.fake.srv.Close()
-	err := g.run("any.spaces", struct{}{}, nil)
-	if err == nil || strings.Contains(err.Error(), secretKey) {
-		t.Fatalf("%v", err)
 	}
 }
 

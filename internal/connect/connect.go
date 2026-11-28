@@ -77,6 +77,12 @@ type Connection interface {
 	Test(ctx context.Context, cfg Config) (TestResult, error)
 }
 
+// DisableHook is an optional extra for a connection that has something to undo when the person turns it
+// off (Any forgets that Glossa was paired with it).
+type DisableHook interface {
+	Disabled(ctx context.Context, env *command.Env) error
+}
+
 // EnvTester is an optional extra for a connection whose check needs the library (for example to read a
 // folder setting kept there). The service calls TestEnv instead of Test.
 type EnvTester interface {

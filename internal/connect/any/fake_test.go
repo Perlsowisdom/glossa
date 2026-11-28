@@ -35,12 +35,12 @@ type fakeAny struct {
 	nextID int
 	rev    int
 
-	pageCap    int  // the most records a query returns, whatever limit is asked
-	badKey     bool // refuses whatever key is sent (the pairing flow, kept for now)
-	noKey      bool // Any asks for no key at all
-	rejectSort bool // answers 400 when a query has a sort
-	noPageType bool // the types list has no page type, only others
-	flatRecord bool // rows come with dotted keys instead of nested ones
+	pageCap    int    // the most records a query returns, whatever limit is asked
+	refuse     bool   // answers 401 to everything: Any refuses Glossa
+	account    string // the account open in Any, as GET /v1/health says
+	rejectSort bool   // answers 400 when a query has a sort
+	noPageType bool   // the types list has no page type, only others
+	flatRecord bool   // rows come with dotted keys instead of nested ones
 	// the heading Any might put at the top of the text
 	titleHeading bool
 	// the next markdown write is answered 409, as if the page changed in between
@@ -51,7 +51,7 @@ type fakeAny struct {
 }
 
 func newFake(t *testing.T) *fakeAny {
-	f := &fakeAny{t: t, objs: map[string]*obj{}, pageCap: 100}
+	f := &fakeAny{t: t, objs: map[string]*obj{}, pageCap: 100, account: "acct-1"}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.handle))
 	t.Cleanup(f.srv.Close)
 	return f
@@ -103,32 +103,19 @@ func (f *fakeAny) handle(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(raw, &in)
 	p := r.URL.Path
 
-	// The old sign-in flow, kept while the decision on pairing is open.
-	switch {
-	case p == "/v1/auth/challenges" && r.Method == "POST":
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"challenge_id": "chal-1"})
-		return
-	case p == "/v1/auth/api_keys" && r.Method == "POST":
-		if in["challenge_id"] != "chal-1" || in["code"] != goodCode {
-			f.errorOut(w, 400, "auth.bad_code", "wrong code")
-			return
-		}
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{"api_key": secretKey})
-		return
-	}
-	if r.Method == "DELETE" || strings.HasPrefix(p, "/v1/shutdown") || p == "/v1/auth" {
+	if r.Method == "DELETE" || strings.HasPrefix(p, "/v1/shutdown") || strings.HasPrefix(p, "/v1/auth") {
 		f.t.Errorf("forbidden request: %s %s", r.Method, p)
 		f.errorOut(w, 405, "method.not_allowed", "no")
 		return
 	}
-	if !f.noKey && (f.badKey || r.Header.Get("Authorization") != "Bearer "+secretKey) {
+	if f.refuse {
 		f.errorOut(w, 401, "auth.required", "unauthorized")
 		return
 	}
 	parts := strings.Split(strings.Trim(p, "/"), "/") // v1 spaces {s} ...
 	switch {
+	case p == "/v1/health" && r.Method == "GET":
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "version": "1.0", "account": f.account})
 	case p == "/v1/spaces" && r.Method == "GET":
 		if f.spacesBody != nil {
 			json.NewEncoder(w).Encode(f.spacesBody)

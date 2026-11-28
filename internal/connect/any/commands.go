@@ -4,25 +4,23 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/Perlsowisdom/glossa/internal/command"
 	"github.com/Perlsowisdom/glossa/internal/connect"
 )
 
-var codeRE = regexp.MustCompile(`^[0-9]{4}$`)
-
 // Register adds the any.* commands. svc is the framework service that connect.Register returned.
 func (c *Conn) Register(r *command.Registry, svc *connect.Service) {
 	s := &commands{c: c, svc: svc, reg: r}
 	r.OnClose(c.Close)
+	svc.DropSecret("any") // an older version saved a key here; nothing uses one now
 	r.Add(
 		command.Define("any.address", "Say where Glossa looks for the Any app on this computer: the address it found Any at, or the one typed in Settings. Never uses the network.", false, s.address),
 		command.Define("any.set_address", "Set the address of the Any app on this computer, for when Glossa cannot find it. It must be on this computer. An empty address goes back to finding Any by itself.", true, s.setAddress),
-		command.Define("any.pair_start", "Start signing Glossa in to the Any app on this computer. Any shows a 4-digit code; give it to any.pair_finish. Needs Any turned on in Settings → Connections, and the Any app running.", false, s.pairStart),
-		command.Define("any.pair_finish", "Finish signing in with the 4-digit code the Any app is showing. The key Any returns goes to the system keychain and is never shown.", false, s.pairFinish),
-		command.Define("any.unpair", "Sign Glossa out of Any: the saved key is removed from the system keychain. Links to pages are kept.", false, s.unpair),
+		command.Define("any.status", "Say whether the Any app on this computer was found, which spaces it has, and whether Glossa is paired with it. Needs Any turned on; reads nothing but the list of spaces.", false, s.status),
+		command.Define("any.pair", "Pair Glossa with the Any app that was found. Until then Glossa reads nothing from Any and sends nothing to it beyond finding it and listing its spaces. Any does not yet check which apps connect.", false, s.pair),
+		command.Define("any.unpair", "Unpair Glossa from Any: the chosen space is forgotten and every call stops. Links to pages are kept, so pairing again finds the same pages.", false, s.unpair),
 		command.Define("any.spaces", "List the spaces in Any, and which one Glossa sends to by default. Needs Any turned on and signed in.", false, s.spaces),
 		command.Define("any.set_space", "Choose the space Glossa sends to and imports from by default.", true, s.setSpace),
 		command.Define("any.pages", "List the pages in an Any space, newest change first, a page of results at a time. Marks the pages already linked to a note or sermon.", false, s.pages),
@@ -48,14 +46,14 @@ func fail(err error) error {
 		return command.Errorf("not_found", "%s", Explain(err))
 	case errors.Is(err, ErrConflict):
 		return command.Errorf("conflict", "%s", Explain(err))
-	case errors.Is(err, ErrNotPaired), errors.Is(err, ErrKeyRejected):
+	case errors.Is(err, ErrNotPaired), errors.Is(err, ErrDifferent):
 		return command.Errorf("not_paired", "%s", Explain(err))
+	case errors.Is(err, ErrRefused):
+		return command.Errorf("refused", "%s", Explain(err))
 	case errors.Is(err, ErrNotLocal):
 		return command.Errorf("not_local", "%s", Explain(err))
 	case errors.Is(err, ErrBadAddress):
 		return command.Errorf("bad_params", "%s", Explain(err))
-	case errors.Is(err, ErrBadCode):
-		return command.Errorf("bad_code", "%s", Explain(err))
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return err
 	}
@@ -69,92 +67,126 @@ func needStore(env *command.Env) error {
 	return nil
 }
 
-// session is the checks every command that talks to Any makes: the switch is on, the library is
-// open and Glossa is signed in.
+// session is the checks every command that talks to Any makes: the switch is on, the library is open,
+// Any is found and Glossa is paired with it. The last is enforced here, in Go, not only in the card.
 func (s *commands) session(ctx context.Context, env *command.Env) (*Client, string, error) {
-	cfg, err := s.svc.Require(ctx, env, "any")
-	if err != nil {
+	if _, err := s.svc.Require(ctx, env, "any"); err != nil {
 		return nil, "", err
 	}
 	if err := needStore(env); err != nil {
 		return nil, "", err
 	}
-	cl, status, err := s.c.find(ctx, env)
+	f, err := s.c.find(ctx, env)
 	if err != nil {
 		return nil, "", fail(err)
 	}
-	// With no key saved, Any is used as it is when it asks for none, and signing in is offered when it does.
-	if cfg.Key == "" && status != http.StatusOK {
-		return nil, "", command.Errorf("not_paired", "%s", Explain(ErrNotPaired))
+	if f.status != http.StatusOK {
+		return nil, "", fail(ErrRefused)
 	}
-	return cl, cfg.Key, nil
+	key, err := gate(ctx, env, f.account)
+	if err != nil {
+		return nil, "", fail(err)
+	}
+	return f.cl, key, nil
 }
 
-// Pairing ----------------------------------------------------------------------------------------
+// Pairing -------------------------------------------------------------------------------------------
 
-// PairStartResult carries the challenge to finish with.
-type PairStartResult struct {
-	ChallengeID string `json:"challenge_id" desc:"Pass to any.pair_finish with the code"`
-	Message     string `json:"message"`
+// StatusResult says what Glossa found.
+type AnyStatus struct {
+	Found   bool    `json:"found"`
+	Address string  `json:"address,omitempty"`
+	Spaces  []Space `json:"spaces"`
+	Paired  bool    `json:"paired"`
+	State   string  `json:"state" enum:"not_found,refused,unpaired,paired,different" desc:"different: another Any account is open than the one Glossa was paired with"`
+	Message string  `json:"message,omitempty"`
 }
 
-func (s *commands) pairStart(ctx context.Context, env *command.Env, _ struct{}) (PairStartResult, error) {
+func (s *commands) status(ctx context.Context, env *command.Env, _ struct{}) (AnyStatus, error) {
 	if _, err := s.svc.Require(ctx, env, "any"); err != nil {
-		return PairStartResult{}, err
+		return AnyStatus{}, err
 	}
-	cl, _, err := s.c.find(ctx, env)
+	if err := needStore(env); err != nil {
+		return AnyStatus{}, err
+	}
+	res := AnyStatus{Spaces: []Space{}}
+	f, err := s.c.find(ctx, env)
 	if err != nil {
-		return PairStartResult{}, fail(err)
+		if ctx.Err() != nil {
+			return res, ctx.Err()
+		}
+		res.State, res.Message = "not_found", Explain(err)
+		return res, nil
 	}
-	id, err := cl.StartPairing(ctx)
+	res.Found, res.Address = true, f.cl.Root
+	if f.status != http.StatusOK {
+		res.State, res.Message = "refused", Explain(ErrRefused)
+		return res, nil
+	}
+	key, gerr := gate(ctx, env, f.account)
+	list, err := f.cl.Spaces(ctx, key)
 	if err != nil {
-		return PairStartResult{}, fail(err)
+		return res, fail(err)
 	}
-	return PairStartResult{ChallengeID: id, Message: "Any is showing a 4-digit code. Type it here to finish."}, nil
+	res.Spaces = list
+	switch {
+	case gerr == nil:
+		res.Paired, res.State = true, "paired"
+	case errors.Is(gerr, ErrDifferent):
+		res.State, res.Message = "different", Explain(gerr)
+	case errors.Is(gerr, ErrNotPaired):
+		res.State = "unpaired"
+	default:
+		return res, gerr
+	}
+	return res, nil
 }
 
-// PairFinishParams is the code the person read from Any.
-type PairFinishParams struct {
-	ChallengeID string `json:"challenge_id" required:"true" desc:"From any.pair_start"`
-	Code        string `json:"code" required:"true" desc:"The 4 digits Any is showing"`
-}
-
-// PairResult says Glossa is signed in. The key itself is never returned.
+// PairResult says whether Glossa is paired.
 type PairResult struct {
 	Paired  bool   `json:"paired"`
 	Message string `json:"message"`
 }
 
-func (s *commands) pairFinish(ctx context.Context, env *command.Env, p PairFinishParams) (PairResult, error) {
+func (s *commands) pair(ctx context.Context, env *command.Env, _ struct{}) (PairResult, error) {
 	if _, err := s.svc.Require(ctx, env, "any"); err != nil {
 		return PairResult{}, err
 	}
-	code := strings.TrimSpace(p.Code)
-	if !codeRE.MatchString(code) {
-		return PairResult{}, command.Errorf("bad_code", "The code is 4 digits.")
+	if err := needStore(env); err != nil {
+		return PairResult{}, err
 	}
-	cl, _, err := s.c.find(ctx, env)
+	f, err := s.c.find(ctx, env)
 	if err != nil {
 		return PairResult{}, fail(err)
 	}
-	key, err := cl.FinishPairing(ctx, p.ChallengeID, code)
-	if err != nil {
+	if f.status != http.StatusOK {
+		return PairResult{}, fail(ErrRefused)
+	}
+	if _, err := f.cl.Spaces(ctx, ""); err != nil { // Any must answer the one question pairing allows
 		return PairResult{}, fail(err)
 	}
-	if err := s.svc.SaveSecret("any", key); err != nil {
-		return PairResult{}, command.Errorf("failed", "could not save to the system keychain: %v", err)
+	p, err := loadPairing(ctx, env)
+	if err != nil {
+		return PairResult{}, err
 	}
-	return PairResult{Paired: true, Message: "Signed in to Any."}, nil
+	p.Paired, p.Account = true, f.account
+	if err := savePairing(ctx, env, p); err != nil {
+		return PairResult{}, err
+	}
+	return PairResult{Paired: true, Message: "Glossa is paired with Any."}, nil
 }
 
 func (s *commands) unpair(ctx context.Context, env *command.Env, _ struct{}) (PairResult, error) {
-	if err := s.svc.DropSecret("any"); err != nil {
-		return PairResult{}, command.Errorf("failed", "could not update the system keychain: %v", err)
+	if err := needStore(env); err != nil {
+		return PairResult{}, err
 	}
-	return PairResult{Message: "Signed out of Any."}, nil
+	if err := forgetPairing(ctx, env); err != nil {
+		return PairResult{}, err
+	}
+	return PairResult{Message: "Glossa is no longer paired with Any."}, nil
 }
 
-// Address ----------------------------------------------------------------------------------------
+// Address -----------------------------------------------------------------------------------------
 
 // AddressResult says where Glossa looks for Any.
 type AddressResult struct {
