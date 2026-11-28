@@ -18,7 +18,7 @@ export interface ConnectionInfo {
 export interface TestOutcome {
   ok: boolean;
   via?: string;
-  auth?: "none_needed" | "ok" | "needed" | "stale"; // Any: what signing in needs
+  auth?: "paired" | "unpaired" | "different" | "refused"; // Any: whether Glossa is paired with it
   message: string;
 }
 
@@ -47,7 +47,7 @@ export function howItSignsIn(c: ConnectionInfo): string {
   if (c.id === "readwise") return "Needs your Readwise token.";
   if (c.id === "obsidian") return "Needs the folder of your Obsidian vault on this computer.";
   switch (c.sign_in) {
-    case "app": return c.key ? `Works with the ${c.name} app on this computer. A key is only needed if the app is not there.` : `Works with the ${c.name} app on this computer.`;
+    case "app": if (c.id === "any") return "Works with the Any app on this computer. You pair Glossa with it first."; return c.key ? `Works with the ${c.name} app on this computer. A key is only needed if the app is not there.` : `Works with the ${c.name} app on this computer.`;
     case "key": return `Needs a key from ${c.name}.`;
     case "folder": return `Uses a folder on this computer.`;
   }

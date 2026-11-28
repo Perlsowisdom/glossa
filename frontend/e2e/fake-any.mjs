@@ -1,25 +1,23 @@
 // A fake Any for the real-app checks: the part of the Any app's own API that Glossa uses (/v1/spaces,
-// types, objects/query, search, objects and the Markdown of a page; plus /v1/auth/challenges and
-// /v1/auth/api_keys for the sign-in that is kept for now), shaped from the description the Any app
+// types, objects/query, search, objects, the Markdown of a page and /v1/health for the account id), shaped
+// from the description the Any app
 // publishes about itself (Any API 1.0). The app is started with GLOSSA_ANY_CANDIDATES pointing here
 // (see app.mjs), so a test never reaches the real Any app on port 31310 or 31009, whatever is running
 // on the computer.
 //
-//   CODE: the only 4-digit code it accepts.
+//   account: the id of the account open in it (GET /v1/health); change it to be a different Any.
 //   edit(): changes a page the way the person would inside Any.
-//   keyless: when true it asks for no key, like an Any that has none set up.
+//   refuse: when true it answers 401 to everything, like an Any that refuses Glossa.
 //   bin(): puts a page in the bin.
 //   pause()/resume(): Any quits and starts again on the same port.
 //   forbidden(): any request Glossa must never make (DELETE, /auth, /shutdown).
 
 import { createServer } from "node:http";
 
-export const FAKE_CODE = "4321";
-const KEY = "e2e-fake-any-key";
 const PAGE_TYPE = "bafy-page-type";
 
 export async function startFakeAny() {
-  const state = { objs: new Map(), requests: [], rev: 0, next: 0, keyless: false, rejectKeys: false, conflictNext: false };
+  const state = { objs: new Map(), requests: [], rev: 0, next: 0, refuse: false, account: "e2e-account-1", conflictNext: false };
   const touch = (o) => { o.rev = ++state.rev; o.version += 1; };
   const add = (space, name, markdown) => {
     const o = { id: `obj-${++state.next}`, space, name, markdown, rev: 0, version: 0, binned: false };
@@ -39,11 +37,9 @@ export async function startFakeAny() {
       const send = (code, body) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
       const err = (code, ecode, message) => send(code, { error: { code: ecode, message } });
       const body = raw ? JSON.parse(raw) : {};
-      if (path === "/v1/auth/challenges" && req.method === "POST") return send(201, { challenge_id: "e2e-challenge" });
-      if (path === "/v1/auth/api_keys" && req.method === "POST") {
-        return body.challenge_id === "e2e-challenge" && body.code === FAKE_CODE ? send(201, { api_key: KEY }) : err(400, "auth.bad_code", "wrong code");
-      }
-      if (!state.keyless && (state.rejectKeys || req.headers.authorization !== `Bearer ${KEY}`)) return err(401, "auth.required", "unauthorized");
+      if (path.startsWith("/v1/auth")) return err(405, "method.not_allowed", "Glossa must never call this");
+      if (state.refuse) return err(401, "auth.required", "unauthorized");
+      if (path === "/v1/health") return send(200, { status: "ok", version: "1.0", account: state.account });
       const seg = path.split("/").filter(Boolean); // v1 spaces {space} ...
       const inSpace = (list) => list.filter((o) => o.space === seg[2]);
       if (path === "/v1/spaces" && req.method === "GET") {
@@ -98,24 +94,22 @@ export async function startFakeAny() {
   return {
     url: `http://127.0.0.1:${port}`,
     port,
-    code: FAKE_CODE,
-    key: KEY,
     // seed puts a page in a space and returns its id.
     seed: (space, name, markdown) => add(space, name, markdown).id,
     // edit changes a page as the person would inside Any.
     edit: (id, name, markdown) => { const o = state.objs.get(id); o.name = name; o.markdown = markdown; touch(o); },
     bin: (id) => { state.objs.get(id).binned = true; },
     pages: () => [...state.objs.values()].map((o) => ({ ...o })),
-    get keyless() { return state.keyless; },
-    set keyless(v) { state.keyless = !!v; },
-    set rejectKeys(v) { state.rejectKeys = !!v; },
+    set refuse(v) { state.refuse = !!v; },
+    get account() { return state.account; },
+    set account(v) { state.account = v; },
     set conflictNext(v) { state.conflictNext = !!v; },
     pause: () => new Promise((done) => { srv.closeAllConnections?.(); srv.close(() => done()); }),
     resume: () => new Promise((ok, fail) => { srv.once("error", fail); srv.listen(port, "127.0.0.1", ok); }),
     requests: () => [...state.requests],
-    forbidden: () => state.requests.filter((r) => r.startsWith("DELETE ") || /\/shutdown/.test(r) || /^[A-Z]+ \/v1\/auth$/.test(r)),
+    forbidden: () => state.requests.filter((r) => r.startsWith("DELETE ") || r.includes("/shutdown") || /^[A-Z]+ \/v1\/auth/.test(r)),
     forget: () => { state.requests.length = 0; },
-    reset: () => { state.objs.clear(); state.requests.length = 0; state.keyless = false; state.rejectKeys = false; state.conflictNext = false; },
+    reset: () => { state.objs.clear(); state.requests.length = 0; state.refuse = false; state.account = "e2e-account-1"; state.conflictNext = false; },
     close: () => new Promise((done) => { srv.closeAllConnections?.(); srv.close(() => done()); }),
   };
 }

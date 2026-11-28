@@ -200,6 +200,55 @@ sent to an address that has not answered the probe, and a key is never logged.
 **Not decided.** Whether to also look for the address in Any's own files or settings (no: that would read another
 program's data). Another port for Any is the person's to type.
 
+## Addendum (Proposed, 28 November 2026): Glossa talks to the Any app's own API, and pairs in Glossa (T45)
+
+**Why.** The user's Any app is not Anytype. It publishes its own OpenAPI 3.1 description ("Any API 1.0") at
+`GET /v1/openapi.json`. The calls the two earlier addenda were written from (`/v1/spaces` paging with `data` and
+`pagination`, `/v1/spaces/{id}/search` with `types`, `PATCH /objects/{id}`, properties, the `Anytype-Version`
+header, the challenge-and-code pairing) are Anytype's. Against the real Any Glossa read "0 spaces". This addendum
+replaces the "What was confirmed" table of the first addendum and the keyless-connection rules of the second.
+The details of the API, in our own words, are in `docs/sources/any-api.md`; the description file is not kept here.
+
+**The API.** Base path `/v1`; no security scheme. Spaces: `GET /spaces` returns `{spaces: [...]}` with no paging.
+Pages are listed with `POST /spaces/{space}/objects/query` (a `filter` on `any.type`, `sort`, `limit`, `offset`) and
+searched with `POST /spaces/{space}/search`. The page type is found through `GET /spaces/{space}/types` (`xKey`
+`page`, else the name) and remembered per session. A page's text is `GET`/`PUT` of
+`/spaces/{space}/objects/{id}/editor/editor_blocks/markdown`, with a `version` that the write sends back as
+`ifVersion`; a stale one answers 409 and Glossa says "That page changed in Any since Glossa read it. Try again."
+A page is made with `POST /spaces/{space}/objects` (`type`, `initialProperties.any.name`) and its text then written.
+Archived (in the bin) and deleted pages are treated as not there. Errors are read from `{error: {code, message}}`.
+Glossa never calls `POST /auth`, `DELETE /auth`, `/shutdown` or any access, invite, delete or other account or space
+management address; a test fails if the client builds one.
+
+**Finding Any (unchanged from T44).** 31310, then 31009, the remembered address, the Advanced field. The probe is
+`GET /v1/spaces`, and an answer counts as Any only if it has a `spaces` array, so another program on the port is not
+taken for Any. The account that is open is read from `GET /v1/health` (`account`).
+
+**Properties.** The passages property is dropped. The description sets property values by owner and property id,
+which would mean creating schema in the person's space; Glossa keeps the passages in its own links (`any_links`).
+Renaming a page has no plain address in the description, so a page's name is set when it is made and later updates
+change its text.
+
+**Pairing, approved in Glossa (the user's decision).** Any's local API has no per-caller authentication yet, so
+Glossa asks once. The pairing is per device, kept in the setting `connect.any.pairing` (not a secret, not in the
+credential store), with the id of the Any account that was open. Until it is paired, Glossa asks Any only for the
+list of spaces and the account id (the probe), and every other `any.*` command refuses with "Pair Glossa with Any
+first"; this is enforced in Go (`gate` in `internal/connect/any/pairing.go`), not only on the card. The card, after
+Use Any is on and Any is found, shows the address and the names of the spaces, one sentence saying what Glossa will
+be able to do and that Any does not yet check which apps connect, and a "Pair with Any" button. "Unpair" clears the
+pairing and the chosen space, keeps `any_links`, and stops all calls; turning Use Any off also unpairs. If a later
+check finds a different account, Glossa is treated as unpaired, says "This is a different Any account; pair again.",
+and the pairing is cleared. Commands: `any.status`, `any.pair`, `any.unpair`. The Anytype challenge-and-code flow
+(`any.pair_start`, `any.pair_finish`) is removed, and any key an older version saved in the credential store is
+deleted quietly at the next start.
+
+**Later.** The check "may Glossa use Any" lives in one function, and the pairing record has a `key` field that is empty
+today. If Any ever issues a credential for local callers, it goes there and the client already sends a non-empty one as
+a bearer key. A 401 or 403 from Any is reported as "Any refused Glossa" with no offer to pair.
+
+**Privacy.** `docs/privacy.md` lists exactly what is asked of Any and when. No key is used, and nothing leaves this
+computer.
+
 ## Addendum: Readwise, import (T40d part 1)
 
 ADR 0009's list of network features gains **Readwise** (`https://readwise.io` only), off until the switch is
