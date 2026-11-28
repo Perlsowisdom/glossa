@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -35,20 +36,24 @@ func bookLink(id string) string {
 
 // LibraryBook is one book as the catalogue describes it.
 type LibraryBook struct {
-	ResourceID   string     `json:"resource_id" desc:"The book's ID in Logos"`
-	Title        string     `json:"title"`
-	Abbreviation string     `json:"abbreviation,omitempty"`
-	Authors      string     `json:"authors,omitempty" desc:"Authors, separated by semicolons"`
-	Type         string     `json:"type" desc:"Logos's resource type"`
-	TypeLabel    string     `json:"type_label" desc:"The type in plain words"`
-	Published    string     `json:"published,omitempty"`
-	Edition      string     `json:"edition,omitempty"`
-	Languages    string     `json:"languages,omitempty"`
-	Rights       string     `json:"rights,omitempty" desc:"The catalogue's copyright field, word for word"`
-	PublicDomain bool       `json:"public_domain" desc:"True when the rights field, or the date with no rights claim, clearly says so"`
-	PDBasis      string     `json:"pd_basis,omitempty" enum:"rights,date" desc:"What the public-domain call rests on: the catalogue's rights field, or only a publication before 1900"`
-	Link         string     `json:"link" desc:"Opens the book in Logos"`
-	Free         *FreeMatch `json:"free,omitempty" desc:"A free copy Glossa can get, for a public-domain book"`
+	ResourceID   string      `json:"resource_id" desc:"The book's ID in Logos"`
+	Title        string      `json:"title"`
+	Abbreviation string      `json:"abbreviation,omitempty"`
+	Authors      string      `json:"authors,omitempty" desc:"Authors, separated by semicolons"`
+	Type         string      `json:"type" desc:"Logos's resource type"`
+	TypeLabel    string      `json:"type_label" desc:"The type in plain words"`
+	Published    string      `json:"published,omitempty"`
+	Edition      string      `json:"edition,omitempty"`
+	Languages    string      `json:"languages,omitempty"`
+	Rights       string      `json:"rights,omitempty" desc:"The catalogue's copyright field, word for word"`
+	PublicDomain bool        `json:"public_domain" desc:"True when the rights field, or the date with no rights claim, clearly says so"`
+	PDBasis      string      `json:"pd_basis,omitempty" enum:"rights,date" desc:"What the public-domain call rests on: the catalogue's rights field, or only a publication before 1900"`
+	Link         string      `json:"link" desc:"Opens the book in Logos"`
+	State        string      `json:"state,omitempty" enum:"already,free,none" desc:"already: in Glossa already; free: a free copy is available; none: no free copy found"`
+	Free         *FreeMatch  `json:"free,omitempty" desc:"The preferred free copy Glossa can get"`
+	Others       []FreeMatch `json:"others,omitempty" desc:"Other free copies, from other sources"`
+	InLibrary    *FreeMatch  `json:"in_library,omitempty" desc:"A book in your Glossa library that is the same book"`
+	ArchiveLink  string      `json:"archive_link,omitempty" desc:"An archive.org search for the book, for a browser; Glossa itself sends nothing there"`
 }
 
 // FreeMatch is a free copy Glossa knows of for a public-domain book.
@@ -245,7 +250,7 @@ func (s *service) refreshLibrary(ctx context.Context, env *command.Env, p Refres
 				if err := tx.Create("logos_books", row); err != nil {
 					return err
 				}
-			case prev != b:
+			case !prev.sameAs(b):
 				res.Changed++
 				delete(row, "resource_id")
 				if err := tx.Update("logos_books", store.Row{"resource_id": b.ResourceID}, row); err != nil {
@@ -323,6 +328,7 @@ type LibraryParams struct {
 	Desc         bool   `json:"desc,omitempty" desc:"Reverse the order"`
 	PublicDomain bool   `json:"public_domain,omitempty" desc:"Only public-domain books"`
 	FreeCopy     bool   `json:"free_copy,omitempty" desc:"Only books with a free copy Glossa can get"`
+	State        string `json:"state,omitempty" enum:"free,already,none" desc:"Only books in this state: free (a free copy is available to get), already (in Glossa already) or none (no free copy found)"`
 	Limit        int    `json:"limit,omitempty" desc:"Most books to return (default 100)"`
 	Offset       int    `json:"offset,omitempty"`
 }
@@ -342,13 +348,17 @@ type LibraryResult struct {
 	Source       string        `json:"source,omitempty"`
 	All          int           `json:"all" desc:"Books in the list"`
 	PublicDomain int           `json:"public_domain" desc:"Public-domain books in the list"`
-	Certain      int           `json:"certain" desc:"Public-domain books with a certain free copy"`
-	Likely       int           `json:"likely" desc:"Public-domain books with a likely free copy"`
+	Certain      int           `json:"certain" desc:"Books with a certain free copy"`
+	Likely       int           `json:"likely" desc:"Books with a possible free copy (check it)"`
+	FreeCopies   int           `json:"free_copies" desc:"Books with a free copy, whether or not it is in Glossa yet: the coverage"`
+	Already      int           `json:"already" desc:"Books that are in Glossa already"`
+	NotFree      int           `json:"not_free" desc:"Books with no free copy found"`
 	Types        []TypeCount   `json:"types" desc:"Books of each kind, for a filter"`
 }
 
-// freeItems asks the Bible catalogues for the free texts Glossa could get. Without catalogues, or
-// when they are off, there are none.
+// freeItems collects the free texts Glossa could get, from the Bible module catalogues (CrossWire and
+// eBible, as cached by Get Bibles), CCEL and Project Gutenberg (their cached lists; empty until the
+// user turns them on), and the books already in the library. Nothing here uses the network.
 func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 	var out []FreeItem
 	for _, kind := range freeKinds {
@@ -370,17 +380,19 @@ func (s *service) freeItems(ctx context.Context, env *command.Env) []FreeItem {
 			} `json:"items"`
 		}
 		if err := s.call(ctx, env, "bible.available", map[string]any{"kind": kind, "supported": true, "limit": 100000}, &res); err != nil {
-			return s.ccelItems(ctx, env)
+			break
 		}
 		for _, it := range res.Items {
 			if it.Locked || !it.Supported || (it.Licence.Type != "public_domain" && it.Licence.Type != "creative_commons") {
 				continue
 			}
 			out = append(out, FreeItem{Source: it.Source, ID: it.ID, Name: it.Name, Abbreviation: it.Abbreviation,
-				About: it.About, Language: it.Language, Kind: it.Kind, Installed: it.Installed})
+				About: it.About, Language: it.Language, Kind: it.Kind, Installed: it.Installed, PD: it.Licence.Type == "public_domain"})
 		}
 	}
-	return append(out, s.ccelItems(ctx, env)...)
+	out = append(out, s.ccelItems(ctx, env)...)
+	out = append(out, s.gutenbergItems(ctx, env)...)
+	return append(out, s.libraryItems(ctx, env)...)
 }
 
 // ccelItems are CCEL's public-domain books from its cached list. The list is read from the cache
@@ -405,6 +417,97 @@ func (s *service) ccelItems(ctx context.Context, env *command.Env) []FreeItem {
 	return out
 }
 
+// gutenbergItems are Project Gutenberg's texts from its cached list: the list is read from the cache
+// only, and is empty until the user has turned Project Gutenberg on. Gutenberg's own catalogue says a
+// text is public domain (in the US), so these count as public domain.
+func (s *service) gutenbergItems(ctx context.Context, env *command.Env) []FreeItem {
+	var res struct {
+		Items []struct {
+			ID        string `json:"id"`
+			Title     string `json:"title"`
+			Author    string `json:"author"`
+			Language  string `json:"language"`
+			Kind      string `json:"kind"`
+			Installed bool   `json:"installed"`
+		} `json:"items"`
+	}
+	if err := s.call(ctx, env, "gutenberg.items", map[string]any{"limit": 1000000}, &res); err != nil {
+		return nil
+	}
+	out := make([]FreeItem, 0, len(res.Items))
+	for _, it := range res.Items {
+		kind := it.Kind
+		if kind == "" {
+			kind = kindOfTitle(it.Title)
+		}
+		out = append(out, FreeItem{Source: "gutenberg", ID: it.ID, Name: it.Title, About: it.Author, Language: it.Language, Kind: kind, Installed: it.Installed, PD: true})
+	}
+	return out
+}
+
+// kindOfTitle guesses what kind of text a title is, as CCEL's list does.
+func kindOfTitle(title string) string {
+	t := strings.ToLower(title)
+	switch {
+	case strings.Contains(t, "commentary"):
+		return "commentary"
+	case strings.Contains(t, "dictionary"), strings.Contains(t, "encyclopedia"), strings.Contains(t, "lexicon"):
+		return "dictionary"
+	}
+	return "book"
+}
+
+// libraryItems are the books already in the Glossa library, so a Logos book the user has already
+// brought in (from any source) shows as already in Glossa.
+func (s *service) libraryItems(ctx context.Context, env *command.Env) []FreeItem {
+	var out []FreeItem
+	for offset := 0; ; offset += 1000 {
+		var res struct {
+			Items []struct {
+				ID       string   `json:"id"`
+				Title    string   `json:"title"`
+				Subtitle string   `json:"subtitle"`
+				Language string   `json:"language"`
+				Authors  []string `json:"authors"`
+			} `json:"items"`
+		}
+		if err := s.call(ctx, env, "library.items", map[string]any{"limit": 1000, "offset": offset}, &res); err != nil {
+			return out
+		}
+		for _, it := range res.Items {
+			name := it.Title
+			if it.Subtitle != "" {
+				name += ": " + it.Subtitle
+			}
+			out = append(out, FreeItem{Source: "library", ID: it.ID, Name: name, About: strings.Join(it.Authors, "; "), Language: it.Language, Kind: "any", Installed: true})
+		}
+		if len(res.Items) < 1000 {
+			return out
+		}
+	}
+}
+
+// archiveLink is a search on archive.org for the book, which the interface opens in the browser.
+// The title and author are in the link only; Glossa makes no request to archive.org itself.
+func archiveLink(b LibraryBook) string {
+	q := b.Title
+	if a, _, _ := strings.Cut(b.Authors, ";"); strings.TrimSpace(a) != "" {
+		q += " " + strings.TrimSpace(a)
+	}
+	return "https://archive.org/search?query=" + url.QueryEscape(q)
+}
+
+// sameAs says whether two books have the same stored details.
+func (b LibraryBook) sameAs(o LibraryBook) bool {
+	return b.ResourceID == o.ResourceID && b.Title == o.Title && b.Abbreviation == o.Abbreviation && b.Authors == o.Authors &&
+		b.Type == o.Type && b.Published == o.Published && b.Edition == o.Edition && b.Languages == o.Languages &&
+		b.Rights == o.Rights && b.PublicDomain == o.PublicDomain && b.PDBasis == o.PDBasis
+}
+
+func freeMatch(m Match) *FreeMatch {
+	return &FreeMatch{Source: m.Item.Source, Item: m.Item.ID, Name: m.Item.Name, Kind: m.Item.Kind, Confidence: m.Confidence, Installed: m.Item.Installed}
+}
+
 func (s *service) library(ctx context.Context, env *command.Env, p LibraryParams) (LibraryResult, error) {
 	books, err := storedBooks(ctx, env)
 	if err != nil {
@@ -418,32 +521,51 @@ func (s *service) library(ctx context.Context, env *command.Env, p LibraryParams
 		return LibraryResult{}, err
 	}
 
-	// Free copies for the public-domain books.
-	var pdIdx []int
-	var pdBooks []Book
+	// Free copies: every book is compared with every source's cached list, on this computer. A book that
+	// is clearly a modern work gets none unless the source says public domain and title and author agree.
+	matchBooks := make([]Book, len(books))
 	for i := range books {
 		books[i].TypeLabel = typeLabel(books[i].Type)
 		books[i].Link = bookLink(books[i].ResourceID)
 		if books[i].PublicDomain {
 			out.PublicDomain++
-			pdIdx = append(pdIdx, i)
-			pdBooks = append(pdBooks, Book{Title: books[i].Title, Abbreviation: books[i].Abbreviation, Authors: books[i].Authors,
-				Type: books[i].Type, Languages: books[i].Languages})
 		}
+		matchBooks[i] = Book{Title: books[i].Title, Abbreviation: books[i].Abbreviation, Authors: books[i].Authors, Type: books[i].Type,
+			Languages: books[i].Languages, Published: books[i].Published, Rights: books[i].Rights, PublicDomain: books[i].PublicDomain}
 	}
-	if len(pdBooks) > 0 {
-		installed := map[string]bool{}
-		items := s.freeItems(ctx, env)
-		for _, it := range items {
-			if it.Installed {
-				installed[it.Source+"\x00"+it.ID] = true
+	if len(books) > 0 {
+		for k, ms := range MatchAllSources(matchBooks, s.freeItems(ctx, env)) {
+			b := &books[k]
+			for _, m := range ms {
+				switch {
+				case m.Item.Source == "library":
+					if b.InLibrary == nil {
+						b.InLibrary = freeMatch(m)
+					}
+				case b.Free == nil:
+					b.Free = freeMatch(m)
+				default:
+					b.Others = append(b.Others, *freeMatch(m))
+				}
 			}
 		}
-		for k, m := range MatchAll(pdBooks, items) {
-			b := &books[pdIdx[k]]
-			b.Free = &FreeMatch{Source: m.Item.Source, Item: m.Item.ID, Name: m.Item.Name, Kind: m.Item.Kind,
-				Confidence: m.Confidence, Installed: installed[m.Item.Source+"\x00"+m.Item.ID]}
-			if m.Confidence == Certain {
+	}
+	for i := range books {
+		b := &books[i]
+		switch {
+		case b.InLibrary != nil || (b.Free != nil && b.Free.Installed):
+			b.State = "already"
+			out.Already++
+		case b.Free != nil:
+			b.State = "free"
+		default:
+			b.State = "none"
+			out.NotFree++
+			b.ArchiveLink = archiveLink(*b)
+		}
+		if b.Free != nil {
+			out.FreeCopies++
+			if b.Free.Confidence == Certain {
 				out.Certain++
 			} else {
 				out.Likely++
@@ -473,6 +595,9 @@ func (s *service) library(ctx context.Context, env *command.Env, p LibraryParams
 			continue
 		}
 		if p.PublicDomain && !b.PublicDomain {
+			continue
+		}
+		if p.State != "" && b.State != p.State {
 			continue
 		}
 		if p.FreeCopy && b.Free == nil {
