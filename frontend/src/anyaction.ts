@@ -23,7 +23,7 @@ export function anyHook(kind: "note" | "sermon") {
       try {
         const conns = await run<Conn[]>("connect.list");
         const any = conns.find((c) => c.id === "any");
-        ready = !!any?.enabled && !!any.key_set;
+        ready = !!any?.enabled; // with no key saved Any may still need none: the command says so if it does
         linked = false;
         if (ready && id) linked = (await run<{ linked: boolean }>("any.sync_status", { kind, id })).linked;
       } catch {

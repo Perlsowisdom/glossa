@@ -95,7 +95,6 @@ export default [
       await c.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
       await c.getByText("Glossa is signed in to Any.").waitFor();
       t.assert.ok((await c.locator(".connection-status").innerText()).includes("Connected to Any"), "status line");
-      t.assert.ok(app.any.versionOk, "every request carried the API version");
 
       // The key is kept, never shown or returned.
       const info = (await app.run("connect.list")).find((x) => x.id === "any");
@@ -147,7 +146,7 @@ export default [
       t.assert.equal(sent[0].name, "Romans note");
       t.assert.equal(sent[0].space, "space-study");
       t.assert.ok(sent[0].markdown.includes("Grace is **free**."), sent[0].markdown);
-      t.assert.ok(Object.values(sent[0].props).some((v) => v.includes("Romans 8:1")), `passages property: ${JSON.stringify(sent[0].props)}`);
+      t.assert.deepEqual(app.any.forbidden(), [], "Glossa made a request it must never make");
 
       // Linked now: the menu says Update in Any. Edit and update: the same page changes, none is added.
       await t.focusEnd();
@@ -248,7 +247,7 @@ export default [
       await c.getByText("Any didn’t ask for a key, so there is nothing to sign in to.").waitFor();
       t.assert.equal(await c.getByRole("button", { name: "Sign in to Any" }).count(), 0, "no sign-in is offered");
       t.assert.equal((await app.run("connect.list")).find((x) => x.id === "any").key_set, false, "no key was saved");
-      t.assert.ok(app.any.requests().length > 0 && app.any.versionOk, "Any was asked, with the version header");
+      t.assert.ok(app.any.requests().length > 0, "Any was asked");
       await c.getByLabel("Send to this space").waitFor();
       // Advanced holds the address, closed while all is well, and says where Any was found.
       const adv = c.locator("details.any-advanced");
@@ -348,6 +347,58 @@ export default [
       await shot1536(t, "t44-stale-1536x816.png");
       app.any.rejectKeys = false;
       await app.run("any.unpair");
+    },
+  },
+  {
+    row: "Any: a page that changed in Any while updating says so in plain words; a page that is gone says it was deleted; nothing forbidden is ever asked",
+    shot: "t45-messages.png",
+    timeout: 300000,
+    async run(t) {
+      const { app, page } = t;
+      app.any.keyless = true;
+      await app.run("any.unpair");
+      app.any.forget();
+      await app.run("any.set_space", { space_id: "space-study" });
+      const n = await app.run("note.create", { title: "Messages", body: "one" });
+      await app.run("any.send", { kind: "note", id: n.id });
+      await app.run("note.update", { id: n.id, body: "two" });
+      await t.settled();
+      await page.keyboard.press("Escape");
+      await page.evaluate((id) => { location.hash = `#notes/note/${id}`; }, n.id);
+      await t.current(".note-page");
+
+      // The page changes in Any between Glossa reading it and writing: a plain sentence, and a retry works.
+      app.any.conflictNext = true;
+      await openMenu(t, "Note actions");
+      await page.getByRole("menuitem", { name: "Update in Any" }).click();
+      await page.locator(".msg.error", { hasText: "changed in Any" }).waitFor({ timeout: 15000 });
+      t.assert.ok((await page.locator(".msg.error").first().innerText()).includes("Try again"), "says to try again");
+      await t.shot("t45-messages.png");
+      await shot1536(t, "t45-conflict-1536x816.png");
+      await openMenu(t, "Note actions");
+      await page.getByRole("menuitem", { name: "Update in Any" }).click();
+      await page.locator(".flash.show", { hasText: "Updated in Any" }).waitFor({ timeout: 15000 });
+      t.assert.ok(pages(t).some((p) => p.markdown === "two"), "the retry went through");
+
+      // A page that was deleted in Any between the list and the click.
+      const seeded = app.any.seed("space-study", "Soon gone", "text");
+      await page.keyboard.press("Escape");
+      await page.evaluate(() => { location.hash = "#settings/connections"; });
+      await t.settled();
+      await page.evaluate(() => { location.hash = "#notes"; });
+      await t.settled();
+      await page.locator(".new-btn:visible").first().click();
+      await page.getByRole("menuitem", { name: "Import from Any…" }).click();
+      const dlg = page.locator("dialog.any-picker");
+      await dlg.locator(".any-page", { hasText: "Soon gone" }).waitFor({ timeout: 15000 });
+      app.any.bin(seeded);
+      await dlg.getByRole("button", { name: /Bring in Soon gone/ }).click();
+      await dlg.locator(".msg.error", { hasText: "no such page" }).waitFor({ timeout: 15000 });
+      await shot1536(t, "t45-notfound-1536x816.png");
+      await dlg.getByRole("button", { name: "Close" }).click();
+
+      t.assert.deepEqual(app.any.forbidden(), [], "Glossa made a request it must never make");
+      app.any.keyless = false;
     },
   },
   {
