@@ -22,6 +22,7 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/document"
 	"github.com/Perlsowisdom/glossa/internal/export"
 	"github.com/Perlsowisdom/glossa/internal/folder"
+	"github.com/Perlsowisdom/glossa/internal/gutenberg"
 	"github.com/Perlsowisdom/glossa/internal/integrations/apibible"
 	"github.com/Perlsowisdom/glossa/internal/integrations/dbl"
 	"github.com/Perlsowisdom/glossa/internal/integrations/secrets"
@@ -59,6 +60,7 @@ func Registry(dataDir string, s secrets.Store) *command.Registry {
 	document.Register(r)
 	folder.Register(r)
 	ccel.Register(r, filepath.Join(dataDir, "ccel"))
+	gutenberg.Register(r, filepath.Join(dataDir, "gutenberg"))
 	logosimport.Register(r)
 	assistant.Register(r, s)
 	foldersync.Register(r, s, foldersync.Locations{BooksDir: filepath.Join(dataDir, "synced-books"),
