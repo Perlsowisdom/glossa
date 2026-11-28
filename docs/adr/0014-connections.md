@@ -166,6 +166,40 @@ text is saved as a new note, then Glossa's goes to Any). A page deleted in Any i
 **Not done.** Sermon outlines are not sent separately (the text is); a page imported becomes a note, never a
 sermon; pictures, files and links inside pages are not carried; no automatic or background syncing.
 
+## Addendum (Proposed), 27 November 2026: finding Any, and connecting with no key (T44)
+
+**Why.** The person's Any app listens on `127.0.0.1:31310`, not on 31009 (which is Anytype's own API port, the one
+in the OpenAPI description this addendum's predecessor was written from). Nothing listened on 31009, so Glossa said
+"the Any app is not running". And that Any answers `GET /v1/spaces` with 200 and no key, so pairing was not needed
+(whether this build offers `/v1/auth/challenges` at all is not known; Glossa does not call it unless Any asks for a key).
+The part of the earlier addendum's table that says the address is `31009` and that every call needs a key is replaced by this.
+
+**Finding.** With no address saved, Glossa probes `http://127.0.0.1:31310`, then `http://127.0.0.1:31009`, with
+`GET /v1/spaces?limit=1` (no side effects, no key), waiting a second for each. An answer of 200, 401 or 403 means
+Any; anything else (a 404 from some other program, no answer) does not. The address that answered is remembered in
+the per-device setting `connect.any.address` and tried first next time; if it stops answering Glossa tries the usual
+ones again. Nothing answering gives one message: "Glossa couldn't find the Any app on this computer. Open Any, or enter
+its address under Advanced." **Address field.** Settings → Connections → Any has an Address field under Advanced
+(open by itself when Any was not found), and `any.address` / `any.set_address` do the same for scripts and agents. A typed
+address is kept as typed (`manual`), is the only one tried, and is never replaced by finding; an empty one goes back to finding.
+It must be on this computer: `localhost` or a loopback IP, as `NewClient` already requires; anything else is refused
+with "Glossa only talks to the Any app on this computer, and the address given is not on this computer", and is not saved.
+Tests start the app with `GLOSSA_ANY_CANDIDATES` (a comma-separated list replacing the usual two) or `GLOSSA_ANY_URL`
+(one address, no finding), so they never reach the real ports.
+
+**Signing in only when asked.** The probe tells Glossa whether Any asks for a key. 200: Glossa connects with no key and
+the status says "Connected (Any didn't ask for a key)"; the sign-in is not shown. 401 or 403 and no saved key: "Any is
+running, but Glossa is not signed in yet", and the pairing flow (challenge, code, key) is offered as before. A saved key
+is always sent. If Any answers 401 or 403 to a request that carried a key, the message is "Any no longer accepts Glossa's key.
+Choose "Sign in to Any" to pair again." (`ErrKeyRejected`); the key is left in the keychain until the person pairs again or
+signs out. `connect.test` reports which of these it found in a new `auth` field (`none_needed`, `ok`, `needed`, `stale`).
+
+**Privacy.** The probe is one more keyless `GET` to the same loopback address, listed in `docs/privacy.md`. No key is ever
+sent to an address that has not answered the probe, and a key is never logged.
+
+**Not decided.** Whether to also look for the address in Any's own files or settings (no: that would read another
+program's data). Another port for Any is the person's to type.
+
 ## Addendum: Readwise, import (T40d part 1)
 
 ADR 0009's list of network features gains **Readwise** (`https://readwise.io` only), off until the switch is
