@@ -81,8 +81,16 @@ func (c *Conn) Sends() string {
 		"and asks for the pages you pick; nothing leaves this computer."
 }
 
-// Key is nil: the key is not pasted in. Any hands it over when the person types the code it shows.
+// Key is nil: there is no key to paste. Glossa asks the person to pair it instead (see pairing.go).
 func (c *Conn) Key() *connect.KeyInfo { return nil }
+
+// Disabled is called when the person turns Use Any off: that also unpairs, keeping the links.
+func (c *Conn) Disabled(ctx context.Context, env *command.Env) error {
+	if env == nil || env.Store == nil {
+		return nil
+	}
+	return forgetPairing(ctx, env)
+}
 
 // Explain says what a failure means and what to do, in plain words.
 func Explain(err error) string {
@@ -90,13 +98,15 @@ func Explain(err error) string {
 	case errors.Is(err, ErrNotRunning):
 		return "Glossa couldn’t find the Any app on this computer. Open Any, or enter its address under Advanced."
 	case errors.Is(err, ErrNotPaired):
-		return "Glossa is not signed in to Any. In Settings → Connections choose “Sign in to Any” and type the code Any shows."
-	case errors.Is(err, ErrKeyRejected):
-		return "Any no longer accepts Glossa’s key. Choose “Sign in to Any” to pair again."
-	case errors.Is(err, ErrBadCode):
-		return "Any did not accept that code. Check the 4 digits Any is showing, or start again."
+		return "Pair Glossa with Any first. In Settings → Connections choose “Pair with Any”."
+	case errors.Is(err, ErrDifferent):
+		return "This is a different Any account; pair again."
+	case errors.Is(err, ErrRefused):
+		return "Any refused Glossa. Check Any’s own settings, then try again."
 	case errors.Is(err, ErrNotFound):
 		return "Any has no such page or space. It may have been deleted."
+	case errors.Is(err, ErrConflict):
+		return "That page changed in Any since Glossa read it. Try again."
 	case errors.Is(err, ErrRateLimited):
 		return "Any asked Glossa to slow down. Try again in a minute."
 	case errors.Is(err, ErrBadAddress):
@@ -107,22 +117,22 @@ func Explain(err error) string {
 	return "Any did not answer as expected: " + err.Error()
 }
 
-// Test checks the link: that the Any app can be found, and whether Glossa needs to sign in to it.
+// Test checks the link: that the Any app can be found, and whether Glossa is paired with it.
 func (c *Conn) Test(ctx context.Context, cfg connect.Config) (connect.TestResult, error) {
 	return c.TestEnv(ctx, nil, cfg)
 }
 
-// Sign-in states a test reports, for the interface.
+// Pairing states a test reports, for the interface.
 const (
-	AuthNone   = "none_needed" // Any answered without a key
-	AuthOK     = "ok"          // Any accepted the saved key
-	AuthNeeded = "needed"      // Any wants a key and none is saved
-	AuthStale  = "stale"       // Any refused the saved key
+	AuthPaired    = "paired"    // Glossa is paired with the Any that is open
+	AuthUnpaired  = "unpaired"  // Any is running and Glossa is not paired with it yet
+	AuthDifferent = "different" // another Any account is open than the one Glossa was paired with
+	AuthRefused   = "refused"   // Any refused Glossa
 )
 
-// TestEnv is Test with the library, where the saved address lives.
+// TestEnv is Test with the library, where the saved address and the pairing live.
 func (c *Conn) TestEnv(ctx context.Context, env *command.Env, cfg connect.Config) (connect.TestResult, error) {
-	cl, status, err := c.find(ctx, env)
+	f, err := c.find(ctx, env)
 	if err != nil {
 		if ctx.Err() != nil {
 			return connect.TestResult{}, ctx.Err()
@@ -130,27 +140,27 @@ func (c *Conn) TestEnv(ctx context.Context, env *command.Env, cfg connect.Config
 		return connect.TestResult{Message: Explain(err)}, nil
 	}
 	via := "the Any app on this computer"
-	if status != http.StatusOK && cfg.Key == "" {
-		return connect.TestResult{Via: via, Auth: AuthNeeded,
-			Message: "Any is running, but Glossa is not signed in yet. Choose “Sign in to Any” and type the code Any shows."}, nil
+	if f.status != http.StatusOK {
+		return connect.TestResult{Via: via, Auth: AuthRefused, Message: Explain(ErrRefused)}, nil
 	}
-	spaces, err := cl.Spaces(ctx, cfg.Key)
+	key, err := gate(ctx, env, f.account)
+	spaces, serr := f.cl.Spaces(ctx, key)
 	switch {
 	case ctx.Err() != nil:
 		return connect.TestResult{}, ctx.Err()
-	case errors.Is(err, ErrKeyRejected):
-		return connect.TestResult{Via: via, Auth: AuthStale, Message: Explain(err)}, nil
+	case errors.Is(serr, ErrRefused):
+		return connect.TestResult{Via: via, Auth: AuthRefused, Message: Explain(serr)}, nil
+	case serr != nil:
+		return connect.TestResult{Message: Explain(serr)}, nil
 	case errors.Is(err, ErrNotPaired):
-		return connect.TestResult{Via: via, Auth: AuthNeeded,
-			Message: "Any is running, but Glossa is not signed in yet. Choose “Sign in to Any” and type the code Any shows."}, nil
+		return connect.TestResult{Via: via, Auth: AuthUnpaired,
+			Message: fmt.Sprintf("Any is running (%s), but Glossa is not paired with it yet.", countSpaces(len(spaces)))}, nil
+	case errors.Is(err, ErrDifferent):
+		return connect.TestResult{Via: via, Auth: AuthDifferent, Message: Explain(err)}, nil
 	case err != nil:
-		return connect.TestResult{Message: Explain(err)}, nil
+		return connect.TestResult{}, err
 	}
-	if cfg.Key == "" {
-		return connect.TestResult{OK: true, Via: via, Auth: AuthNone,
-			Message: fmt.Sprintf("Connected (Any didn’t ask for a key). %s.", countSpaces(len(spaces)))}, nil
-	}
-	return connect.TestResult{OK: true, Via: via, Auth: AuthOK,
+	return connect.TestResult{OK: true, Via: via, Auth: AuthPaired,
 		Message: fmt.Sprintf("Connected to Any. %s.", countSpaces(len(spaces)))}, nil
 }
 

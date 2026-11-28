@@ -173,6 +173,11 @@ func (s *Service) switchTo(ctx context.Context, env *command.Env, id string, on 
 	if err := s.setEnabled(ctx, env, id, on); err != nil {
 		return Info{}, err
 	}
+	if h, ok := c.(DisableHook); ok && !on {
+		if err := h.Disabled(ctx, env); err != nil {
+			return Info{}, err
+		}
+	}
 	return s.info(ctx, env, c)
 }
 

@@ -1,6 +1,6 @@
-// The Any part of its card in Settings → Connections: signing in with the 4-digit code Any shows
-// (only when Any asks for it), the space Glossa sends to, and, under Advanced, the address of the Any
-// app on this computer. The switch, status and Test are the card's own.
+// The Any part of its card in Settings → Connections: pairing Glossa with the Any app (a screen that
+// shows what was found and one button), Unpair, the space Glossa sends to, and, under Advanced, the
+// address of the Any app on this computer. The switch, status and Test are the card's own.
 
 import { run } from "../api";
 import { AnySpaces } from "../anywords";
@@ -10,70 +10,59 @@ import { button, clear, field, h, select } from "../dom";
 // AnyAddress is where Glossa looks for the Any app (any.address).
 interface AnyAddress { address?: string; manual: boolean; usual: string[] }
 
+// AnyStatus is what any.status found: where Any is and which spaces it has.
+interface AnyStatus { found: boolean; address?: string; spaces: { id: string; name: string }[]; paired: boolean; state: string }
+
 let advancedOpen = false; // Advanced stays open across redraws
 
-// anySection returns the sign-in, space and address controls for a card. paired is whether a key is
-// saved; test is the last check (its auth is none_needed, ok, needed or stale; empty when Any was not
-// found; the check itself is undefined while it is still running); changed asks the card to check again; say shows a message.
-export function anySection(paired: boolean, test: TestOutcome | undefined, changed: () => Promise<void>, say: (t: string, kind?: string) => void): HTMLElement {
+// PAIR_WORDS is the one honest sentence beside the Pair button.
+export const PAIR_WORDS = "Glossa will be able to read the pages you pick and send the notes and sermons you choose to the space you choose. Any doesn’t check yet which apps connect, so other programs on this computer can reach it too.";
+
+// anySection returns the pairing, space and address controls for a card. test is the last check (its
+// auth is paired, unpaired, different or refused; empty when Any was not found; the check itself is
+// undefined while it is still running); changed asks the card to check again; say shows a message.
+export function anySection(test: TestOutcome | undefined, changed: () => Promise<void>, say: (t: string, kind?: string) => void): HTMLElement {
   const el = h("div", { class: "any-card" });
   const auth = test?.auth;
   const advanced = addressBox(!!test && !test.ok && !auth, changed, say);
-  if (auth === "none_needed") {
-    el.append(h("p", { class: "hint" }, "Any didn’t ask for a key, so there is nothing to sign in to."), spaceChooser(say), advanced);
-    return el;
-  }
-  if (paired && auth !== "stale") {
-    el.append(h("p", { class: "hint" }, "Glossa is signed in to Any."), spaceChooser(say),
-      h("div", { class: "row wrap" }, button("Sign out of Any", async () => {
-        try { await run("any.unpair"); say("Signed out of Any."); } catch (e) { say(failureText(e), "error"); }
+  if (auth === "paired") {
+    el.append(h("p", { class: "hint" }, "Glossa is paired with Any."), spaceChooser(say),
+      h("div", { class: "row wrap" }, button("Unpair", async () => {
+        try { await run("any.unpair"); say("Glossa is no longer paired with Any.", "ok"); } catch (e) { say(failureText(e), "error"); }
         await changed();
       }, { class: "danger" })), advanced);
     return el;
   }
-  if (!auth) { // Any was not found (or the check is still running): nothing to sign in to yet
-    el.append(advanced);
+  if (auth === "unpaired" || auth === "different") {
+    el.append(pairScreen(changed, say), advanced);
     return el;
   }
-  const start = button("Sign in to Any", async () => {
-    start.disabled = true;
-    try {
-      const r = await run<{ challenge_id: string }>("any.pair_start");
-      codeForm(r.challenge_id);
-    } catch (e) {
-      say(failureText(e), "error");
-    }
-    start.disabled = false;
-  });
-  const slot = h("div", {});
-  clear(el, h("p", { class: "hint" }, auth === "stale"
-    ? "Any no longer accepts the key Glossa had. Sign in again: Glossa asks Any to show a 4-digit code, and you type it here."
-    : "Glossa asks Any to show a 4-digit code. Open the Any app, then type the code here."), start, slot, advanced);
-
-  function codeForm(challenge: string) {
-    const code = h("input", { type: "text", inputmode: "numeric", maxlength: "4", autocomplete: "off", pattern: "[0-9]{4}", placeholder: "4 digits", class: "any-code" }) as HTMLInputElement;
-    const form = h("form", { class: "any-code-form", "aria-label": "Code from Any" },
-      h("p", { class: "hint" }, "Any is showing a 4-digit code. Type it here."),
-      h("div", { class: "row wrap end" }, field("Code from Any", code),
-        h("button", { type: "submit", class: "primary" }, "Finish"),
-        button("Cancel", () => clear(slot))));
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const value = code.value.trim();
-      code.value = "";
-      if (!/^[0-9]{4}$/.test(value)) return say("The code is 4 digits.", "error");
-      try {
-        await run("any.pair_finish", { challenge_id: challenge, code: value });
-        say("Signed in to Any.", "ok");
-      } catch (err) {
-        return say(failureText(err), "error");
-      }
-      await changed();
-    });
-    clear(slot, form);
-    code.focus();
-  }
+  el.append(advanced); // Any was not found, refused Glossa, or the check is still running
   return el;
+}
+
+// pairScreen shows what was found and the Pair button.
+function pairScreen(changed: () => Promise<void>, say: (t: string, kind?: string) => void): HTMLElement {
+  const box = h("div", { class: "any-pair" });
+  const found = h("p", { class: "any-found" }, "Looking at what Any has…");
+  const pair = button("Pair with Any", async () => {
+    pair.disabled = true;
+    try { await run("any.pair"); say("Glossa is paired with Any.", "ok"); } catch (e) { say(failureText(e), "error"); }
+    pair.disabled = false;
+    await changed();
+  }, { class: "primary" });
+  box.append(found, h("p", { class: "hint" }, PAIR_WORDS), h("div", { class: "row wrap" }, pair));
+  void (async () => {
+    try {
+      const s = await run<AnyStatus>("any.status");
+      const where = (s.address ?? "").replace(/^https?:\/\//, "");
+      const names = s.spaces.map((x) => x.name || "(unnamed)").join(", ");
+      found.textContent = `Glossa found Any at ${where}. It has ${s.spaces.length === 1 ? "1 space" : `${s.spaces.length} spaces`}${names ? `: ${names}.` : "."}`;
+    } catch {
+      found.textContent = "";
+    }
+  })();
+  return box;
 }
 
 function spaceChooser(say: (t: string, kind?: string) => void): HTMLElement {

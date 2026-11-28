@@ -66,9 +66,9 @@ func (g *rig) address() AddressResult {
 
 func TestFindsThePrimaryAddressFirst(t *testing.T) {
 	primary, fallback := newFake(t), newFake(t)
-	primary.noKey, fallback.noKey = true, true
+
 	g := findRig(t, primary.srv.URL, fallback.srv.URL)
-	if out := g.test(); !out.OK {
+	if out := g.test(); out.Via == "" {
 		t.Fatalf("%+v", out)
 	}
 	if len(fallback.seen()) != 0 {
@@ -82,9 +82,9 @@ func TestFindsThePrimaryAddressFirst(t *testing.T) {
 func TestFallsBackToTheSecondAddressAndRemembersIt(t *testing.T) {
 	dead := deadURL(t)
 	fallback := newFake(t)
-	fallback.noKey = true
+
 	g := findRig(t, dead, fallback.srv.URL)
-	if out := g.test(); !out.OK {
+	if out := g.test(); out.Via == "" {
 		t.Fatalf("%+v", out)
 	}
 	if a := g.address(); a.Address != fallback.srv.URL {
@@ -92,7 +92,7 @@ func TestFallsBackToTheSecondAddressAndRemembersIt(t *testing.T) {
 	}
 	// Next time the remembered address is asked first, even when the usual ones are all quiet.
 	g.conn.candidates = []string{dead, deadURL(t)}
-	if out := g.test(); !out.OK {
+	if out := g.test(); out.Via == "" {
 		t.Fatalf("with the remembered address: %+v", out)
 	}
 }
@@ -123,14 +123,14 @@ func TestSomethingElseOnThePortIsNotAny(t *testing.T) {
 
 func TestATypedAddressIsTriedAlone(t *testing.T) {
 	usual, typed := newFake(t), newFake(t)
-	usual.noKey, typed.noKey = true, true
+
 	g := findRig(t, usual.srv.URL)
 	var a AddressResult
 	g.must("any.set_address", SetAddressParams{Address: strings.TrimPrefix(typed.srv.URL, "http://")}, &a)
 	if a.Address != typed.srv.URL || !a.Manual {
 		t.Fatalf("%+v", a)
 	}
-	if out := g.test(); !out.OK {
+	if out := g.test(); out.Via == "" {
 		t.Fatalf("%+v", out)
 	}
 	if n := len(usual.seen()); n != 0 {
@@ -146,7 +146,7 @@ func TestATypedAddressIsTriedAlone(t *testing.T) {
 	if a.Address != "" || a.Manual {
 		t.Fatalf("%+v", a)
 	}
-	if out := g.test(); !out.OK {
+	if out := g.test(); out.Via == "" {
 		t.Fatalf("after clearing: %+v", out)
 	}
 }
@@ -177,96 +177,5 @@ func TestTheAddressStaysOnThisComputer(t *testing.T) {
 	out, err := c.Test(t.Context(), connect.Config{Enabled: true})
 	if err != nil || out.OK || !strings.Contains(out.Message, "not on this computer") {
 		t.Fatalf("%+v %v", out, err)
-	}
-}
-
-func TestNoKeyNeededWhenAnyDoesNotAskForOne(t *testing.T) {
-	f := newFake(t)
-	f.noKey = true
-	g := findRig(t, f.srv.URL)
-	out := g.test()
-	want := "Connected (Any didn’t ask for a key). 2 spaces are available."
-	if !out.OK || out.Auth != AuthNone || out.Message != want {
-		t.Fatalf("%+v", out)
-	}
-	g.must("any.spaces", struct{}{}, nil)
-	g.must("any.set_space", SetSpaceParams{SpaceID: spaceA}, nil)
-	id := g.note("Keyless", "sent without a key", "John 3:16")
-	var res SyncResult
-	g.must("any.send", SendParams{Kind: "note", ID: id}, &res)
-	if res.State != "created" {
-		t.Fatalf("%+v", res)
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	for _, h := range f.hdrs {
-		if h.Get("Authorization") != "" {
-			t.Fatalf("a key was sent: %v", h)
-		}
-	}
-	if v, _ := g.keys.Get("connect.any.key"); v != "" {
-		t.Fatal("a key was saved")
-	}
-}
-
-func TestKeyNeededOffersSigningIn(t *testing.T) {
-	f := newFake(t)
-	g := findRig(t, f.srv.URL)
-	out := g.test()
-	if out.OK || out.Auth != AuthNeeded || !strings.Contains(out.Message, "not signed in yet") || !strings.Contains(out.Message, "Sign in to Any") {
-		t.Fatalf("%+v", out)
-	}
-	if err := g.run("any.spaces", struct{}{}, nil); code(err) != "not_paired" {
-		t.Fatalf("%v", err)
-	}
-	var st PairStartResult
-	g.must("any.pair_start", struct{}{}, &st)
-	g.must("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: goodCode}, nil)
-	if out := g.test(); !out.OK || out.Auth != AuthOK || !strings.HasPrefix(out.Message, "Connected to Any.") {
-		t.Fatalf("%+v", out)
-	}
-	g.must("any.spaces", struct{}{}, nil)
-}
-
-func TestAStaleKeyIsSaidSoAndPairingIsOffered(t *testing.T) {
-	f := newFake(t)
-	g := findRig(t, f.srv.URL)
-	var st PairStartResult
-	g.must("any.pair_start", struct{}{}, &st)
-	g.must("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: goodCode}, nil)
-	f.badKey = true
-	out := g.test()
-	want := "Any no longer accepts Glossa’s key. Choose “Sign in to Any” to pair again."
-	if out.OK || out.Auth != AuthStale || out.Message != want {
-		t.Fatalf("%+v", out)
-	}
-	err := g.run("any.spaces", struct{}{}, nil)
-	if code(err) != "not_paired" || !strings.Contains(err.Error(), "no longer accepts") {
-		t.Fatalf("%v", err)
-	}
-	// Pairing again works, and the key is replaced.
-	f.badKey = false
-	g.must("any.pair_start", struct{}{}, &st)
-	g.must("any.pair_finish", PairFinishParams{ChallengeID: st.ChallengeID, Code: goodCode}, nil)
-	if out := g.test(); !out.OK {
-		t.Fatalf("%+v", out)
-	}
-}
-
-func TestASavedKeyIsStillSentWhenAnyAsksForNone(t *testing.T) {
-	f := newFake(t)
-	f.noKey = true
-	g := findRig(t, f.srv.URL)
-	if err := g.keys.Set("connect.any.key", secretKey); err != nil {
-		t.Fatal(err)
-	}
-	if out := g.test(); !out.OK || out.Auth != AuthOK {
-		t.Fatalf("%+v", out)
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	last := f.hdrs[len(f.hdrs)-1]
-	if last.Get("Authorization") != "Bearer "+secretKey {
-		t.Fatalf("the saved key was not sent: %v", last)
 	}
 }

@@ -80,16 +80,23 @@ func CleanAddress(s string) (string, error) {
 	return root, nil
 }
 
-// find looks for the Any app and returns a client for it with the status its keyless probe got
-// (200: Any asks for no key; 401 or 403: it wants one). A forced address or a typed one is tried
+// found is the Any app that answered: a client for it, the status the probe got (200, or 401 or 403 when
+// Any refuses Glossa) and the id of the account open in it ("" when Any did not say).
+type found struct {
+	cl      *Client
+	status  int
+	account string
+}
+
+// find looks for the Any app and returns it. A forced address or a typed one is tried
 // alone. Otherwise the remembered address goes first, then each usual one in order; the one that
 // answers is remembered for next time.
-func (c *Conn) find(ctx context.Context, env *command.Env) (*Client, int, error) {
+func (c *Conn) find(ctx context.Context, env *command.Env) (found, error) {
 	var tries []string
 	remember := false
 	saved, err := loadAddress(ctx, env)
 	if err != nil {
-		return nil, 0, err
+		return found{}, err
 	}
 	switch {
 	case c.url != "":
@@ -110,23 +117,32 @@ func (c *Conn) find(ctx context.Context, env *command.Env) (*Client, int, error)
 	for _, u := range tries {
 		cl, err := NewClient(u, c.http)
 		if err != nil {
-			return nil, 0, err
+			return found{}, err
 		}
 		pctx, cancel := context.WithTimeout(ctx, c.timeout)
 		status, err := cl.Probe(pctx)
 		cancel()
 		if ctx.Err() != nil {
-			return nil, 0, ctx.Err()
+			return found{}, ctx.Err()
 		}
 		if err != nil {
 			continue
 		}
 		if remember && cl.Root != saved.Address {
 			if err := saveAddress(ctx, env, savedAddress{Address: cl.Root}); err != nil {
-				return nil, 0, err
+				return found{}, err
 			}
 		}
-		return cl, status, nil
+		f := found{cl: cl, status: status}
+		if status == 200 {
+			hctx, hcancel := context.WithTimeout(ctx, c.timeout)
+			f.account, _ = cl.Health(hctx, "")
+			hcancel()
+			if ctx.Err() != nil {
+				return found{}, ctx.Err()
+			}
+		}
+		return f, nil
 	}
-	return nil, 0, ErrNotRunning
+	return found{}, ErrNotRunning
 }

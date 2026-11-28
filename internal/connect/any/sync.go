@@ -9,13 +9,6 @@ import (
 	"github.com/Perlsowisdom/glossa/internal/command"
 )
 
-// Passage property: the passages of a note or sermon, in plain references, kept in a text property
-// Glossa makes in the space the first time it sends.
-const (
-	passagesKey  = "glossa_passages"
-	passagesName = "Passages"
-)
-
 // item is a note or sermon as it is sent.
 type item struct {
 	Kind, ID, Title, Body, Passages string
@@ -44,7 +37,6 @@ type SyncResult struct {
 	SpaceID  string    `json:"space_id,omitempty"`
 	ObjectID string    `json:"object_id,omitempty" desc:"The page in Any"`
 	Title    string    `json:"title,omitempty"`
-	Passages bool      `json:"passages_sent,omitempty" desc:"True when the passages went to Any as a property"`
 	CopyID   string    `json:"copy_id,omitempty" desc:"With resolve copy: the new note holding Any's version"`
 	Message  string    `json:"message" desc:"One plain sentence for the person"`
 	Conflict *Conflict `json:"conflict,omitempty"`
@@ -153,28 +145,16 @@ const (
 	importing
 )
 
-func (s *commands) props(ctx context.Context, cl *Client, key, space string, it item) ([]Prop, bool) {
-	ok, err := cl.EnsureProperty(ctx, key, space, passagesKey, passagesName)
-	if !ok || err != nil {
-		return nil, false
-	}
-	return []Prop{{Key: passagesKey, Text: it.Passages}}, true
-}
-
 // push writes Glossa's text to Any (making the page when there is no link) and records the link.
 func (s *commands) push(ctx context.Context, env *command.Env, cl *Client, key string, it item, space string, l *link) (SyncResult, error) {
-	props, sent := s.props(ctx, cl, key, space, it)
-	if it.Passages == "" && l == nil {
-		props = nil
-	}
-	res := SyncResult{Kind: it.Kind, ItemID: it.ID, SpaceID: space, Title: it.Title, Passages: sent && len(props) > 0}
+	res := SyncResult{Kind: it.Kind, ItemID: it.ID, SpaceID: space, Title: it.Title}
 	var page Page
 	var err error
 	if l == nil {
-		page, err = cl.Create(ctx, key, space, it.Title, it.Body, props)
+		page, err = cl.Create(ctx, key, space, it.Title, it.Body)
 		res.State = "created"
 	} else {
-		err = cl.Update(ctx, key, space, l.ObjectID, it.Title, it.Body, props)
+		err = cl.Update(ctx, key, space, l.ObjectID, it.Body)
 		page, res.State = Page{ID: l.ObjectID}, "updated"
 	}
 	if err != nil {

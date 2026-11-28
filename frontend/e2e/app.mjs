@@ -405,7 +405,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         const now = conns.find((x) => x.id === was.id);
         if (!now) continue;
         if (now.enabled !== was.enabled) await put(was.enabled ? "connect.enable" : "connect.disable", { id: was.id });
-        if (now.key_set && !was.key_set) await put(was.id === "any" ? "any.unpair" : "connect.clear_key", was.id === "any" ? {} : { id: was.id });
+        if (was.id === "any") await put("any.unpair", {});
+        else if (now.key_set && !was.key_set) await put("connect.clear_key", { id: was.id });
       }
       // Citations: the default style and the switch for downloading styles, as found.
       const cs = await app.run("cite.style").catch(() => null);

@@ -52,7 +52,7 @@ export function menuLabel(linked: boolean): string {
 }
 
 // notReady: what a click says when Any is not turned on or signed in yet.
-export const NOT_READY = "Turn on Any and sign in to it in Settings → Connections first.";
+export const NOT_READY = "Turn on Any and pair Glossa with it in Settings → Connections first.";
 
 export function conflictHeading(state: SyncState, what: string): string {
   return state === "any_changed" ? `The page in Any has newer changes than this ${what}` : `This ${what} changed in both Glossa and Any`;

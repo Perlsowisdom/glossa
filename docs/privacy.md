@@ -281,26 +281,31 @@ has the design.
 address saved it tries `http://127.0.0.1:31310` (where the Any app listens for other programs) and then
 `http://127.0.0.1:31009` (the port Anytype's own API uses), a second at most each, and remembers the one that
 answered. If your Any app uses another address, you can type it under Advanced in Settings → Connections
-(`any.set_address`); Glossa then tries only that one. It refuses any address that is not on this computer. Nothing is sent over the internet by Glossa, and nothing goes to anyone but Any. Any then syncs
+(`any.set_address`); Glossa then tries only that one. It refuses any address that is not on this computer. The Any app describes its own interface at `/v1/openapi.json`; Glossa was written from that description (docs/sources/any-api.md) and never reads Any's own files. Nothing is sent over the internet by Glossa, and nothing goes to anyone but Any. Any then syncs
 its own data as it always does; that is Any's business.
 
 | When | Sent to the Any app on this computer |
 | --- | --- |
-| Glossa looks for Any: when you turn it on, press Test connection, open Settings → Connections while it is on, or use any Any command (`connect.test`, `any.*`) | `GET /v1/spaces?limit=1` with no key, to each address in turn until one answers, to learn where Any is and whether it asks for a key |
-| You turn it on, press Test connection, or open Settings → Connections while it is on (`connect.test`) | `GET /v1/spaces` with your key, if you saved one |
-| You sign in (`any.pair_start`, `any.pair_finish`) | `POST /v1/auth/challenges` with the name "Glossa"; Any shows a 4-digit code; then `POST /v1/auth/api_keys` with that code |
-| You pick a space or open the page picker (`any.spaces`, `any.pages`, `any.search`) | `GET /v1/spaces`; `POST /v1/spaces/<space>/search` with the words you type |
-| You send a note or sermon (`any.send`) | `GET`/`POST /v1/spaces/<space>/properties` (to make a "Passages" property once), then `POST` (first time) or `PATCH` (after) `/v1/spaces/<space>/objects`: the title, the Markdown text and the passages as plain references; then `GET` the page back |
-| You bring a page in (`any.import`) | `GET /v1/spaces/<space>/objects/<id>` |
+| Glossa looks for Any: when you turn it on, press Test connection, open Settings → Connections while it is on, or use any Any command (`connect.test`, `any.*`) | `GET /v1/spaces` to each address in turn until one answers with a list of spaces, to learn where Any is and whether it refuses Glossa; then `GET /v1/health`, to learn which account is open (only its id is kept) |
+| You turn it on, press Test connection, or open Settings → Connections while it is on (`connect.test`, `any.status`) | `GET /v1/spaces`, `GET /v1/health`: the names of the spaces are shown on the pairing screen. **Before you pair, nothing else is asked of Any** |
+| You press "Pair with Any" (`any.pair`) | Nothing more: Glossa remembers, on this device, that you paired and which Any account was open. "Unpair" (or turning Use Any off) forgets it |
+| You pick a space or open the page picker (`any.spaces`, `any.pages`, `any.search`), once paired | `GET /v1/spaces`; `GET /v1/spaces/<space>/types` once a session, to find the page type; `POST /v1/spaces/<space>/objects/query` to list pages (asking for the page type, newest change first); `POST /v1/spaces/<space>/search` with the words you type, then `GET /v1/spaces/<space>/objects/<id>` for each page found, to read its name and last change |
+| You send a note or sermon (`any.send`) | First time: `POST /v1/spaces/<space>/objects` with the page type and the title, then `PUT` of the Markdown text to the page's `editor_blocks/markdown`. After: `GET` the text's version, then `PUT` the new text with that version, so a change made in Any in between is not overwritten. Then `GET` the page back. The passages are not sent: they stay in Glossa, with the link to the page |
+| You bring a page in (`any.import`) | `GET /v1/spaces/<space>/objects/<id>` and `GET` of its `editor_blocks/markdown` |
 
-Every request carries the header `Anytype-Version: 2025-11-08` and, when you have signed in, `Authorization: Bearer <key>`.
-**Glossa may connect with no key at all**: when Any answers without asking for one, Glossa says so ("Connected (Any
-didn't ask for a key)") and signing in is not offered. It asks you to sign in only when Any answers 401 or 403, and
-tells you when a key it saved is no longer accepted. The address Glossa found, or the one you typed, is kept in
-`library.db` on this device only (the setting `connect.any.address`).
-The key is kept in the system keychain (`connect.any.key`), never in `library.db`, a file or a log, and is never
-shown again; "Sign out of Any" removes it. The links between your notes and Any's pages are kept in `library.db` on
-this device only and are not synced to your other devices.
+Glossa never calls Any's sign-in (`POST /auth`), shut-down, delete, sharing or account addresses, and never reads or
+changes anything but the pages you send or pick. A test checks this.
+
+**Pairing.** Any's local interface does not yet check which program is calling it, so Glossa asks you once. Until you
+press "Pair with Any", every Any command except the status check, pairing and the address commands refuses
+("Pair Glossa with Any first"); this is enforced in Glossa's core, not only on the card. The card says plainly that
+other programs on this computer can reach Any too. If Any later shows a different account than the one you paired
+with, Glossa treats itself as not paired and says so. The pairing is kept in `library.db` on this device only (the
+setting `connect.any.pairing`); it is not a secret and is not synced. No key is used: nothing is sent in a header,
+and an Any key saved by an older version is removed from the system keychain the next time Glossa starts. The address
+Glossa found, or the one you typed, is kept the same way (`connect.any.address`). The links between your notes and
+Any's pages are kept in `library.db` on this device only and are not synced to your other devices; unpairing keeps
+them, so pairing again finds the same pages.
 
 ## Sync through a folder (T20)
 

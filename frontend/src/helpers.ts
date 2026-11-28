@@ -14,7 +14,7 @@ export interface Schema {
   enum?: string[];
 }
 
-const KNOWN_CODES = ["bad_params", "not_found", "unknown_command", "unavailable", "failed", "bad_request", "not_allowed",
+const KNOWN_CODES = ["bad_params", "not_found", "unknown_command", "unavailable", "failed", "bad_request", "not_allowed", "conflict", "not_paired", "refused",
   // Sync (internal/sync): shown in plain words by Settings → Sync.
   "wrong_password", "folder_missing", "locked", "corrupt", "missing_file", "newer_version", "clock_skew", "disk_full", "forgotten",
   "weak_password", "not_initialised", "already_exists", "not_configured", "cancelled"];
@@ -39,6 +39,9 @@ const CODE_TITLES: Record<string, string> = {
   bad_request: "Please check the details",
   not_allowed: "Not allowed by the licence",
   not_found: "Not found",
+  conflict: "The page changed",
+  not_paired: "Not paired",
+  refused: "Any said no",
   unknown_command: "This action is not available",
   unavailable: "Not available right now",
   failed: "Something went wrong",
