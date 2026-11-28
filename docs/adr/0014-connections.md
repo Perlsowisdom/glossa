@@ -166,7 +166,7 @@ text is saved as a new note, then Glossa's goes to Any). A page deleted in Any i
 **Not done.** Sermon outlines are not sent separately (the text is); a page imported becomes a note, never a
 sermon; pictures, files and links inside pages are not carried; no automatic or background syncing.
 
-## Addendum (Proposed), 27 November 2026: finding Any, and connecting with no key (T44)
+## Addendum (Accepted by the user, 28 November 2026): finding Any, and connecting with no key (T44)
 
 **Why.** The person's Any app listens on `127.0.0.1:31310`, not on 31009 (which is Anytype's own API port, the one
 in the OpenAPI description this addendum's predecessor was written from). Nothing listened on 31009, so Glossa said
