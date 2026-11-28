@@ -370,7 +370,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
     async rememberSettings() {
       const get = (id, p = {}) => app.run(id, p).catch(() => null);
       app.baseline = {
-        update: await get("update.settings.get"), ccel: await get("ccel.settings"),
+        update: await get("update.settings.get"), ccel: await get("ccel.settings"), gutenberg: await get("gutenberg.settings"),
         assistant: await get("assistant.config.get"), sources: await get("bible.sources"),
         connections: await get("connect.list"), cite: await get("cite.style"), citeOnline: await get("cite.styles_online"),
       };
@@ -386,6 +386,8 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       app.releases.reset();
       const c = await app.run("ccel.settings").catch(() => null);
       if (b.ccel && c && c.enabled !== b.ccel.enabled) await put("ccel.settings", { enable: b.ccel.enabled });
+      const g = await app.run("gutenberg.settings").catch(() => null);
+      if (b.gutenberg && g && g.enabled !== b.gutenberg.enabled) await put("gutenberg.settings", { enable: b.gutenberg.enabled });
       const a = await app.run("assistant.config.get").catch(() => null);
       if (b.assistant && a && !same(a.provider, b.assistant.provider)) await put("assistant.config.set", { provider: b.assistant.provider });
       const s = await app.run("bible.sources").catch(() => null);

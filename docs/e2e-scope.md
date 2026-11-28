@@ -12,7 +12,7 @@ files or checks that contain it. Every file starts after `t.reset()`; a failed c
 Reader and books (`chapter`, `book`: EPUB and PDF in Read and Study, Scroll mode), Bible and book Bibles (`bibles`,
 `bibles2`), Study grid (`layout`, `topbar`), notes and sermons (`smoke`, `markdown`, `formats`, `structure`,
 `insert`, `tables`), highlights (`highlights`), ink (`ink`, `pdfink`), search (`bibles2`), library, Get Bibles and
-SWORD install (`bibles`), From Logos and the import preview (`fromlogos`, `logos`, `zccel`), two-app sync (`sync`),
+SWORD install (`bibles`), From Logos and the import preview (`fromlogos`, `logos`, `zccel`, `zgutenberg`), two-app sync (`sync`),
 the assistant against a fake server (`assistant`), the M2 journey with export and print (`m2`), updates off by
 default (`updates`), and the generic layout audit (`layout-sanity`).
 
@@ -67,3 +67,16 @@ The app is started with `GLOSSA_BROWSER_LOG`, so "open" writes the address to a 
 network is used. The rest is Go (`internal/problems`: the stripping table, log rotation, panic recovery, the crash
 marker, the issue address and its cut, the rate limit, `app/problems_test.go`) and vitest (`problemwords.test.ts`).
 Not in the real app: a Go panic that kills the process, and the Save dialog (a native window); both are Go tests.
+
+## T43: more free sources (`zgutenberg`)
+
+One check in the real app, with fake servers only (a fake Project Gutenberg, a fake CCEL and a fake SWORD
+repository, all on this machine): From Logos starts with the internet sources off and sends nothing; turning
+Project Gutenberg on asks first and fetches the catalogue once, as `Glossa`; the CCEL copy is preferred and the
+Gutenberg one is listed as another; the summary line, the four filters and the "No free copy found" state; the Internet
+Archive link is caught (nothing is opened, nothing is sent); Get free copy from Gutenberg shows size and licence,
+downloads only after the confirmation and adds a "Public domain (US)" book credited to Project Gutenberg; Install
+for a module match; Get all free copies lists, asks once and adds; and with Gutenberg off no request reaches the
+fake server. Not covered by an interface check: pressing Stop part-way through a bulk download (the stop is a
+flag read between books) and a failed book in a bulk download; the matching rules are Go table tests
+(`internal/logosimport/freesources_test.go`) and the catalogue parsing is `internal/gutenberg`.

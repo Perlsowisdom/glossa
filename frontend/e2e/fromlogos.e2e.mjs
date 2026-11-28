@@ -49,7 +49,7 @@ export default [
       if (first) await page.locator("#fromlogos-read").click();
       await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
       await rows(page, 8);
-      t.assert.match(await page.locator("#fromlogos-status").innerText(), /8 books · 4 public domain/);
+      t.assert.match(await page.locator("#fromlogos-status").innerText(), /8 Logos books.* 4 public domain/);
       // The default order is by title.
       same(t, (await titles(page)).slice(0, 3), ["A Commentary on Romans", "A Greek Lexicon of Tests", "A Lecture Series"]);
       await t.shot();
@@ -139,17 +139,17 @@ export default [
         await page.evaluate(() => { location.hash = "#fromlogos"; });
         const row = page.locator('tr[data-id="LLS:KJV"]');
         await row.waitFor({ timeout: 30000 });
-        t.assert.match(await row.innerText(), /Certain[\s\S]*King James Version[\s\S]*Get free copy/);
-        t.assert.match(await page.locator("#fromlogos-status").innerText(), /1 with a free copy/);
+        t.assert.match(await row.innerText(), /Free as a Bible module[\s\S]*King James Version[\s\S]*Install/);
+        t.assert.match(await page.locator("#fromlogos-status").innerText(), /1 of your 8 Logos books have a free copy/);
         // A public-domain book with no free copy known says so and offers nothing to download.
         const easton = await page.locator('tr[data-id="LLS:EASTON"]').innerText();
-        t.assert.match(easton, /No free copy known/);
+        t.assert.match(easton, /No free copy found[\s\S]*Search Internet Archive/);
         t.assert.ok(!/Get free copy/.test(easton));
         await t.shot("t22c-match.png");
 
         // Nothing has been downloaded yet; Get free copy asks first.
         t.assert.ok(!hits.some((h) => h.includes("/modules/")), `nothing downloaded before the user confirms: ${hits}`);
-        await row.getByRole("button", { name: /Get free copy/ }).click();
+        await row.getByRole("button", { name: /Install/ }).click();
         const box = page.locator('[role="dialog"]', { hasText: "King James Version" });
         await box.waitFor({ timeout: 30000 });
         t.assert.match(await box.innerText(), /same book as “King James Version” in your Logos library/);

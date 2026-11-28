@@ -75,11 +75,11 @@ export default [
         await page.evaluate(() => { location.hash = "#fromlogos"; });
         await page.locator(".fromlogos-view").waitFor({ timeout: 15000 });
         await page.locator("table.fromlogos-table").waitFor({ timeout: 30000 });
-        t.assert.match(await page.locator("#fromlogos-status").innerText(), /4 books · 3 public domain/);
+        t.assert.match(await page.locator("#fromlogos-status").innerText(), /4 Logos books, none with a free copy found yet · 3 public domain/);
         { const tt = await page.locator("table.fromlogos-table").innerText(); t.assert.ok(!/Get free copy/.test(tt), `no free copy while CCEL is off: ${JSON.stringify(tt)}`); }
         t.assert.equal(ccelHits(), 0, `no request to ccel.org while it is off: ${hits}`);
         t.assert.equal((await t.app.run("ccel.settings")).enabled, false);
-        await page.locator("#fromlogos-ccel-on").waitFor();
+        await page.locator("#fromlogos-source-ccel").waitFor({ state: "attached" });
         await t.shot("ccel-off.png");
 
         // Settings → Privacy has the switch, off.
@@ -103,11 +103,11 @@ export default [
         const row = (id) => page.locator(`tr[data-id="${id}"]`);
         await row("LLS:INST").waitFor({ timeout: 30000 });
         await page.waitForFunction(() => /Get free copy/.test(document.querySelector('tr[data-id="LLS:INST"]')?.innerText ?? ""), null, { timeout: 30000 });
-        t.assert.match(await row("LLS:INST").innerText(), /Certain[\s\S]*CCEL: Institutes of the Christian Religion[\s\S]*Get free copy/);
-        t.assert.match(await row("LLS:ME").innerText(), /Certain[\s\S]*CCEL: Morning and Evening/);
-        t.assert.match(await row("LLS:OWEN").innerText(), /Likely[\s\S]*CCEL: Communion with God/);
+        t.assert.match(await row("LLS:INST").innerText(), /Free copy on CCEL[\s\S]*Institutes of the Christian Religion[\s\S]*Get free copy/);
+        t.assert.match(await row("LLS:ME").innerText(), /Free copy on CCEL[\s\S]*Morning and Evening/);
+        t.assert.match(await row("LLS:OWEN").innerText(), /Possible match: check[\s\S]*Communion with God/);
         t.assert.ok(!/Get free copy/.test(await row("LLS:DOGM").innerText()), "a copyrighted book gets no free copy");
-        t.assert.match(await page.locator("#fromlogos-status").innerText(), /3 with a free copy/);
+        t.assert.match(await page.locator("#fromlogos-status").innerText(), /3 of your 4 Logos books have a free copy/);
         t.assert.equal(hits.length, 1, "matching sends nothing");
         await t.shot("ccel-match.png");
 
@@ -148,7 +148,7 @@ export default [
         for (let i = 0; i < 20 && (await t.app.run("ccel.settings")).enabled; i++) await page.waitForTimeout(250);
         await page.evaluate(() => { location.hash = "#fromlogos"; });
         await page.locator("table.fromlogos-table").waitFor();
-        await page.waitForFunction(() => !/Get free copy|Already in Glossa/.test(document.querySelector("table.fromlogos-table")?.innerText ?? ""));
+        await page.waitForFunction(() => !/Get free copy|Free copy on CCEL/.test(document.querySelector("table.fromlogos-table")?.innerText ?? ""));
         t.assert.equal(hits.length, before, "no request after turning it off");
         const rejected = await t.app.run("ccel.get", { id: "calvin/institutes", preview: true }).then(() => false, () => true);
         t.assert.ok(rejected, "ccel.get is refused while off");

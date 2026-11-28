@@ -147,7 +147,7 @@ func TestMatcherCCEL(t *testing.T) {
 		{"Spurgeon's Treasury is a commentary", Book{Title: "The Treasury of David", Authors: "Spurgeon, Charles H.", Type: comm}, "spurgeon/treasury", Certain},
 		{"the Confessions", Book{Title: "The Confessions of St. Augustine", Authors: "Augustine, Saint", Type: mono}, "augustine/confessions", Certain},
 		{"the same words by another author are not matched", Book{Title: "Daniel, Volume 1", Authors: "Barnes, Albert", Type: comm}, "", ""},
-		{"the same title by another author is only likely", Book{Title: "Commentary on Genesis, Volume 1", Authors: "Keil, Carl Friedrich", Type: comm}, "calvin/calcom01", Likely},
+		{"the same title by another author is not matched", Book{Title: "Commentary on Genesis, Volume 1", Authors: "Keil, Carl Friedrich", Type: comm}, "", ""},
 		{"another book by Spurgeon is not matched", Book{Title: "The Soul Winner", Authors: "Spurgeon, Charles Haddon", Type: mono}, "", ""},
 		{"another book by Calvin is not matched", Book{Title: "Calvin's Sermons on Job", Authors: "Calvin, John", Type: mono}, "", ""},
 	} {
