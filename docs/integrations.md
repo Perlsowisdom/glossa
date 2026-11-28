@@ -116,3 +116,25 @@ before reuse.
   the secret) follows the reference's description and is tested only against that description, not
   a live organisation account. Treat `dbl.entries owned`, `dbl.entry` and `dbl.download` as
   unverified until tried with real credentials.
+
+## From Logos: free copies of your Logos books (T22c, T43)
+
+Library → From Logos lists the books in your Logos library (catalogue metadata only: title, author, type, ID
+and rights note; no book is ever opened) and, for each, the best free copy Glossa knows of. Each book is in one
+state: **Already in Glossa** (a library book or an installed module matches), **Free copy found** (on CCEL, on
+Project Gutenberg, or as a Bible module from the Get Bibles catalogues) or **Not free** (with a link that opens an
+archive.org search in the browser; Glossa itself sends nothing there). A summary line gives the coverage, "312 of
+your 1,840 Logos books have a free copy".
+
+- Matching is on this computer, on title and author (names in either order, "Vol." and "Volume", a subtitle
+  after a colon, small words and accents set aside), against whole cached catalogues. A title-only match is shown
+  as "Possible match: check". A book that is clearly a modern work (a copyright date after 1930, and Logos does not
+  call it public domain) is matched only to a source that says public domain, and only when title and author agree.
+- When the same work is in several sources the order is CCEL, then Project Gutenberg, then the Bible modules (a
+  certain match always comes before a possible one); the others are listed as "Other free copies".
+- CCEL and Project Gutenberg each have a switch, off until turned on (Settings → Privacy, or the chips on the
+  From Logos screen). Their lists are fetched at most once a week. Nothing is downloaded until the user confirms,
+  and "Get all free copies" asks once, then downloads one at a time (with each source's pause), with progress and a
+  Stop button.
+- Commands: `logos.library` (with `state`, and for each book `state`, `free`, `others`, `in_library`,
+  `archive_link`), `ccel.*`, `gutenberg.*`, `bible.get`. Requests are listed in `docs/privacy.md`.

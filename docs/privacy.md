@@ -48,6 +48,42 @@ Only books whose rights note says "Public Domain" are downloaded. They are added
 domain with a credit to CCEL. Matching From Logos books to CCEL books reads the cached list only and sends
 nothing, and nothing about your Logos library leaves your computer.
 
+## Free books from Project Gutenberg (gutenberg.org)
+
+Off until you turn it on: the switch "Project Gutenberg (gutenberg.org)" in Settings → Privacy (or the chip
+"Project Gutenberg" on the From Logos screen, which asks first), or `gutenberg.settings {"enable": true}`.
+Turning it off stops every request; the cached catalogue stays on disk.
+
+Every request is an HTTPS `GET` (or `HEAD`) with the header `User-Agent: Glossa` and no cookies, account,
+identifier, search terms or information about your library. gutenberg.org sees your IP address and which files
+you request. Glossa makes one request at a time with at least five seconds between them. Terms and formats are
+in `docs/sources/gutenberg.md`.
+
+| When | Requests |
+| --- | --- |
+| You turn it on, and later when the catalogue is more than a week old and you open From Logos or press refresh (`gutenberg.refresh`) | `https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv.gz`: Gutenberg's own catalogue file (titles, authors, languages) |
+| You press Get free copy, before anything is downloaded (`gutenberg.get` with `preview`) | `HEAD https://www.gutenberg.org/cache/epub/<n>/pg<n>-images-3.epub` for the size |
+| You confirm, or confirm Get all free copies (`gutenberg.get`) | `https://www.gutenberg.org/cache/epub/<n>/pg<n>-images-3.epub`, one book at a time |
+
+Books are added to your library as "Public domain (US)" with a credit to Project Gutenberg, unchanged, with
+Gutenberg's own licence text left in. Matching your Logos books to the catalogue (titles, authors, languages)
+happens on this computer against the cached file and sends nothing; nothing about your Logos library leaves
+your computer.
+
+## Internet Archive link (From Logos)
+
+A book with no free copy found has a "Search Internet Archive" link. It opens
+`https://archive.org/search?query=<title and first author>` in your browser, as a link you click. Glossa itself
+sends nothing to archive.org: it makes no request and uses no archive.org interface. Your browser sends the
+search to archive.org, as for any link. (Internet Archive's copyright status for a scanned book is not
+reliable, so Glossa leaves what you do there to you.)
+
+## Bible modules and the From Logos list
+
+Matching Logos books to Bible modules (CrossWire, eBible) uses the Get Bibles catalogues already on disk; it
+adds no request and no switch. Installing one is the existing "Install" in Get Bibles, with the same requests
+listed above under Bible catalogues.
+
 ## Updates (T23, direct download only)
 
 **On unless you turn it off** (ADR 0016, which changes ADR 0009's "off until you turn it on" for this one
