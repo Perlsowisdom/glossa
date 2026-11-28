@@ -233,8 +233,11 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
   setUpdateSettings(join(lib, "library.db"));
   // The app talks to this fake Zotero, never to the real one on this computer or on zotero.org.
   const zotero = await startFakeZotero();
-  // ... and this fake Any, never the Any app on port 31009.
+  // ... and this fake Any, never the Any app on port 31310 or 31009: the app is told to look for Any at
+  // a port nothing listens on, then at the fake (so finding it by trying the next address is exercised
+  // every run), and is never given the usual ports.
   const anyApp = await startFakeAny();
+  const anyDead = await freePort();
   // ... and this fake Readwise, never readwise.io.
   const readwise = await startFakeReadwise();
   // Downloaded citation styles come from this fake, never from GitHub.
@@ -265,7 +268,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
         GLOSSA_KEYRING_SERVICE: keyring,
         GLOSSA_ZOTERO_LOCAL_URL: zotero.localUrl,
         GLOSSA_ZOTERO_WEB_URL: zotero.webUrl,
-        GLOSSA_ANY_URL: anyApp.url,
+        GLOSSA_ANY_CANDIDATES: `http://127.0.0.1:${anyDead},${anyApp.url}`,
         GLOSSA_READWISE_URL: readwise.url,
         GLOSSA_CSL_LIST_URL: styles.listUrl,
         GLOSSA_CSL_RAW_URL: styles.rawUrl,
@@ -395,6 +398,7 @@ export async function startApp({ build: doBuild = true, port, sweep: doSweep = t
       // Connections: the switch and key as found, and the fake Zotero answering again.
       app.zotero.mode = "ok";
       app.any.reset();
+      await app.run("any.set_address", { address: "" }).catch(() => {});
       app.readwise.reset();
       const conns = (await app.run("connect.list").catch(() => null)) ?? [];
       for (const was of b.connections ?? []) {

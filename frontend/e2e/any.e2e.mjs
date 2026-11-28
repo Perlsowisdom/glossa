@@ -5,6 +5,8 @@
 // a page is imported as a note, and when both sides changed Glossa asks instead of overwriting.
 // Screenshots (c40c-<what>-<size>-<theme>.png) at 1536 x 816 and 900 x 700, light and dark.
 
+import { startFakeAny } from "./fake-any.mjs";
+
 const SIZES = [[1536, 816], [900, 700]];
 const THEMES = ["light", "dark"];
 
@@ -34,6 +36,16 @@ async function card(t) {
   const c = t.page.locator(".connection[data-connection=any]");
   await c.waitFor();
   return c;
+}
+
+// shot1536 takes one screenshot at 1536 x 816 (light), then puts the window back.
+async function shot1536(t, name) {
+  await t.app.resize(1536, 816);
+  await t.page.emulateMedia({ colorScheme: "light" });
+  await t.settled();
+  await t.app.shot(name);
+  await t.app.resize(1480, 950);
+  await t.page.emulateMedia({ colorScheme: null });
 }
 
 const menuOf = (t, label) => t.page.locator(`${t.root} button[aria-label='${label}']`);
@@ -216,6 +228,126 @@ export default [
       const copy = notes.find((x) => x.title === "Two edits (from Any)");
       t.assert.ok(copy && copy.body === "any edit", "Any's version was kept as a new note");
       t.assert.equal(pages(t).filter((p) => p.name === "Two edits").length, 1, "still one page in Any");
+    },
+  },
+  {
+    row: "Any: found on the second address it tries; when Any asks for no key it connects with no sign-in, and says so",
+    shot: "t44-keyless.png",
+    timeout: 240000,
+    async run(t) {
+      const { app, page } = t;
+      await app.run("any.unpair");
+      await app.run("any.set_address", { address: "" });
+      app.any.keyless = true;
+      app.any.forget();
+      const c = await card(t);
+      await c.getByRole("button", { name: "Test connection" }).click();
+      await c.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
+      // The app was told to look at a closed port first and this fake second: it found it.
+      t.assert.equal((await c.locator(".connection-status").innerText()).trim(), "Connected (Any didn’t ask for a key). 2 spaces are available.");
+      await c.getByText("Any didn’t ask for a key, so there is nothing to sign in to.").waitFor();
+      t.assert.equal(await c.getByRole("button", { name: "Sign in to Any" }).count(), 0, "no sign-in is offered");
+      t.assert.equal((await app.run("connect.list")).find((x) => x.id === "any").key_set, false, "no key was saved");
+      t.assert.ok(app.any.requests().length > 0 && app.any.versionOk, "Any was asked, with the version header");
+      await c.getByLabel("Send to this space").waitFor();
+      // Advanced holds the address, closed while all is well, and says where Any was found.
+      const adv = c.locator("details.any-advanced");
+      t.assert.equal(await adv.evaluate((d) => d.open), false, "Advanced is closed while Any is found");
+      await adv.locator("summary").click();
+      await adv.getByText(`found it at 127.0.0.1:${app.any.port} last time`).waitFor();
+      t.assert.equal(await adv.getByLabel("Address of the Any app").inputValue(), "", "nothing typed: it finds Any by itself");
+      await shot1536(t, "t44-keyless-1536x816.png");
+      await adv.locator("summary").click();
+      // The keyless Any works: spaces are listed through the commands with no key.
+      t.assert.equal((await app.run("any.spaces")).spaces.length, 2);
+    },
+  },
+  {
+    row: "Any: not found says so in plain words; the Address field (this computer only) points Glossa at Any; clearing it finds Any again",
+    shot: "t44-notfound.png",
+    timeout: 300000,
+    async run(t) {
+      const { app, page } = t;
+      const other = await startFakeAny();
+      try {
+        other.keyless = true;
+        app.any.forget();
+        const c = await card(t);
+        await app.any.pause();
+        await c.getByRole("button", { name: "Test connection" }).click();
+        await c.locator(".badge", { hasText: "Needs attention" }).waitFor({ timeout: 15000 });
+        const msg = "Glossa couldn’t find the Any app on this computer. Open Any, or enter its address under Advanced.";
+        t.assert.equal((await c.locator(".connection-status").innerText()).trim(), msg);
+        t.assert.equal(await c.getByRole("button", { name: "Sign in to Any" }).count(), 0, "no sign-in is offered when Any is not found");
+        const adv = c.locator("details.any-advanced");
+        t.assert.equal(await adv.evaluate((d) => d.open), true, "Advanced opens by itself when Any is not found");
+        const input = adv.getByLabel("Address of the Any app");
+        await input.waitFor();
+        await t.shot("t44-notfound.png");
+        await shot1536(t, "t44-notfound-1536x816.png");
+
+        // An address off this computer is refused in plain words, and is not saved.
+        await input.fill("example.com:31310");
+        await adv.getByRole("button", { name: "Use this address" }).click();
+        await page.locator(".msg.error", { hasText: "not on this computer" }).waitFor({ timeout: 10000 });
+        const kept = await app.run("any.address");
+        t.assert.ok(!kept.manual && !String(kept.address).includes("example.com"), `the refused address was kept: ${JSON.stringify(kept)}`);
+
+        // An address on this computer where Any answers: connected, with no key.
+        await input.fill(`127.0.0.1:${other.port}`);
+        await adv.getByRole("button", { name: "Use this address" }).click();
+        await c.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
+        t.assert.ok((await c.locator(".connection-status").innerText()).startsWith("Connected (Any didn’t ask for a key)"), "status line");
+        const saved = await app.run("any.address");
+        t.assert.ok(saved.manual && saved.address === other.url, JSON.stringify(saved));
+        t.assert.ok(other.requests().length > 0, "the typed address was asked");
+        t.assert.equal(app.any.requests().length, 0, "the usual address was not asked while one is typed");
+        const adv2 = c.locator("details.any-advanced");
+        t.assert.equal(await adv2.getByLabel("Address of the Any app").inputValue(), other.url, "the typed address is shown");
+        await shot1536(t, "t44-address-1536x816.png");
+
+        // Back to finding it by itself: the main fake, started again, is found.
+        await app.any.resume();
+        await adv2.getByRole("button", { name: "Find it by itself" }).click();
+        await c.getByRole("button", { name: "Find it by itself" }).waitFor({ state: "detached", timeout: 15000 });
+        let cleared = await app.run("any.address");
+        for (let i = 0; i < 50 && cleared.address !== app.any.url; i++) { await page.waitForTimeout(200); cleared = await app.run("any.address"); }
+        t.assert.ok(!cleared.manual && cleared.address === app.any.url, JSON.stringify(cleared));
+        await c.locator(".badge", { hasText: "Connected" }).waitFor({ timeout: 15000 });
+      } finally {
+        await app.any.resume().catch(() => {});
+        await other.close();
+        app.any.keyless = false;
+        await app.run("any.set_address", { address: "" });
+      }
+    },
+  },
+  {
+    row: "Any: when it asks for a key, signing in is offered; a key Any no longer accepts is said so and pairing again is offered",
+    shot: "t44-stale.png",
+    timeout: 240000,
+    async run(t) {
+      const { app } = t;
+      app.any.keyless = false;
+      await app.run("any.unpair");
+      const c = await card(t);
+      await c.getByRole("button", { name: "Test connection" }).click();
+      await c.locator(".connection-status", { hasText: "not signed in yet" }).waitFor({ timeout: 15000 });
+      await c.getByRole("button", { name: "Sign in to Any" }).waitFor();
+      // Pair, then Any stops accepting the key: the card says so and offers to pair again.
+      const st = await app.run("any.pair_start");
+      await app.run("any.pair_finish", { challenge_id: st.challenge_id, code: app.any.code });
+      await c.getByRole("button", { name: "Test connection" }).click();
+      await c.locator(".connection-status", { hasText: "Connected to Any." }).waitFor({ timeout: 15000 });
+      app.any.rejectKeys = true;
+      await c.getByRole("button", { name: "Test connection" }).click();
+      const want = "Any no longer accepts Glossa’s key. Choose “Sign in to Any” to pair again.";
+      await c.locator(".connection-status", { hasText: want }).waitFor({ timeout: 15000 });
+      await c.getByRole("button", { name: "Sign in to Any" }).waitFor();
+      await t.shot("t44-stale.png");
+      await shot1536(t, "t44-stale-1536x816.png");
+      app.any.rejectKeys = false;
+      await app.run("any.unpair");
     },
   },
   {

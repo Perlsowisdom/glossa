@@ -18,6 +18,7 @@ export interface ConnectionInfo {
 export interface TestOutcome {
   ok: boolean;
   via?: string;
+  auth?: "none_needed" | "ok" | "needed" | "stale"; // Any: what signing in needs
   message: string;
 }
 

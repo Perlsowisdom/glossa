@@ -55,6 +55,7 @@ type fakeAny struct {
 	rev     int
 	pageCap int // the most items a listing returns, whatever limit is asked
 	badKey  bool
+	noKey   bool // Any asks for no key at all
 	noProps bool // refuses to create properties
 	// the heading Any puts at the top of the text, as some versions might
 	titleHeading bool
@@ -153,7 +154,7 @@ func (f *fakeAny) handle(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"api_key": secretKey})
 		return
 	}
-	if f.badKey || r.Header.Get("Authorization") != "Bearer "+secretKey {
+	if !f.noKey && (f.badKey || r.Header.Get("Authorization") != "Bearer "+secretKey) {
 		{
 			fail(401, "unauthorized")
 			return
@@ -344,6 +345,8 @@ func (g *rig) setNote(id, title, body string) {
 	g.must("note.update", map[string]any{"id": id, "title": title, "body": body}, nil)
 }
 
+const notFound = "Glossa couldn’t find the Any app on this computer. Open Any, or enter its address under Advanced."
+
 func code(err error) string {
 	var ce *command.Error
 	if errors.As(err, &ce) {
@@ -396,15 +399,15 @@ func TestStatusNotRunningNotPairedPaired(t *testing.T) {
 	}
 	// The key stops working (signed out inside Any).
 	g.fake.badKey = true
-	if out := test(); out.OK || !strings.Contains(out.Message, "not signed in") {
+	if out := test(); out.OK || out.Auth != AuthStale || !strings.Contains(out.Message, "no longer accepts") {
 		t.Fatalf("revoked: %+v", out)
 	}
 	// Any is not running.
 	g.fake.srv.Close()
-	if out := test(); out.OK || !strings.Contains(out.Message, "not running") {
+	if out := test(); out.OK || out.Message != notFound {
 		t.Fatalf("not running: %+v", out)
 	}
-	if err := g.run("any.spaces", struct{}{}, nil); code(err) != "unavailable" || !strings.Contains(err.Error(), "not running") {
+	if err := g.run("any.spaces", struct{}{}, nil); code(err) != "unavailable" || !strings.Contains(err.Error(), notFound) {
 		t.Fatalf("spaces with Any closed: %v", err)
 	}
 }

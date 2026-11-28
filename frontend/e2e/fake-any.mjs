@@ -1,10 +1,12 @@
 // A fake Any for the real-app checks: the part of the local API of the Any app that Glossa uses
 // (/v1/auth/challenges, /v1/auth/api_keys, /v1/spaces, search, objects, properties), version
-// 2025-11-08. The app is started with GLOSSA_ANY_URL pointing here (see app.mjs), so a test never
-// reaches the real Any app on port 31009, whatever is running on the computer.
+// 2025-11-08. The app is started with GLOSSA_ANY_CANDIDATES pointing here (see app.mjs), so a test never
+// reaches the real Any app on port 31310 or 31009, whatever is running on the computer.
 //
 //   CODE: the only 4-digit code it accepts.
 //   edit(): changes a page the way the person would inside Any.
+//   keyless: when true it asks for no key, like an Any that has none set up.
+//   pause()/resume(): Any quits and starts again on the same port.
 
 import { createServer } from "node:http";
 
@@ -13,7 +15,7 @@ const KEY = "e2e-fake-any-key";
 const VERSION = "2025-11-08";
 
 export async function startFakeAny() {
-  const state = { objs: new Map(), props: new Set(), requests: [], rev: 0, next: 0, running: true, versionOk: true };
+  const state = { objs: new Map(), props: new Set(), requests: [], rev: 0, next: 0, keyless: false, rejectKeys: false, versionOk: true };
   const stamp = (n) => `2026-01-01T00:${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}Z`;
   const wire = (o, body) => ({
     id: o.id, space_id: o.space, name: o.name, archived: false, type: { key: "page" }, snippet: o.markdown.slice(0, 80),
@@ -54,7 +56,7 @@ export async function startFakeAny() {
       if (path === "/v1/auth/api_keys" && req.method === "POST") {
         return body.challenge_id === "e2e-challenge" && body.code === FAKE_CODE ? send(201, { api_key: KEY }) : err(400, "wrong code");
       }
-      if (req.headers.authorization !== `Bearer ${KEY}`) return err(401, "unauthorized");
+      if (!state.keyless && (state.rejectKeys || req.headers.authorization !== `Bearer ${KEY}`)) return err(401, "unauthorized");
       const seg = path.split("/");
       if (path === "/v1/spaces") return page([{ id: "space-study", name: "Study" }, { id: "space-church", name: "Church" }]);
       if (path.endsWith("/properties") && req.method === "GET") return page([...state.props].filter((k) => k.startsWith(`${seg[3]}/`)).map((k) => ({ key: k.split("/")[1] })));
@@ -81,8 +83,10 @@ export async function startFakeAny() {
 
   const srv = createServer(handler);
   await new Promise((ok, fail) => { srv.on("error", fail); srv.listen(0, "127.0.0.1", ok); });
+  const port = srv.address().port;
   return {
-    url: `http://127.0.0.1:${srv.address().port}`,
+    url: `http://127.0.0.1:${port}`,
+    port,
     code: FAKE_CODE,
     key: KEY,
     // seed puts a page in a space and returns its id.
@@ -91,9 +95,14 @@ export async function startFakeAny() {
     edit: (id, name, markdown) => { const o = state.objs.get(id); o.name = name; o.markdown = markdown; touch(o); },
     pages: () => [...state.objs.values()].map((o) => ({ ...o })),
     get versionOk() { return state.versionOk; },
+    get keyless() { return state.keyless; },
+    set keyless(v) { state.keyless = !!v; },
+    set rejectKeys(v) { state.rejectKeys = !!v; },
+    pause: () => new Promise((done) => { srv.closeAllConnections?.(); srv.close(() => done()); }),
+    resume: () => new Promise((ok, fail) => { srv.once("error", fail); srv.listen(port, "127.0.0.1", ok); }),
     requests: () => [...state.requests],
     forget: () => { state.requests.length = 0; },
-    reset: () => { state.objs.clear(); state.props.clear(); state.requests.length = 0; state.versionOk = true; },
+    reset: () => { state.objs.clear(); state.props.clear(); state.requests.length = 0; state.versionOk = true; state.keyless = false; state.rejectKeys = false; },
     close: () => new Promise((done) => { srv.closeAllConnections?.(); srv.close(() => done()); }),
   };
 }
